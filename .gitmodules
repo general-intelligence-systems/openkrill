@@ -1,0 +1,12 @@
+[submodule "openkrill-helm"]
+	path = openkrill-helm
+	url = https://github.com/general-intelligence-systems/openkrill-helm.git
+	branch = trench
+[submodule "openkrill-nix-k3s-example"]
+	path = openkrill-nix-k3s-example
+	url = https://github.com/general-intelligence-systems/openkrill-nix-k3s-example.git
+	branch = trench
+[submodule "openkrill-operator"]
+	path = openkrill-operator
+	url = https://github.com/general-intelligence-systems/openkrill-operator.git
+	branch = trench
