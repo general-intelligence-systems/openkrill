@@ -14,11 +14,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
-          token: ${{ secrets.PAT }}
+          token: ${{ github.token }}
 
       - name: Update submodules to HEAD
         run: |
-          git config --global url."https://x-access-token:${{ secrets.PAT }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ github.token }}@github.com/".insteadOf "https://github.com/"
           git submodule update --remote
 
       - name: Commit and push if changed
