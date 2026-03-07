@@ -40,6 +40,5 @@ jobs:
       - name: Evaluate example flake
         run: |
           nix flake check \
-            --override-input openkrill path:../../ \
-            --no-build
+            --override-input openkrill path:../../
         working-directory: examples/openkrill-nix-k3s-example
