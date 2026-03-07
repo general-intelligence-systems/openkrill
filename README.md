@@ -8,4 +8,3 @@
 
 > [!NOTE]
 > Community contributions are welcome and encouraged — especially from those with Nix experience!
-
