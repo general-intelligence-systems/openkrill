@@ -1,0 +1,23 @@
+name: Build All Images
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - qcow2
+          - digitalocean
+          - google-compute
+          - incus-vm
+          - iso
+          - vm
+          - manifests
+    uses: ./.github/workflows/build.yml
+    with:
+      image: ${{ matrix.image }}
+    secrets: inherit

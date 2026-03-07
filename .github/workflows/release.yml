@@ -1,0 +1,88 @@
+name: Build & Release Images
+
+on:
+  push:
+    branches: [trench]
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+      - "lib/**"
+      - "modules/**"
+      - "examples/**"
+      - "tests/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Build all images in parallel via matrix ──────────────────
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - qcow2
+          - digitalocean
+          - google-compute
+          - incus-vm
+          - iso
+          - vm
+          - manifests
+    uses: ./.github/workflows/build.yml
+    with:
+      image: ${{ matrix.image }}
+    secrets: inherit
+
+  # ── Collect artifacts and create a GitHub Release ────────────
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets/
+
+      - name: Prepare release assets
+        id: prep
+        run: |
+          short_sha="${GITHUB_SHA::8}"
+          tag="build-$(date -u +%Y-%m-%d)-${short_sha}"
+          echo "tag=${tag}" >> $GITHUB_OUTPUT
+          echo "short_sha=${short_sha}" >> $GITHUB_OUTPUT
+
+          echo "Release assets:"
+          find release-assets/ -type f -ls
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.prep.outputs.tag }}
+          name: "Build ${{ steps.prep.outputs.tag }}"
+          body: |
+            Automated image build from commit ${{ github.sha }}.
+
+            ## Images
+
+            | Image | Format | Description |
+            |-------|--------|-------------|
+            | `qcow2` | QCOW2 | Generic virtual machine disk image (20GB) |
+            | `digitalocean` | DigitalOcean | Custom image for DigitalOcean droplets |
+            | `google-compute` | GCP | Google Compute Engine image |
+            | `incus-vm` | QEMU | Incus/LXD virtual machine image |
+            | `iso` | ISO | Bootable installation CD |
+            | `vm` | QEMU VM | Development VM (run with `nix run .#vm`) |
+            | `manifests` | YAML | Kubernetes manifests link farm |
+
+            ## Usage
+
+            Download and decompress (for `.zst` files):
+            ```
+            zstd -d openkrill-digitalocean.zst -o openkrill-digitalocean.qcow2.gz
+            ```
+          files: release-assets/**/*
+          fail_on_unmatched_files: false
+          generate_release_notes: true

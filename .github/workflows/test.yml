@@ -1,0 +1,45 @@
+name: Test / Nix
+
+on:
+  push:
+    branches: [trench]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flake-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: cachix/install-nix-action@v31.10.0
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check nix flake
+        run: nix flake check
+
+  example-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: cachix/install-nix-action@v31.10.0
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Evaluate example flake
+        run: |
+          nix flake check \
+            --override-input openkrill path:../../ \
+            --no-build
+        working-directory: examples/openkrill-nix-k3s-example

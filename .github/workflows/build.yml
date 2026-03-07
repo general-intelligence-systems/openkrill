@@ -1,0 +1,67 @@
+name: Build Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image target (qcow2, digitalocean, google-compute, incus-vm, iso, vm, manifests)"
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      image:
+        description: "Image target to build"
+        required: true
+        type: string
+    outputs:
+      artifact-name:
+        description: "Name of the uploaded artifact"
+        value: ${{ jobs.build.outputs.artifact-name }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ inputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: cachix/install-nix-action@v31.10.0
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Build ${{ inputs.image }}
+        run: |
+          nix build \
+            --override-input openkrill path:../../ \
+            .#${{ inputs.image }}
+        working-directory: examples/openkrill-nix-k3s-example
+
+      - name: Prepare artifact
+        id: prepare
+        run: |
+          result=$(readlink -f examples/openkrill-nix-k3s-example/result)
+
+          mkdir -p artifacts
+          if [ -d "$result" ]; then
+            # Result is a directory (e.g. vm, manifests) — archive it
+            tar -cf "artifacts/${{ inputs.image }}.tar" -C "$result" .
+          else
+            # Result is a single file (e.g. qcow2, iso) — compress it
+            zstd -T0 "$result" -o "artifacts/${{ inputs.image }}.zst"
+          fi
+
+          ls -lh artifacts/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.image }}
+          path: artifacts/
+          retention-days: 7
