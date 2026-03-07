@@ -6,7 +6,7 @@
 	path = openkrill-operator
 	url = https://github.com/general-intelligence-systems/openkrill-operator.git
 	branch = trench
-[submodule "examples/openkrill-nix-k3s-example"]
-	path = examples/openkrill-nix-k3s-example
-	url = https://github.com/general-intelligence-systems/openkrill-nix-k3s-example.git
+[submodule "examples"]
+	path = examples
+	url = https://github.com/general-intelligence-systems/openkrill-nix-example.git
 	branch = trench
