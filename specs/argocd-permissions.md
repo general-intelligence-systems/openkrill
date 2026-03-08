@@ -18,14 +18,14 @@ LLDAP (user directory)
 
 | File | What it controls |
 |------|-----------------|
-| `cluster/modules/argo-cd/helm.nix` | RBAC policy and OIDC config (module-based, active) |
-| `cluster/modules/argo-cd/default.nix` | Module options including `oidc.adminEmail` |
-| `cluster/modules/authelia/helm.nix` | Authelia `claims_policies` (must include `argocd` policy) |
-| `cluster/sets/management/default.nix` | ArgoCD OIDC client definition with `claims_policy = "argocd"` (in the `cluster.apps.authelia.oidcClients` list) |
+| `modules/argo-cd/helm.nix` | RBAC policy and OIDC config (module-based, active) |
+| `modules/argo-cd/default.nix` | Module options including `oidc.adminEmail` |
+| `modules/authelia/helm.nix` | Authelia `claims_policies` (must include `argocd` policy) |
+| `sets/management/default.nix` | ArgoCD OIDC client definition with `claims_policy = "argocd"` (in the `openkrill.apps.authelia.oidcClients` list) |
 
 ## RBAC Policy
 
-The RBAC policy lives in `cluster/modules/argo-cd/helm.nix` under `configs.rbac."policy.csv"`. It uses [Casbin](https://casbin.org/) syntax.
+The RBAC policy lives in `modules/argo-cd/helm.nix` under `configs.rbac."policy.csv"`. It uses [Casbin](https://casbin.org/) syntax.
 
 ### Current policy
 
@@ -78,7 +78,7 @@ The `<user-or-group>` value is matched against the OIDC claims specified by `sco
 
 ### 1. Add a `g` line to the RBAC policy
 
-Edit `cluster/modules/argo-cd/helm.nix` and add a line inside `configs.rbac."policy.csv"`:
+Edit `modules/argo-cd/helm.nix` and add a line inside `configs.rbac."policy.csv"`:
 
 ```nix
 rbac = {
@@ -100,7 +100,7 @@ LLDAP is managed at `https://lldap.portal.net` (or via its in-cluster address).
 ### 3. Commit, push, and wait for sync
 
 ```bash
-git add cluster/modules/argo-cd/helm.nix
+git add modules/argo-cd/helm.nix
 git commit -m "feat(argocd): grant admin to newuser@example.com"
 git push
 ```
@@ -117,10 +117,10 @@ Instead of mapping individual emails, you can map an LLDAP group:
 
 ### 1. Create the group in LLDAP
 
-Either add it to the `defaultGroups` list in `cluster/sets/management/default.nix` (auto-seeded on deploy):
+Either add it to the `defaultGroups` list in `sets/management/default.nix` (auto-seeded on deploy):
 
 ```nix
-cluster.apps.lldap = {
+openkrill.apps.lldap = {
   defaultGroups = [
     "nextcloud-admins"
     "nextcloud-users"
@@ -133,7 +133,7 @@ Or create it manually in the LLDAP web UI and assign users to it.
 
 ### 2. Add a `g` line mapping the group to a role
 
-In `cluster/modules/argo-cd/helm.nix`:
+In `modules/argo-cd/helm.nix`:
 
 ```nix
 "policy.csv" = ''
@@ -181,7 +181,7 @@ ArgoCD identifies users by the `email` claim in the OIDC **ID token**. By defaul
 The fix is the `argocd` claims policy defined in Authelia's config:
 
 ```nix
-# In cluster/modules/authelia/helm.nix
+# In modules/authelia/helm.nix
 claims_policies = {
   argocd = {
     id_token = [ "email" "groups" "preferred_username" ];
@@ -192,7 +192,7 @@ claims_policies = {
 And the ArgoCD OIDC client must reference it:
 
 ```nix
-# In cluster/sets/management/default.nix (cluster.apps.authelia.oidcClients list)
+# In sets/management/default.nix (openkrill.apps.authelia.oidcClients list)
 {
   client_id = "argocd";
   claims_policy = "argocd";
@@ -243,5 +243,5 @@ kubectl -n argocd exec deploy/argocd-server -- \
 | User gets readonly despite `g` line existing | Email in RBAC doesn't match email in OIDC token (case or value mismatch) | Check LLDAP `mail` attribute; check ArgoCD logs for actual `sub`/email |
 | All OIDC users are readonly | Authelia `claims_policy` missing or not assigned to ArgoCD client | Restore the `argocd` claims policy (see section above) |
 | "permission denied: sub: \<uuid\>" | `email` claim missing from ID token | Same as above -- claims policy issue |
-| CRD sync fails with "annotations too long" | `ServerSideApply` not enabled for argo-cd Application | Set `cluster.argocd.<name>.serverSideApply = true` in the module's config block |
+| CRD sync fails with "annotations too long" | `ServerSideApply` not enabled for argo-cd Application | Set `openkrill.argocd.<name>.serverSideApply = true` in the module's config block |
 | User can view but not delete/sync | User's role lacks the required `p` line for that action | Add the missing `p` line to `policy.csv` |

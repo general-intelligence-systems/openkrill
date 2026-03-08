@@ -3,7 +3,7 @@
 # Import this into your own configuration.nix:
 #
 #   { inputs, ... }: {
-#     imports = [ inputs.openkrill.nixosModules.openkrill ];
+#     imports = [ inputs.openkrill.nixosModules.default ];
 #     services.openkrill.enable = true;
 #   }
 #

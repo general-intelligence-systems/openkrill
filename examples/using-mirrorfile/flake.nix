@@ -26,8 +26,7 @@
 
   #    clusterConfig = { lib, ... }: {
   #      imports = [
-  #        openkrill.nixosModules.openkrill
-  #        openkrill.nixosModules.cluster
+  #        openkrill.nixosModules.default
   #      ];
 
   #      # ── k3s server ──────────────────────────────────────────────
@@ -35,18 +34,18 @@
   #      networking.hostName = "openkrill";
 
   #      # ── Cluster ─────────────────────────────────────────────────
-  #      cluster.domain = domain;
-  #      cluster.manifestsDir = "/var/lib/rancher/k3s/server/manifests";
+  #      openkrill.domain = domain;
+  #      openkrill.gitops.enable = true;
 
   #      # ── TLS ─────────────────────────────────────────────────────
-  #      cluster.apps.cert-manager.enable = true;
-  #      cluster.apps.trust-manager = {
+  #      openkrill.apps.cert-manager.enable = true;
+  #      openkrill.apps.trust-manager = {
   #        enable = true;
   #        caSecretName = "cluster-ca";
   #      };
 
   #      # ── GitOps ──────────────────────────────────────────────────
-  #      cluster.apps.argocd = {
+  #      openkrill.apps.argocd = {
   #        enable = true;
   #        domain = "argocd.${domain}";
   #        caCertFile = ./ca.pem;
@@ -54,7 +53,7 @@
   #      };
 
   #      # ── Database ────────────────────────────────────────────────
-  #      cluster.apps.cloudnative-pg = {
+  #      openkrill.apps.cloudnative-pg = {
   #        enable = true;
   #        databases.authelia = {
   #          namespace = "authelia";
@@ -66,7 +65,7 @@
   #      };
 
   #      # ── SSO ─────────────────────────────────────────────────────
-  #      cluster.apps.authelia = {
+  #      openkrill.apps.authelia = {
   #        enable = true;
   #        ldapBaseDn = "dc=example,dc=com";
   #        sessionCookies = [
@@ -93,7 +92,7 @@
   #      };
 
   #      # ── File storage ────────────────────────────────────────────
-  #      cluster.apps.opencloud = {
+  #      openkrill.apps.opencloud = {
   #        enable = true;
   #        domain = "cloud.${domain}";
   #        oidc.issuer = "https://auth.${domain}";
@@ -101,7 +100,7 @@
   #      };
 
   #      # ── Web IDE ─────────────────────────────────────────────────
-  #      cluster.apps.theia-ide.enable = true;
+  #      openkrill.apps.theia-ide.enable = true;
 
   #      # ── Base system ─────────────────────────────────────────────
   #      # Fallback root filesystem — image modules override this at
@@ -149,7 +148,7 @@
   #      incus-vm        = images.incus-vm.image;
   #      iso             = images.iso.image;
   #      vm              = images.vm.image;
-  #      manifests       = baseSystem.config.cluster.manifestsPackage;
+  #      manifests       = baseSystem.config.openkrill.renderedManifestRepo;
   #      default         = images.qcow2.image;
   #    };
   #  };

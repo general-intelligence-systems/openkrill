@@ -1,29 +1,45 @@
-# cluster/modules/cert-manager — cert-manager controller + CRDs
+# modules/cert-manager — cert-manager controller + CRDs
 # Deploys the cert-manager controller, webhook, and CRDs.
 # Required by self-signed-cert for ClusterIssuers and Certificates.
-{ config, lib, yaml, k8s, ... }:
+{ config, lib, charts, kubelib, ... }:
+with lib;
 let
-  cfg = config.cluster.apps.cert-manager;
+  cfg = config.openkrill.apps.cert-manager;
+  helpers = import ../lib/helpers.nix { inherit lib; };
+
+  defaults = {
+    crds.enabled = true;
+  };
 in
 {
-  options.cluster.apps.cert-manager = {
-    enable = lib.mkEnableOption "cert-manager TLS certificate controller";
+  options.openkrill.apps.cert-manager = {
+    enable = mkEnableOption "cert-manager TLS certificate controller";
 
-    namespace = lib.mkOption {
-      type = lib.types.str;
+    namespace = mkOption {
+      type = types.str;
       default = "cert-manager";
     };
 
-    values = lib.mkOption {
-      type = lib.types.attrs;
+    values = mkOption {
+      type = types.attrs;
       default = {};
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
+
+    extraManifests = helpers.mkExtraManifestsOption;
   };
 
-  config = lib.mkIf cfg.enable {
-    cluster.resources.cert-manager = import ./helm.nix {
-      inherit lib yaml cfg;
-    };
+  config = mkIf cfg.enable {
+    openkrill.manifests = mkMerge [
+      {
+        cert-manager.content = kubelib.fromHelm {
+          name = "cert-manager";
+          chart = charts.jetstack.cert-manager;
+          namespace = cfg.namespace;
+          values = recursiveUpdate defaults cfg.values;
+        };
+      }
+      (helpers.mkExtraManifestsConfig "cert-manager" cfg.extraManifests)
+    ];
   };
 }

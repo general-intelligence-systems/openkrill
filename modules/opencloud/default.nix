@@ -1,9 +1,11 @@
-# cluster/modules/opencloud -- OpenCloud file sync & collaboration
+# modules/opencloud -- OpenCloud file sync & collaboration
 # Deploys OpenCloud with Authelia OIDC, Collabora, Tika, and web extensions.
 # All secrets are referenced via existingSecret (no plaintext in nix).
-{ config, lib, yaml, k8s, ... }:
+{ config, lib, k8s, ... }:
+with lib;
 let
-  cfg = config.cluster.apps.opencloud;
+  cfg = config.openkrill.apps.opencloud;
+  helpers = import ../lib/helpers.nix { inherit lib; };
 
   mkImageOption = { registry ? "docker.io", repository, tag }: {
     registry = lib.mkOption {
@@ -21,7 +23,7 @@ let
   };
 in
 {
-  options.cluster.apps.opencloud = {
+  options.openkrill.apps.opencloud = {
     enable = lib.mkEnableOption "OpenCloud file sync & collaboration";
 
     namespace = lib.mkOption {
@@ -298,11 +300,18 @@ in
       repository = "library/busybox";
       tag = "1.36";
     };
+
+    extraManifests = helpers.mkExtraManifestsOption;
   };
 
-  config = lib.mkIf cfg.enable {
-    cluster.resources.opencloud = import ./resources.nix {
-      inherit lib k8s cfg;
-    };
+  config = mkIf cfg.enable {
+    openkrill.manifests = mkMerge [
+      {
+        opencloud.content = import ./resources.nix {
+          inherit lib k8s cfg;
+        };
+      }
+      (helpers.mkExtraManifestsConfig "opencloud" cfg.extraManifests)
+    ];
   };
 }

@@ -1,5 +1,5 @@
 # lib/k8s.nix — helper constructors (mkApp, mkIngress, mkNamespace, mkSecret)
-{ pkgs, yaml }:
+{ pkgs, kubelib, charts }:
 let
   repoURL = "ssh://git@basic-git.basic-git.svc.cluster.local/srv/git/manifests.git";
 in

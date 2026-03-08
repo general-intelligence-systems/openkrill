@@ -1,162 +1,280 @@
-# cluster/modules/authelia — Authelia SSO portal + OIDC provider
+# modules/authelia — Authelia SSO portal + OIDC provider
 # Provides ext_authz authentication for all services via Istio.
 # Acts as OpenID Connect 1.0 provider for ArgoCD, Windmill, Harbor, etc.
 # Uses LLDAP as the user directory backend.
-{ config, lib, yaml, k8s, ... }:
+{ config, lib, charts, kubelib, ... }:
+with lib;
 let
-  cfg = config.cluster.apps.authelia;
-  domain = config.cluster.domain;
+  cfg = config.openkrill.apps.authelia;
+  domain = config.openkrill.domain;
+  helpers = import ../lib/helpers.nix { inherit lib; };
 
   # Derive client_id from display name: lowercase and remove spaces.
   #   "Argo CD" → "argocd"
   mkClientId = name:
-    lib.replaceStrings [ " " ] [ "" ] (lib.toLower name);
+    replaceStrings [ " " ] [ "" ] (toLower name);
 
-  oidcClientModule = lib.types.submodule ({ config, ... }: {
+  oidcClientModule = types.submodule ({ config, ... }: {
     options = {
-      name = lib.mkOption {
-        type = lib.types.str;
+      name = mkOption {
+        type = types.str;
         description = "Display name for this OIDC client (also used to derive client_id).";
       };
 
-      client_id = lib.mkOption {
-        type = lib.types.str;
+      client_id = mkOption {
+        type = types.str;
         default = mkClientId config.name;
         description = "OIDC client identifier. Defaults to lowercased name with spaces removed.";
       };
 
-      redirect_uris = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
+      redirect_uris = mkOption {
+        type = types.listOf types.str;
         description = "Allowed redirect URIs for this client.";
       };
 
-      client_secret = lib.mkOption {
-        type = lib.types.str;
+      client_secret = mkOption {
+        type = types.str;
         default = "$plaintext$${config.client_id}-oidc-client-secret-${domain}";
         description = "Client secret. Defaults to a deterministic plaintext secret.";
       };
 
-      public = lib.mkOption {
-        type = lib.types.bool;
+      public = mkOption {
+        type = types.bool;
         default = false;
         description = "Whether this is a public (no secret) client.";
       };
 
-      authorization_policy = lib.mkOption {
-        type = lib.types.str;
+      authorization_policy = mkOption {
+        type = types.str;
         default = "one_factor";
         description = "Authelia authorization policy for this client.";
       };
 
-      scopes = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
+      scopes = mkOption {
+        type = types.listOf types.str;
         default = [ "openid" "profile" "email" "groups" ];
         description = "Allowed OIDC scopes.";
       };
 
-      response_types = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
+      response_types = mkOption {
+        type = types.listOf types.str;
         default = [ "code" ];
         description = "Allowed response types.";
       };
 
-      grant_types = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
+      grant_types = mkOption {
+        type = types.listOf types.str;
         default = [ "authorization_code" ];
         description = "Allowed grant types.";
       };
 
-      access_token_signed_response_alg = lib.mkOption {
-        type = lib.types.str;
+      access_token_signed_response_alg = mkOption {
+        type = types.str;
         default = "none";
         description = "Algorithm for signing access token responses.";
       };
 
-      userinfo_signed_response_alg = lib.mkOption {
-        type = lib.types.str;
+      userinfo_signed_response_alg = mkOption {
+        type = types.str;
         default = "none";
         description = "Algorithm for signing userinfo responses.";
       };
 
-      token_endpoint_auth_method = lib.mkOption {
-        type = lib.types.str;
+      token_endpoint_auth_method = mkOption {
+        type = types.str;
         default = "client_secret_basic";
         description = "Token endpoint authentication method.";
       };
 
-      claims_policy = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
+      claims_policy = mkOption {
+        type = types.nullOr types.str;
         default = null;
         description = "Claims policy name. Omitted from config when null.";
       };
 
-      require_pkce = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
+      require_pkce = mkOption {
+        type = types.nullOr types.bool;
         default = null;
         description = "Whether to require PKCE. Omitted from config when null.";
       };
 
-      extraConfig = lib.mkOption {
-        type = lib.types.attrs;
+      extraConfig = mkOption {
+        type = types.attrs;
         default = {};
         description = "Additional attributes merged into the client config.";
       };
     };
   });
+
+  defaults = {
+    pod = {
+      kind = "Deployment";
+      replicas = 1;
+    };
+
+    secret = {
+      existingSecret = "authelia";
+      additionalSecrets = {
+        authelia = {
+          items = [
+            {
+              key = "identity_providers.oidc.jwks.0.key";
+              path = "identity_providers.oidc.jwks.0.key";
+            }
+          ];
+        };
+      };
+    };
+
+    configMap = {
+      authentication_backend = {
+        ldap = {
+          enabled = true;
+          implementation = "lldap";
+          address = cfg.ldapAddress;
+          base_dn = cfg.ldapBaseDn;
+          user = "uid=admin,ou=people,${cfg.ldapBaseDn}";
+          password = {
+            disabled = false;
+          };
+        };
+      };
+
+      session = {
+        cookies = cfg.sessionCookies;
+      };
+
+      storage = {
+        local = {
+          enabled = true;
+          path = "/config/db.sqlite3";
+        };
+      };
+
+      notifier = {
+        filesystem = {
+          enabled = true;
+          filename = "/config/notification.txt";
+        };
+      };
+
+      access_control = {
+        default_policy = "one_factor";
+      } // (if cfg.accessControlRules != [] then {
+        rules = cfg.accessControlRules;
+      } else {});
+
+      identity_providers = {
+        oidc = {
+          enabled = true;
+
+          hmac_secret = {
+            path = "identity_providers.oidc.hmac_secret";
+          };
+
+          jwks = [
+            {
+              key = {
+                path = "/secrets/authelia/identity_providers.oidc.jwks.0.key";
+              };
+            }
+          ];
+
+          cors = {
+            endpoints = [
+              "authorization"
+              "token"
+              "revocation"
+              "introspection"
+              "userinfo"
+            ];
+            allowed_origins_from_client_redirect_uris = true;
+          };
+
+          clients = map (c:
+            filterAttrs (_: v: v != null) {
+              client_id = c.client_id;
+              client_name = c.name;
+              client_secret = c.client_secret;
+              inherit (c) public authorization_policy redirect_uris
+                scopes response_types grant_types
+                access_token_signed_response_alg
+                userinfo_signed_response_alg
+                token_endpoint_auth_method
+                claims_policy require_pkce;
+            } // c.extraConfig
+          ) cfg.oidcClients;
+        } // (if cfg.claimsPolicies != {} then {
+          claims_policies = cfg.claimsPolicies;
+        } else {});
+      };
+    };
+  };
 in
 {
-  options.cluster.apps.authelia = {
-    enable = lib.mkEnableOption "Authelia SSO portal + OIDC provider";
+  options.openkrill.apps.authelia = {
+    enable = mkEnableOption "Authelia SSO portal + OIDC provider";
 
-    namespace = lib.mkOption {
-      type = lib.types.str;
+    namespace = mkOption {
+      type = types.str;
       default = "authelia";
     };
 
-    ldapAddress = lib.mkOption {
-      type = lib.types.str;
+    ldapAddress = mkOption {
+      type = types.str;
       default = "ldap://lldap.lldap.svc.cluster.local:3890";
       description = "LDAP server address.";
     };
 
-    ldapBaseDn = lib.mkOption {
-      type = lib.types.str;
+    ldapBaseDn = mkOption {
+      type = types.str;
       description = "LDAP base DN (e.g. dc=cia,dc=net).";
     };
 
-    sessionCookies = lib.mkOption {
-      type = lib.types.listOf lib.types.attrs;
+    sessionCookies = mkOption {
+      type = types.listOf types.attrs;
       description = "Authelia session cookie configurations.";
     };
 
-    accessControlRules = lib.mkOption {
-      type = lib.types.listOf lib.types.attrs;
+    accessControlRules = mkOption {
+      type = types.listOf types.attrs;
       default = [];
       description = "Authelia access control rules.";
     };
 
-    claimsPolicies = lib.mkOption {
-      type = lib.types.attrs;
+    claimsPolicies = mkOption {
+      type = types.attrs;
       default = {};
       description = "Authelia claims policies for OIDC.";
     };
 
-    oidcClients = lib.mkOption {
-      type = lib.types.listOf oidcClientModule;
+    oidcClients = mkOption {
+      type = types.listOf oidcClientModule;
       default = [];
       description = "OIDC client configurations. Only 'name' and 'redirect_uris' are required.";
     };
 
-    values = lib.mkOption {
-      type = lib.types.attrs;
+    values = mkOption {
+      type = types.attrs;
       default = {};
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
+
+    extraManifests = helpers.mkExtraManifestsOption;
   };
 
-  config = lib.mkIf cfg.enable {
-    cluster.resources.authelia = import ./helm.nix {
-      inherit lib yaml cfg;
-    };
+  config = mkIf cfg.enable {
+    openkrill.manifests = mkMerge [
+      {
+        authelia.content = kubelib.fromHelm {
+          name = "authelia";
+          chart = charts.authelia.authelia;
+          namespace = cfg.namespace;
+          extraOpts = [ "--skip-schema-validation" ];
+          values = recursiveUpdate defaults cfg.values;
+        };
+      }
+      (helpers.mkExtraManifestsConfig "authelia" cfg.extraManifests)
+    ];
   };
 }

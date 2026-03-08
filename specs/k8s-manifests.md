@@ -24,23 +24,23 @@ management cluster and tenant clusters, and how to add new apps to each.
 
 The system uses **NixOS-style modules** (`lib.evalModules`) to declare
 Kubernetes resources as Nix attrsets.  Each app is a reusable module under
-`cluster/modules/`.  Application sets enable and parameterize modules for a
+`modules/`.  Application sets enable and parameterize modules for a
 specific cluster type.
 
-The architecture uses a **single sub-flake** (`cluster/flake.nix`) that
+The architecture uses a **single sub-flake** (`flake.nix`) that
 auto-discovers both modules and application sets:
 
 | Component | Path | Purpose |
 |---|---|---|
-| **Sub-flake** | `cluster/flake.nix` | Auto-discovers modules + sets, runs mkCluster per set |
-| **Modules** | `cluster/modules/<name>/` | Auto-discovered app modules (28 total) |
-| **Base options** | `cluster/modules/default.nix` | Declares `cluster.domain`, `cluster.resources`, `cluster.argocd` |
-| **Management set** | `cluster/sets/management/default.nix` | Enables/configures apps for `cia.net` |
-| **Tenant set** | `cluster/sets/tenant/default.nix` | Enables/configures apps for tenant clusters |
-| **mkCluster** | `cluster/lib/mkCluster.nix` | Evaluates a set → packages, manifests, ArgoCD Application CRs |
+| **Sub-flake** | `flake.nix` | Auto-discovers modules + sets, runs mkCluster per set |
+| **Modules** | `modules/<name>/` | Auto-discovered app modules (28 total) |
+| **Base options** | `modules/default.nix` | Declares `openkrill.domain`, `openkrill.manifests`, `openkrill.argocd` |
+| **Management set** | `sets/management/default.nix` | Enables/configures apps for `cia.net` |
+| **Tenant set** | `sets/tenant/default.nix` | Enables/configures apps for tenant clusters |
+| **mkCluster** | `lib/mkCluster.nix` | Evaluates a set → packages, manifests, ArgoCD Application CRs |
 
 ```
-cluster/flake.nix  (single sub-flake — auto-discovers everything)
+flake.nix  (single sub-flake — auto-discovers everything)
   │
   ├── Auto-discovers modules: builtins.readDir ./modules
   │     → [ ./modules ./modules/argo-cd ./modules/authelia ... ]
@@ -52,10 +52,10 @@ cluster/flake.nix  (single sub-flake — auto-discovers everything)
         │
         ├── lib.evalModules(appModules ++ [ setConfig ])
         ├── Generates per-chart YAML: <prefix>-<name> packages
-        ├── Generates ArgoCD Application CRs from cluster.argocd metadata
+        ├── Generates ArgoCD Application CRs from openkrill.argocd metadata
         └── Builds manifest directory: <prefix>/helm/<name>/manifests.yaml
 
-cluster/lib/
+lib/
   ├── yaml.nix          YAML primitives (fromHelm, toYAMLStreamFile, charts)
   ├── k8s.nix           K8s resource constructors (mkApp, mkDeployment, etc.)
   ├── istio.nix         VirtualService constructors (mgmtVs, tenantVs)
@@ -64,27 +64,27 @@ cluster/lib/
 
 ### Key principle: shared modules, separate configs
 
-App modules are generic.  They declare options (`cluster.apps.<name>.*`) and
+App modules are generic.  They declare options (`openkrill.apps.<name>.*`) and
 produce K8s resources.  They never hardcode cluster-specific values like
 domain names or OIDC clients.  All cluster-specific values come from the
 application set layer:
 
-- Management config: `cluster/sets/management/default.nix`
-- Tenant config: `cluster/sets/tenant/default.nix`
+- Management config: `sets/management/default.nix`
+- Tenant config: `sets/tenant/default.nix`
 
 ### Zero-maintenance discovery
 
 Both modules and application sets are auto-discovered via `builtins.readDir`.
-Adding a new module requires only creating a directory under `cluster/modules/`.
+Adding a new module requires only creating a directory under `modules/`.
 Adding a new cluster type requires only creating a directory under
-`cluster/sets/`.  No lists or flake files need updating.
+`sets/`.  No lists or flake files need updating.
 
 ### Dynamic ArgoCD Application CRs
 
 ArgoCD Application CRs are generated automatically by `mkCluster.nix` for
 every app that produces resources.  Modules that need special ArgoCD behavior
 (server-side apply, namespace override, non-default project) declare it via
-`cluster.argocd.<name>` in their config block.  There is no `apps.nix` file.
+`openkrill.argocd.<name>` in their config block.  There is no `apps.nix` file.
 
 ---
 
@@ -100,7 +100,7 @@ cluster/
     istio.nix                  # VirtualService constructors (mgmtVs, tenantVs)
     mkCluster.nix              # config → { packages, manifests, evaluated }
   modules/
-    default.nix                # Base options: cluster.domain, cluster.resources, cluster.argocd
+    default.nix                # Base options: openkrill.domain, openkrill.manifests, openkrill.argocd
     <name>/                    # Auto-discovered app modules (one dir per app)
       default.nix              # Module: options + config
       helm.nix                 # Helm chart rendering (optional)
@@ -108,14 +108,14 @@ cluster/
       ...                      # Extra files (seed jobs, patches, etc.)
   sets/
     management/
-      default.nix              # Management application set (cluster.domain = "cia.net")
+      default.nix              # Management application set (openkrill.domain = "cia.net")
       bootstrap.nix            # Bootstrap resources for fresh cluster
     tenant/
-      default.nix              # Tenant application set (cluster.domain = "cia.net")
+      default.nix              # Tenant application set (openkrill.domain = "cia.net")
       cilium.nix               # Standalone Cilium render for ClusterResourceSet injection
 ```
 
-### App modules (auto-discovered from `cluster/modules/`)
+### App modules (auto-discovered from `modules/`)
 
 ```
 modules/
@@ -154,8 +154,8 @@ modules/
 
 ### 1. Nix evaluation
 
-`cluster/flake.nix` auto-discovers modules and application sets, then calls
-`mkCluster` (from `cluster/lib/mkCluster.nix`) for each set.  `mkCluster`
+`flake.nix` auto-discovers modules and application sets, then calls
+`mkCluster` (from `lib/mkCluster.nix`) for each set.  `mkCluster`
 runs `lib.evalModules` with the shared modules plus the set's config module:
 
 ```nix
@@ -177,7 +177,7 @@ Chart names are derived automatically from `builtins.attrNames resources`
 ### 3. ArgoCD Application CRs
 
 `mkCluster.nix` generates ArgoCD Application CRs dynamically for every app
-that has entries in `cluster.resources`.  It reads `cluster.argocd.<name>`
+that has entries in `openkrill.manifests`.  It reads `openkrill.argocd.<name>`
 metadata (serverSideApply, namespace override, project) to configure each
 Application CR.  No `apps.nix` file is needed.
 
@@ -194,7 +194,7 @@ derivations into a directory tree:
 
 ### 5. Combined manifests
 
-`cluster/flake.nix` merges all per-set manifest trees into a single
+`flake.nix` merges all per-set manifest trees into a single
 `manifests` package.  It also adds `management-bootstrap` (the only
 set-specific extra).
 
@@ -238,7 +238,7 @@ The management cluster runs the full platform:
 - **TLS**: Self-signed CA for `*.portal.net` + Let's Encrypt for `tradecrm.ltd`
 - **Network policies**: Cilium policies for LLDAP access control
 
-Config: `cluster/sets/management/default.nix`.
+Config: `sets/management/default.nix`.
 
 ### Tenant clusters (`change.me`)
 
@@ -253,7 +253,7 @@ management cluster via Cluster API and deployed to via management ArgoCD
   mathesar)
 - **TLS**: Self-signed CA for `*.change.me`
 
-Config: `cluster/sets/tenant/default.nix`.
+Config: `sets/tenant/default.nix`.
 
 **Domain model**: Every tenant cluster uses `change.me` as its internal
 domain.  Platform-dns in the management cluster resolves tenant domains
@@ -271,18 +271,18 @@ patterns, see [nix-module-apps.md](./nix-module-apps.md).
 ### 1. Create the app module
 
 ```sh
-mkdir -p cluster/modules/my-app
+mkdir -p modules/my-app
 ```
 
-Create `cluster/modules/my-app/default.nix`:
+Create `modules/my-app/default.nix`:
 
 ```nix
 { config, lib, yaml, k8s, ... }:
 let
-  cfg = config.cluster.apps.my-app;
+  cfg = config.openkrill.apps.my-app;
 in
 {
-  options.cluster.apps.my-app = {
+  options.openkrill.apps.my-app = {
     enable = lib.mkEnableOption "My App";
     namespace = lib.mkOption {
       type = lib.types.str;
@@ -292,14 +292,14 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    cluster.resources.my-app = import ./helm.nix {
+    openkrill.manifests.my-app.content = import ./helm.nix {
       inherit yaml cfg;
     };
   };
 }
 ```
 
-Create `cluster/modules/my-app/helm.nix`:
+Create `modules/my-app/helm.nix`:
 
 ```nix
 { yaml, cfg }:
@@ -315,15 +315,15 @@ yaml.fromHelm {
 
 ### 2. Auto-discovery (no registration needed)
 
-Modules are auto-discovered from `cluster/modules/`.  Creating the directory
+Modules are auto-discovered from `modules/`.  Creating the directory
 and staging it with `git add` is all that's needed — no list to update.
 
 ### 3. Add management config
 
-In `cluster/sets/management/default.nix`:
+In `sets/management/default.nix`:
 
 ```nix
-cluster.apps.my-app = {
+openkrill.apps.my-app = {
   enable = true;
   # set required options
 };
@@ -333,33 +333,33 @@ cluster.apps.my-app = {
 
 ArgoCD Application CRs are generated automatically.  If the app needs
 special ArgoCD behavior (server-side apply for CRDs, namespace override),
-add `cluster.argocd.<name>` in the module's config block:
+add `openkrill.argocd.<name>` in the module's config block:
 
 ```nix
 config = lib.mkIf cfg.enable {
-  cluster.argocd.my-app.serverSideApply = true;
-  cluster.resources.my-app = import ./helm.nix { inherit yaml cfg; };
+  openkrill.argocd.my-app.serverSideApply = true;
+  openkrill.manifests.my-app.content = import ./helm.nix { inherit yaml cfg; };
 };
 ```
 
 ### 5. If the app needs Istio routing
 
-Add a VirtualService to the `cluster.apps.istio-routing.virtualServices`
-list in `cluster/sets/management/default.nix`.  Use the `mgmtVs` helper for
+Add a VirtualService to the `openkrill.apps.istio-routing.virtualServices`
+list in `sets/management/default.nix`.  Use the `mgmtVs` helper for
 standard services or hand-craft the attrset for custom routing (e.g. Harbor
 X-Forwarded-Proto, staging/production websocket split).  Do NOT emit
 VirtualService resources from the app module itself.
 
 ### 6. If the app needs a database
 
-Add a database entry to `cluster.apps.cloudnative-pg.databases` in
-`cluster/sets/management/default.nix`.  Do NOT emit CNPG Cluster resources from
+Add a database entry to `openkrill.apps.cloudnative-pg.databases` in
+`sets/management/default.nix`.  Do NOT emit CNPG Cluster resources from
 the app module.
 
 ### 7. Test
 
 ```sh
-git add cluster/modules/my-app/
+git add modules/my-app/
 nix build .#management-my-app && cat result     # check YAML output
 nix build .#manifests                            # full build, no regressions
 ```
@@ -372,24 +372,24 @@ Same process as management, with these differences:
 
 ### 1. Create the app module (same as management)
 
-Module goes in `cluster/modules/my-app/`.  The module is shared — it should
+Module goes in `modules/my-app/`.  The module is shared — it should
 not contain any management-specific or tenant-specific hardcoded values.
 
-**Important**: If the module references `config.cluster.domain` or passes it
+**Important**: If the module references `config.openkrill.domain` or passes it
 to `helm.nix`, it will automatically use the correct domain (`portal.net`
 for management, `change.me` for tenant).
 
 ### 2. Auto-discovery (no registration needed)
 
-If the module is new, create the directory under `cluster/modules/` and
+If the module is new, create the directory under `modules/` and
 stage it with `git add`.  If the module already exists, skip this step.
 
 ### 3. Add tenant config
 
-In `cluster/sets/tenant/default.nix`:
+In `sets/tenant/default.nix`:
 
 ```nix
-cluster.apps.my-app = {
+openkrill.apps.my-app = {
   enable = true;
   # set tenant-specific values
 };
@@ -399,24 +399,24 @@ cluster.apps.my-app = {
 
 ArgoCD Application CRs are generated automatically for every enabled app.
 No `apps.nix` entry is needed.  If the app requires server-side apply,
-add `cluster.argocd.<name>.serverSideApply = true` in the module's config
+add `openkrill.argocd.<name>.serverSideApply = true` in the module's config
 block (same as management — see step 4 above).
 
 ### 5. If the app needs Istio routing
 
-Add a VirtualService to `cluster.apps.istio-routing.virtualServices` in
-`cluster/sets/tenant/default.nix`, using the `tenantVs` helper and `change.me`
+Add a VirtualService to `openkrill.apps.istio-routing.virtualServices` in
+`sets/tenant/default.nix`, using the `tenantVs` helper and `change.me`
 as the domain.
 
 ### 6. If the app needs a database
 
-Add a database to `cluster.apps.cloudnative-pg.databases` in
-`cluster/sets/tenant/default.nix`.
+Add a database to `openkrill.apps.cloudnative-pg.databases` in
+`sets/tenant/default.nix`.
 
 ### 7. Test
 
 ```sh
-git add cluster/modules/my-app/
+git add modules/my-app/
 nix build .#tenant-my-app && cat result
 nix build .#manifests
 ```
@@ -425,7 +425,7 @@ nix build .#manifests
 
 ## HOW-TO: Add an Existing Management App to Tenants
 
-If an app module already exists in `cluster/modules/` and is used by the
+If an app module already exists in `modules/` and is used by the
 management cluster, adding it to tenants requires only config changes — no
 new module code.
 
@@ -433,10 +433,10 @@ new module code.
 
 1. **Check module parameterization**.  Verify the module doesn't hardcode
    domain-specific values in `helm.nix`.  If it does, refactor them into
-   options or pass `config.cluster.domain` through (see how `librechat` and
+   options or pass `config.openkrill.domain` through (see how `librechat` and
    `authelia` were refactored).
 
-2. **Add config** in `cluster/sets/tenant/default.nix`.
+2. **Add config** in `sets/tenant/default.nix`.
 
 3. **ArgoCD Application CRs are automatic** — no `apps.nix` entry needed.
 
@@ -453,7 +453,7 @@ When adapting a management-only module for shared use:
 
 | Problem | Solution |
 |---|---|
-| Hardcoded `portal.net` in `helm.nix` | Pass `clusterDomain = config.cluster.domain` from `default.nix` to `helm.nix` and interpolate with `${clusterDomain}` |
+| Hardcoded `portal.net` in `helm.nix` | Pass `clusterDomain = config.openkrill.domain` from `default.nix` to `helm.nix` and interpolate with `${clusterDomain}` |
 | Hardcoded access control rules | Add an `accessControlRules` option (list of attrs), move rules to the config block |
 | Hardcoded OIDC clients | Already parameterized via `oidcClients` option in most modules |
 | Hardcoded session cookies | Add a `sessionCookies` option, move cookie list to the config block |
@@ -513,7 +513,7 @@ via Secrets.  Tenant ArgoCD Application CRs are auto-generated by
 ## Tenant Bootstrap
 
 Tenant clusters are provisioned via Cluster API using the cluster-template
-module (`cluster/modules/cluster-template/`) (k3s + OVN/LXC).  The bootstrap
+module (`modules/cluster-template/`) (k3s + OVN/LXC).  The bootstrap
 sequence:
 
 1. **Provision the cluster**: The cluster-template module generates CAPI
@@ -525,7 +525,7 @@ sequence:
 
 3. **Cilium bootstrap**: A `ClusterResourceSet` in the cluster-template
    module auto-applies Cilium to any cluster labeled `cni=cilium`.  The
-   Cilium config is rendered from `cluster/sets/tenant/cilium.nix`.
+   Cilium config is rendered from `sets/tenant/cilium.nix`.
 
 4. **ArgoCD Applications take over**: Once the cluster is registered and
    labeled, the auto-generated tenant ArgoCD Applications sync manifests
@@ -540,21 +540,21 @@ sequence:
 
 ### Adding a management app
 
-- [ ] Module created: `cluster/modules/<name>/default.nix` + `helm.nix` (or `resources.nix`)
-- [ ] Config added in `cluster/sets/management/default.nix`
-- [ ] (If needed) `cluster.argocd.<name>` set for serverSideApply/namespace override
+- [ ] Module created: `modules/<name>/default.nix` + `helm.nix` (or `resources.nix`)
+- [ ] Config added in `sets/management/default.nix`
+- [ ] (If needed) `openkrill.argocd.<name>` set for serverSideApply/namespace override
 - [ ] VirtualService added to `istio-routing` config (if app needs ingress)
 - [ ] Database added to `cloudnative-pg` config (if app needs PostgreSQL)
-- [ ] Files staged: `git add cluster/modules/<name>/`
+- [ ] Files staged: `git add modules/<name>/`
 - [ ] `nix build .#management-<name> && cat result` produces correct YAML
 - [ ] `nix build .#manifests` succeeds
 
 ### Adding a tenant app
 
-- [ ] Module exists in `cluster/modules/<name>/` (create if new; reuse if existing)
-- [ ] Module has no hardcoded domain values (uses `config.cluster.domain` or options)
-- [ ] Config added in `cluster/sets/tenant/default.nix`
-- [ ] (If needed) `cluster.argocd.<name>` set for serverSideApply/namespace override
+- [ ] Module exists in `modules/<name>/` (create if new; reuse if existing)
+- [ ] Module has no hardcoded domain values (uses `config.openkrill.domain` or options)
+- [ ] Config added in `sets/tenant/default.nix`
+- [ ] (If needed) `openkrill.argocd.<name>` set for serverSideApply/namespace override
 - [ ] VirtualService added to tenant `istio-routing` config (if needed)
 - [ ] Database added to tenant `cloudnative-pg` config (if needed)
 - [ ] `nix build .#tenant-<name> && cat result` produces correct YAML

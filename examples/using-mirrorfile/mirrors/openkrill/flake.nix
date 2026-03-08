@@ -14,27 +14,26 @@
       forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems f;
     in
     {
-      # ── Reusable NixOS modules ─────────────────────────────────
+      # ── Reusable NixOS module ──────────────────────────────────
       #
-      # openkrill — k3s service module
       #   { inputs, ... }: {
-      #     imports = [ inputs.openkrill.nixosModules.openkrill ];
+      #     imports = [ inputs.openkrill.nixosModules.default ];
       #     services.openkrill.enable = true;
-      #   }
-      #
-      # cluster — app module framework (cert-manager, argocd, etc.)
-      #   { inputs, ... }: {
-      #     imports = [ inputs.openkrill.nixosModules.cluster ];
-      #     cluster.domain = "mycompany.com";
-      #     cluster.apps.cert-manager.enable = true;
+      #     openkrill.domain = "mycompany.com";
+      #     openkrill.apps.cert-manager.enable = true;
       #   }
       #
       # See examples/ for complete usage patterns.
-      nixosModules.openkrill = import ./modules/openkrill.nix;
-      nixosModules.cluster = import ./modules/cluster {
-        inherit nix-kube-generators nixhelm;
-      };
-      nixosModules.default = self.nixosModules.openkrill;
+      nixosModules.default = { pkgs, ... }:
+        let
+          charts = nixhelm.chartsDerivations.${pkgs.system};
+          kubelib = nix-kube-generators.lib { inherit pkgs; };
+          k8s = import ./lib/k8s.nix { inherit pkgs kubelib charts; };
+        in
+        {
+          _module.args = { inherit charts kubelib k8s; };
+          imports = [ ./modules ];
+        };
 
       # ── Library helpers ─────────────────────────────────────────
       #
@@ -59,7 +58,7 @@
         {
           k3s-test = import ./tests/k3s-test.nix {
             inherit pkgs;
-            openkrill-module = self.nixosModules.openkrill;
+            openkrill-module = self.nixosModules.default;
           };
         }
       );

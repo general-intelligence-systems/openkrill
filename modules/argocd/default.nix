@@ -1,51 +1,117 @@
-# cluster/modules/argocd — ArgoCD GitOps controller
+# modules/argocd — ArgoCD GitOps controller
 # OIDC: uses Authelia as the identity provider.
-{ config, lib, yaml, k8s, ... }:
+{ config, lib, charts, kubelib, ... }:
+with lib;
 let
-  cfg = config.cluster.apps.argocd;
+  cfg = config.openkrill.apps.argocd;
+  helpers = import ../lib/helpers.nix { inherit lib; };
+
+  caCert = builtins.readFile cfg.caCertFile;
+  indentedCaCert = builtins.replaceStrings [ "\n" ] [ "\n  " ] caCert;
+
+  # Build TLS certificates attrset from trustedDomains
+  tlsCerts = builtins.listToAttrs (map (d: {
+    name = d;
+    value = caCert;
+  }) cfg.trustedDomains);
+
+  defaults = {
+    fullnameOverride = "argocd";
+    configs = {
+      params = {
+        "server.insecure" = "true";
+      };
+      tls = {
+        certificates = tlsCerts;
+      };
+      cm = {
+        url = "https://${cfg.domain}";
+        "oidc.config" = ''
+          name: Authelia
+          issuer: ${cfg.oidc.issuer}
+          clientID: argocd
+          clientSecret: $argocd-oidc-secret:oidc.authelia.clientSecret
+          clientAuthMethod: client_secret_basic
+          rootCA: |
+            ${indentedCaCert}
+          requestedScopes:
+            - openid
+            - email
+            - groups
+            - profile
+          enableUserInfoGroups: true
+          userInfoPath: /api/oidc/userinfo
+          userIDKey: email
+        '';
+      };
+      rbac = {
+        "policy.csv" = ''
+          g, nathankidd@hey.com, role:admin
+          p, role:admin, applications, *, */*, allow
+          p, role:admin, clusters, *, *, allow
+          p, role:admin, repositories, *, *, allow
+          p, role:admin, projects, *, *, allow
+          p, deploy-bot, applications, sync, */*, allow
+          p, deploy-bot, applications, get, */*, allow
+        '';
+        "policy.default" = "role:readonly";
+        scopes = "[email, groups]";
+      };
+    };
+  };
 in
 {
-  options.cluster.apps.argocd = {
-    enable = lib.mkEnableOption "ArgoCD GitOps controller";
+  options.openkrill.apps.argocd = {
+    enable = mkEnableOption "ArgoCD GitOps controller";
 
-    namespace = lib.mkOption {
-      type = lib.types.str;
+    namespace = mkOption {
+      type = types.str;
       default = "argocd";
     };
 
-    domain = lib.mkOption {
-      type = lib.types.str;
+    domain = mkOption {
+      type = types.str;
       description = "FQDN for ArgoCD (e.g. argocd.cia.net).";
     };
 
-    caCertFile = lib.mkOption {
-      type = lib.types.path;
+    caCertFile = mkOption {
+      type = types.path;
       description = "Path to the CA cert file for internal TLS trust.";
     };
 
-    trustedDomains = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
+    trustedDomains = mkOption {
+      type = types.listOf types.str;
       default = [];
       description = "Domains whose TLS should be trusted via the CA cert.";
     };
 
-    oidc.issuer = lib.mkOption {
-      type = lib.types.str;
+    oidc.issuer = mkOption {
+      type = types.str;
       description = "OIDC issuer URL (e.g. https://auth.cia.net).";
     };
 
-    values = lib.mkOption {
-      type = lib.types.attrs;
+    values = mkOption {
+      type = types.attrs;
       default = {};
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
+
+    extraManifests = helpers.mkExtraManifestsOption;
   };
 
-  config = lib.mkIf cfg.enable {
-    cluster.argocd.argocd.serverSideApply = true;
+  config = mkIf cfg.enable {
+    openkrill.argocd.argocd.serverSideApply = true;
 
-    cluster.resources.argocd = import ./helm.nix {
-      inherit lib yaml cfg;
-    };
+    openkrill.manifests = mkMerge [
+      {
+        argocd.content = kubelib.fromHelm {
+          name = "argo-cd";
+          chart = charts.argoproj.argo-cd;
+          namespace = cfg.namespace;
+          values = recursiveUpdate defaults cfg.values;
+        };
+      }
+      (helpers.mkExtraManifestsConfig "argocd" cfg.extraManifests)
+    ];
   };
 }

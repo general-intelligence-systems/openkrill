@@ -1,7 +1,7 @@
-# HOW-TO: Creating a Cluster App Module
+# HOW-TO: Creating an App Module
 
-This guide explains how to add a new application to the cluster by creating a
-NixOS-style module under `cluster/modules/`.
+This guide explains how to add a new application by creating a
+NixOS-style module under `modules/`.
 
 ---
 
@@ -21,12 +21,12 @@ NixOS-style module under `cluster/modules/`.
 
 The cluster configuration is built in three layers:
 
-### Layer 1: Base Options (`cluster/modules/default.nix`)
+### Layer 1: Base Options (`modules/default.nix`)
 
 Declares the top-level options that every module uses:
 
 ```nix
-options.cluster = {
+options.openkrill = {
   domain    = lib.mkOption { type = lib.types.str; };
   resources = lib.mkOption {
     type    = lib.types.attrsOf (lib.types.listOf lib.types.attrs);
@@ -39,38 +39,38 @@ options.cluster = {
 };
 ```
 
-- **`cluster.domain`** — The primary domain for the cluster (e.g. `cia.net`).
-- **`cluster.resources`** — A keyed attrset where each module contributes its
-  K8s resources: `cluster.resources.<app-name> = [ ...k8s-attrsets... ];`
-- **`cluster.argocd`** — Per-app ArgoCD metadata (namespace override,
+- **`openkrill.domain`** — The primary domain for the cluster (e.g. `cia.net`).
+- **`openkrill.manifests`** — A keyed attrset where each module contributes its
+  K8s resources: `openkrill.manifests.<app-name> = [ ...k8s-attrsets... ];`
+- **`openkrill.argocd`** — Per-app ArgoCD metadata (namespace override,
   serverSideApply, project).  Modules that need special ArgoCD behavior set
-  `cluster.argocd.<name>` in their config block.
+  `openkrill.argocd.<name>` in their config block.
 
-### Layer 2: App Modules (`cluster/modules/<name>/default.nix`)
+### Layer 2: App Modules (`modules/<name>/default.nix`)
 
-Each module declares its own options under `cluster.apps.<name>` and, when
-enabled, populates `cluster.resources.<name>` with a list of K8s resource
+Each module declares its own options under `openkrill.apps.<name>` and, when
+enabled, populates `openkrill.manifests.<name>` with a list of K8s resource
 attrsets (Deployments, Services, ConfigMaps, CRDs, etc.).
 
-Modules are **auto-discovered** — any directory under `cluster/modules/` is
+Modules are **auto-discovered** — any directory under `modules/` is
 automatically imported.  There is no manual module list to maintain.
 
-### Layer 3: Application Sets (`cluster/sets/<name>/default.nix`)
+### Layer 3: Application Sets (`sets/<name>/default.nix`)
 
 Each cluster type has an application set module:
 
-- **Management**: `cluster/sets/management/default.nix` — enables and configures
+- **Management**: `sets/management/default.nix` — enables and configures
   apps for the management cluster (`cia.net`).
-- **Tenant**: `cluster/sets/tenant/default.nix` — enables and configures apps
+- **Tenant**: `sets/tenant/default.nix` — enables and configures apps
   for tenant clusters (`cia.net`).
 
 Application sets are also **auto-discovered** — any directory under
-`cluster/sets/` is automatically picked up by `cluster/flake.nix`.
+`sets/` is automatically picked up by `flake.nix`.
 
 ### How It All Fits Together
 
 ```
-cluster/flake.nix  (single sub-flake — auto-discovers everything)
+flake.nix  (single sub-flake — auto-discovers everything)
   │
   ├── Auto-discovers modules: builtins.readDir ./modules
   │     → [ ./modules ./modules/argo-cd ./modules/authelia ... ]
@@ -84,9 +84,9 @@ cluster/flake.nix  (single sub-flake — auto-discovers everything)
         │     specialArgs = { pkgs, yaml, k8s, istio }
         │     modules = appModules ++ [ ./sets/<name> ]
         │
-        ├── evaluated.config.cluster.resources → { argo-cd = [...]; authelia = [...]; ... }
+        ├── evaluated.config.openkrill.manifests → { argo-cd = [...]; authelia = [...]; ... }
         │
-        ├── evaluated.config.cluster.argocd   → ArgoCD metadata per app
+        ├── evaluated.config.openkrill.argocd   → ArgoCD metadata per app
         │
         ├── Generates ArgoCD Application CRs dynamically from resources + argocd metadata
         │
@@ -101,8 +101,8 @@ Chart names are derived automatically from `builtins.attrNames resources`
 — there is no hardcoded chart list.  Modules that aren't enabled simply
 produce no resources and are omitted from the output.
 
-ArgoCD Application CRs are generated dynamically by `cluster/lib/mkCluster.nix`
-from the `cluster.argocd` metadata.  There is no `apps.nix` file to maintain.
+ArgoCD Application CRs are generated dynamically by `lib/mkCluster.nix`
+from the `openkrill.argocd` metadata.  There is no `apps.nix` file to maintain.
 
 ---
 
@@ -119,7 +119,7 @@ victoriametrics
 
 **Structure:**
 ```
-cluster/modules/my-app/
+modules/my-app/
   default.nix    # module: options + config
   helm.nix       # Helm chart values → list of K8s attrsets
 ```
@@ -128,10 +128,10 @@ cluster/modules/my-app/
 ```nix
 { config, lib, yaml, k8s, ... }:
 let
-  cfg = config.cluster.apps.my-app;
+  cfg = config.openkrill.apps.my-app;
 in
 {
-  options.cluster.apps.my-app = {
+  options.openkrill.apps.my-app = {
     enable = lib.mkEnableOption "My App";
 
     namespace = lib.mkOption {
@@ -147,7 +147,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    cluster.resources.my-app = import ./helm.nix {
+    openkrill.manifests.my-app.content = import ./helm.nix {
       inherit lib yaml cfg;
     };
   };
@@ -172,7 +172,7 @@ yaml.fromHelm {
 ```
 
 `yaml.fromHelm` returns a list of K8s resource attrsets. That list is
-assigned directly to `cluster.resources.my-app`.
+assigned directly to `openkrill.manifests.my-app`.
 
 The `values` option allows the application set to override or extend any
 nested helm value without modifying the module itself. Module defaults are
@@ -254,10 +254,10 @@ The `opencloud` module is a notable example — it generates all K8s resources
 ```nix
 { config, lib, yaml, k8s, ... }:
 let
-  cfg = config.cluster.apps.my-policies;
+  cfg = config.openkrill.apps.my-policies;
 in
 {
-  options.cluster.apps.my-policies = {
+  options.openkrill.apps.my-policies = {
     enable = lib.mkEnableOption "My policies";
 
     policies = lib.mkOption {
@@ -268,7 +268,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    cluster.resources.my-policies = cfg.policies;
+    openkrill.manifests.my-policies.content = cfg.policies;
   };
 }
 ```
@@ -276,7 +276,7 @@ in
 The config then passes the actual resource attrsets:
 
 ```nix
-cluster.apps.my-policies = {
+openkrill.apps.my-policies = {
   enable = true;
   policies = [
     {
@@ -293,10 +293,10 @@ cluster.apps.my-policies = {
 ```nix
 { config, lib, yaml, k8s, ... }:
 let
-  cfg = config.cluster.apps.my-app;
+  cfg = config.openkrill.apps.my-app;
 in
 {
-  options.cluster.apps.my-app = {
+  options.openkrill.apps.my-app = {
     enable = lib.mkEnableOption "My App";
     namespace = lib.mkOption { type = lib.types.str; default = "my-app"; };
     domain = lib.mkOption { type = lib.types.str; };
@@ -304,7 +304,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    cluster.resources.my-app = import ./resources.nix { inherit cfg; };
+    openkrill.manifests.my-app.content = import ./resources.nix { inherit cfg; };
   };
 }
 ```
@@ -321,7 +321,7 @@ Use when: the module has optional features that add extra K8s resources
 **`default.nix`:**
 ```nix
 config = lib.mkIf cfg.enable {
-  cluster.resources.my-app =
+  openkrill.manifests.my-app.content =
     (import ./helm.nix { inherit lib yaml cfg; })
     ++ (lib.optionals cfg.oidc.enable (import ./oidc-setup.nix { inherit cfg; }));
 };
@@ -341,7 +341,7 @@ Use when: the module manages a dynamic collection of similar things
 ```nix
 { config, lib, yaml, k8s, ... }:
 let
-  cfg = config.cluster.apps.my-app;
+  cfg = config.openkrill.apps.my-app;
 
   mkResource = name: sub: {
     apiVersion = "example.io/v1";
@@ -351,7 +351,7 @@ let
   };
 in
 {
-  options.cluster.apps.my-app = {
+  options.openkrill.apps.my-app = {
     enable = lib.mkEnableOption "My App";
 
     things = lib.mkOption {
@@ -369,7 +369,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    cluster.resources.my-app =
+    openkrill.manifests.my-app.content =
       (import ./helm.nix { inherit lib yaml cfg; })
       ++ (lib.mapAttrsToList mkResource cfg.things);
   };
@@ -396,7 +396,7 @@ Useful submodule patterns:
 ### 1. Create the directory
 
 ```sh
-mkdir -p cluster/modules/my-app
+mkdir -p modules/my-app
 ```
 
 ### 2. Write `default.nix`
@@ -404,13 +404,13 @@ mkdir -p cluster/modules/my-app
 Start from the Helm-only skeleton (Pattern 1) and adjust:
 
 ```nix
-# cluster/modules/my-app — Short description
+# modules/my-app — Short description
 { config, lib, yaml, k8s, ... }:
 let
-  cfg = config.cluster.apps.my-app;
+  cfg = config.openkrill.apps.my-app;
 in
 {
-  options.cluster.apps.my-app = {
+  options.openkrill.apps.my-app = {
     enable = lib.mkEnableOption "My App description";
 
     namespace = lib.mkOption {
@@ -428,7 +428,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    cluster.resources.my-app = import ./helm.nix {
+    openkrill.manifests.my-app.content = import ./helm.nix {
       inherit lib yaml cfg;
     };
   };
@@ -442,14 +442,14 @@ etc.), add it to the module function args:
 { config, lib, pkgs, yaml, k8s, ... }:
 ```
 
-If you need `config.cluster.domain`, access it in the config block and pass
+If you need `config.openkrill.domain`, access it in the config block and pass
 it to helm.nix:
 
 ```nix
 config = lib.mkIf cfg.enable {
-  cluster.resources.my-app = import ./helm.nix {
+  openkrill.manifests.my-app.content = import ./helm.nix {
     inherit yaml cfg;
-    clusterDomain = config.cluster.domain;
+    clusterDomain = config.openkrill.domain;
   };
 };
 ```
@@ -506,8 +506,8 @@ chart = yaml.downloadHelmChart {
 
 ### 4. Auto-discovery (no registration needed)
 
-Modules are auto-discovered from `cluster/modules/` by `cluster/flake.nix`.
-Any directory under `cluster/modules/` that contains a `default.nix` is
+Modules are auto-discovered from `modules/` by `flake.nix`.
+Any directory under `modules/` that contains a `default.nix` is
 automatically imported into every cluster evaluation.
 
 There is no module list to update.  Simply creating the directory is enough.
@@ -517,23 +517,23 @@ resources unless explicitly enabled in an application set's config.
 
 ### 5. Add config in the application set
 
-For the management cluster, edit `cluster/sets/management/default.nix`:
+For the management cluster, edit `sets/management/default.nix`:
 
 ```nix
 # ── My App ───────────────────────────────────────────────────────
-cluster.apps.my-app = {
+openkrill.apps.my-app = {
   enable = true;
   # set any required options
 };
 ```
 
-For the tenant cluster, edit `cluster/sets/tenant/default.nix` instead.
+For the tenant cluster, edit `sets/tenant/default.nix` instead.
 
 ### 6. (Optional) Add ArgoCD metadata
 
 ArgoCD Application CRs are generated **automatically** by
-`cluster/lib/mkCluster.nix` for every app that has entries in
-`cluster.resources`.  No `apps.nix` file exists.
+`lib/mkCluster.nix` for every app that has entries in
+`openkrill.manifests`.  No `apps.nix` file exists.
 
 By default, the generated Application uses the app's `namespace` option
 and standard client-side apply.  If the app needs special ArgoCD behavior
@@ -541,13 +541,13 @@ and standard client-side apply.  If the app needs special ArgoCD behavior
 
 ```nix
 config = lib.mkIf cfg.enable {
-  cluster.argocd.my-app = {
+  openkrill.argocd.my-app = {
     serverSideApply = true;       # needed if chart installs CRDs
     # namespace = "custom-ns";    # override destination namespace
     # project = "infra";          # non-default ArgoCD project
   };
 
-  cluster.resources.my-app = import ./helm.nix { inherit lib yaml cfg; };
+  openkrill.manifests.my-app.content = import ./helm.nix { inherit lib yaml cfg; };
 };
 ```
 
@@ -556,7 +556,7 @@ config = lib.mkIf cfg.enable {
 Nix flakes only see files tracked by git. Stage your new files:
 
 ```sh
-git add cluster/modules/my-app/
+git add modules/my-app/
 ```
 
 ### 8. Test
@@ -623,7 +623,7 @@ Every module wraps its config in `lib.mkIf`:
 
 ```nix
 config = lib.mkIf cfg.enable {
-  cluster.resources.my-app = [ ... ];
+  openkrill.manifests.my-app.content = [ ... ];
 };
 ```
 
@@ -632,7 +632,7 @@ config = lib.mkIf cfg.enable {
 Append extra resources only when a feature is enabled:
 
 ```nix
-cluster.resources.my-app =
+openkrill.manifests.my-app.content =
   (import ./helm.nix { inherit lib yaml cfg; })
   ++ (lib.optionals cfg.feature.enable (import ./feature.nix { inherit cfg; }));
 ```
@@ -712,7 +712,7 @@ These are passed to every module via `lib.evalModules { specialArgs = ... }`:
 
 ### `yaml`
 
-Produced by `cluster/lib/yaml.nix`. Key functions:
+Produced by `lib/yaml.nix`. Key functions:
 
 | Function | Returns | Use |
 |----------|---------|-----|
@@ -726,7 +726,7 @@ for additional Helm flags, e.g. `extraOpts = ["--skip-schema-validation"]`.
 
 ### `k8s`
 
-Produced by `cluster/lib/k8s.nix`. Key functions:
+Produced by `lib/k8s.nix`. Key functions:
 
 | Function | Returns | Use |
 |----------|---------|-----|
@@ -757,8 +757,8 @@ Commonly used for:
 The evaluated module config. Access other modules' options:
 
 ```nix
-clusterDomain = config.cluster.domain;       # "portal.net" or "change.me"
-otherAppEnabled = config.cluster.apps.other.enable;
+clusterDomain = config.openkrill.domain;       # "portal.net" or "change.me"
+otherAppEnabled = config.openkrill.apps.other.enable;
 ```
 
 ---
@@ -767,16 +767,16 @@ otherAppEnabled = config.cluster.apps.other.enable;
 
 Before submitting a new module:
 
-- [ ] Directory created: `cluster/modules/<name>/`
+- [ ] Directory created: `modules/<name>/`
 - [ ] `default.nix` has `options` and `config` sections
 - [ ] Every option has a type; required options have no default
 - [ ] `values` option declared (type `lib.types.attrs`, default `{}`) for helm-based modules
 - [ ] `config` block is guarded with `lib.mkIf cfg.enable`
 - [ ] `helm.nix` uses `lib.recursiveUpdate defaults cfg.values` for the `values` arg
 - [ ] `helm.nix` (or `resources.nix`) returns a list of K8s resource attrsets
-- [ ] (If needed) `cluster.argocd.<name>` set for serverSideApply/namespace override
-- [ ] Config block added in `cluster/sets/management/default.nix` (and/or `cluster/sets/tenant/default.nix`)
-- [ ] Files staged: `git add cluster/modules/<name>/`
+- [ ] (If needed) `openkrill.argocd.<name>` set for serverSideApply/namespace override
+- [ ] Config block added in `sets/management/default.nix` (and/or `sets/tenant/default.nix`)
+- [ ] Files staged: `git add modules/<name>/`
 - [ ] `nix build .#management-<name> --dry-run` succeeds
 - [ ] `nix build .#management-<name> && cat result` produces correct YAML
 - [ ] `nix build .#manifests` succeeds (no regressions)
