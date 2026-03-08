@@ -3,7 +3,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
     nix-kube-generators.url = "github:farcaller/nix-kube-generators";
     nixhelm = {
-      url = "github:n-at-han-k/nixhelm";
+      url = "github:general-intelligence-systems/nixhelm";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
