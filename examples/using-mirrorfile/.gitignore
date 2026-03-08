@@ -1,1 +1,13 @@
-/mirrors
+/mirrors/*
+
+!/mirrors/openkrill
+/mirrors/openkrill/*
+!/mirrors/openkrill/flake.nix
+!/mirrors/openkrill/flake.lock
+
+!/mirrors/openkrill-operator
+/mirrors/openkrill-operator/*
+!/mirrors/openkrill-operator/flake.nix
+!/mirrors/openkrill-operator/flake.lock
+
+.git.mirrors
