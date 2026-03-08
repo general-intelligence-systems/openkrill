@@ -11,6 +11,8 @@
   ./cloudnative-pg
   ./external-secrets
   ./forgejo-runner
+  ./kamaji
+  ./lago
   ./metacontroller
   ./opencloud
   ./theia-ide
