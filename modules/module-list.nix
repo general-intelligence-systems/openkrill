@@ -9,7 +9,11 @@
   ./authelia
   ./cert-manager
   ./cloudnative-pg
+  ./external-secrets
+  ./forgejo-runner
+  ./metacontroller
   ./opencloud
   ./theia-ide
   ./trust-manager
+  ./victoriametrics
 ]
