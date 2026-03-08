@@ -6,7 +6,7 @@
 <!--
   HOW TO MAINTAIN THIS FILE
 
-  This is the index of all design specifications for Ralph.rb.
+  This is the index of all design specifications for Openkrill.
   Each row links a spec document to its implementation code and a short purpose summary.
 
   When adding a new spec:
@@ -23,7 +23,7 @@
 
 # Spec Index
 
-Design documentation for Trade Portal, a comprehensive DevOps platform with GitOps deployment automation and AI development capabilities.
+Design documentation for Openkrill.
 
 ## Kubernetes
 
