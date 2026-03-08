@@ -41,12 +41,12 @@ jobs:
           nix build \
             --override-input openkrill path:../../ \
             .#${{ inputs.image }}
-        working-directory: examples/openkrill-nix-example
+        working-directory: examples/default
 
       - name: Prepare artifact
         id: prepare
         run: |
-          result=$(readlink -f examples/openkrill-nix-example/result)
+          result=$(readlink -f examples/default/result)
 
           mkdir -p artifacts
           if [ -d "$result" ]; then
