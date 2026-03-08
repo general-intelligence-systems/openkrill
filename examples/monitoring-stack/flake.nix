@@ -1,4 +1,8 @@
-# OpenKrill default-stack example.
+# OpenKrill monitoring-stack example.
+#
+# Demonstrates the richer parts of the openkrill API:
+# cert-manager with extraManifests, cloudnative-pg database
+# clusters, inline custom apps, and raw manifests.
 #
 # Build images:
 #   nix build .#qcow2
@@ -37,73 +41,99 @@
         openkrill.gitops.enable = true;
 
         # ── TLS ─────────────────────────────────────────────────────
-        openkrill.apps.cert-manager.enable = true;
+        openkrill.apps.cert-manager = {
+          enable = true;
+          # Extra Certificate resource alongside cert-manager
+          extraManifests.wildcard-cert = {
+            apiVersion = "cert-manager.io/v1";
+            kind = "Certificate";
+            metadata = {
+              name = "wildcard-example-com";
+              namespace = "cert-manager";
+            };
+            spec = {
+              secretName = "wildcard-example-com-tls";
+              issuerRef = {
+                name = "letsencrypt";
+                kind = "ClusterIssuer";
+              };
+              dnsNames = [ "*.${domain}" ];
+            };
+          };
+        };
+
         openkrill.apps.trust-manager = {
           enable = true;
           caSecretName = "cluster-ca";
         };
 
-        # ── GitOps ──────────────────────────────────────────────────
-        openkrill.apps.argocd = {
-          enable = true;
-          domain = "argocd.${domain}";
-          caCertFile = ./ca.pem;
-          oidc.issuer = "https://auth.${domain}";
-        };
-
         # ── Database ────────────────────────────────────────────────
         openkrill.apps.cloudnative-pg = {
           enable = true;
+          databases.myapp = {
+            namespace = "myapp";
+            storageSize = "50Gi";
+          };
           databases.authelia = {
             namespace = "authelia";
           };
-          databases.opencloud = {
-            namespace = "opencloud";
-            storageSize = "10Gi";
+        };
+
+        # ── Custom app bundle ───────────────────────────────────────
+        # Group related manifests under one name with an enable flag.
+        # No NixOS module needed.
+        openkrill.apps.custom.redis = {
+          enable = true;
+          manifests = {
+            namespace = {
+              apiVersion = "v1";
+              kind = "Namespace";
+              metadata.name = "redis";
+            };
+            deployment = {
+              apiVersion = "apps/v1";
+              kind = "Deployment";
+              metadata = {
+                name = "redis";
+                namespace = "redis";
+              };
+              spec = {
+                replicas = 1;
+                selector.matchLabels.app = "redis";
+                template = {
+                  metadata.labels.app = "redis";
+                  spec.containers = [{
+                    name = "redis";
+                    image = "redis:7-alpine";
+                    ports = [{ containerPort = 6379; }];
+                  }];
+                };
+              };
+            };
+            service = {
+              apiVersion = "v1";
+              kind = "Service";
+              metadata = {
+                name = "redis";
+                namespace = "redis";
+              };
+              spec = {
+                selector.app = "redis";
+                ports = [{ port = 6379; targetPort = 6379; }];
+              };
+            };
           };
         };
 
-        # ── SSO ─────────────────────────────────────────────────────
-        openkrill.apps.authelia = {
-          enable = true;
-          ldapBaseDn = "dc=example,dc=com";
-          sessionCookies = [
-            {
-              domain = domain;
-              authelia_url = "https://auth.${domain}";
-            }
-          ];
-          oidcClients = [
-            {
-              name = "Argo CD";
-              redirect_uris = [ "https://argocd.${domain}/auth/callback" ];
-            }
-            {
-              name = "OpenCloud";
-              public = true;
-              redirect_uris = [
-                "https://cloud.${domain}/"
-                "https://cloud.${domain}/oidc-callback.html"
-                "https://cloud.${domain}/oidc-silent-redirect.html"
-              ];
-            }
-          ];
+        # ── Raw manifests ───────────────────────────────────────────
+        # One-off resources that don't belong to any app.
+        openkrill.manifests.app-ns.content = {
+          apiVersion = "v1";
+          kind = "Namespace";
+          metadata.name = "myapp";
         };
-
-        # ── File storage ────────────────────────────────────────────
-        openkrill.apps.opencloud = {
-          enable = true;
-          domain = "cloud.${domain}";
-          oidc.issuer = "https://auth.${domain}";
-          collabora.domain = "office.${domain}";
-        };
-
-        # ── Web IDE ─────────────────────────────────────────────────
-        openkrill.apps.theia-ide.enable = true;
 
         # ── Base system ─────────────────────────────────────────────
-        # Fallback root filesystem — image modules override this at
-        # higher priority with their own disk layout.
         fileSystems."/" = lib.mkOverride 1500 {
           device = "/dev/vda1";
           fsType = "ext4";

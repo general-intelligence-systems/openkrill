@@ -1,4 +1,8 @@
-# OpenKrill default-stack example.
+# OpenKrill custom-app example.
+#
+# Shows how to write your own openkrill app module with typed
+# options and cross-module references. The module lives in your
+# repo as a plain .nix file alongside the flake.
 #
 # Build images:
 #   nix build .#qcow2
@@ -26,6 +30,7 @@
       clusterConfig = { lib, ... }: {
         imports = [
           openkrill.nixosModules.default
+          ./my-rails-app.nix
         ];
 
         # ── k3s server ──────────────────────────────────────────────
@@ -38,72 +43,21 @@
 
         # ── TLS ─────────────────────────────────────────────────────
         openkrill.apps.cert-manager.enable = true;
-        openkrill.apps.trust-manager = {
-          enable = true;
-          caSecretName = "cluster-ca";
-        };
 
-        # ── GitOps ──────────────────────────────────────────────────
-        openkrill.apps.argocd = {
+        # ── Custom app ──────────────────────────────────────────────
+        # Enable and configure the app defined in my-rails-app.nix.
+        openkrill.apps.myRailsApp = {
           enable = true;
-          domain = "argocd.${domain}";
-          caCertFile = ./ca.pem;
-          oidc.issuer = "https://auth.${domain}";
-        };
-
-        # ── Database ────────────────────────────────────────────────
-        openkrill.apps.cloudnative-pg = {
-          enable = true;
-          databases.authelia = {
-            namespace = "authelia";
-          };
-          databases.opencloud = {
-            namespace = "opencloud";
-            storageSize = "10Gi";
+          image = "registry.${domain}/myapp:v1.2.3";
+          replicas = 3;
+          host = "myapp.${domain}";
+          env = {
+            RAILS_ENV = "production";
+            DATABASE_URL = "postgres://myapp:secret@myapp-rw.myapp:5432/myapp";
           };
         };
-
-        # ── SSO ─────────────────────────────────────────────────────
-        openkrill.apps.authelia = {
-          enable = true;
-          ldapBaseDn = "dc=example,dc=com";
-          sessionCookies = [
-            {
-              domain = domain;
-              authelia_url = "https://auth.${domain}";
-            }
-          ];
-          oidcClients = [
-            {
-              name = "Argo CD";
-              redirect_uris = [ "https://argocd.${domain}/auth/callback" ];
-            }
-            {
-              name = "OpenCloud";
-              public = true;
-              redirect_uris = [
-                "https://cloud.${domain}/"
-                "https://cloud.${domain}/oidc-callback.html"
-                "https://cloud.${domain}/oidc-silent-redirect.html"
-              ];
-            }
-          ];
-        };
-
-        # ── File storage ────────────────────────────────────────────
-        openkrill.apps.opencloud = {
-          enable = true;
-          domain = "cloud.${domain}";
-          oidc.issuer = "https://auth.${domain}";
-          collabora.domain = "office.${domain}";
-        };
-
-        # ── Web IDE ─────────────────────────────────────────────────
-        openkrill.apps.theia-ide.enable = true;
 
         # ── Base system ─────────────────────────────────────────────
-        # Fallback root filesystem — image modules override this at
-        # higher priority with their own disk layout.
         fileSystems."/" = lib.mkOverride 1500 {
           device = "/dev/vda1";
           fsType = "ext4";
