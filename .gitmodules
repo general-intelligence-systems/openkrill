@@ -1,15 +1,5 @@
-[submodule "openkrill-helm"]
-	path = openkrill-helm
-	url = https://github.com/general-intelligence-systems/openkrill-helm.git
-	branch = trench
-	ignore = all
-[submodule "openkrill-operator"]
-	path = openkrill-operator
-	url = https://github.com/general-intelligence-systems/openkrill-operator.git
-	branch = trench
-	ignore = all
-[submodule "examples/openkrill-nix-k3s-example"]
-	path = examples/openkrill-nix-k3s-example
+[submodule "examples/openkrill-nix-example"]
+	path = examples/openkrill-nix-example
 	url = https://github.com/general-intelligence-systems/openkrill-nix-example.git
 	branch = trench
 	ignore = all

@@ -22,7 +22,7 @@ jobs:
       - name: Update submodules to HEAD
         run: |
           git config --global url."https://x-access-token:${{ secrets.PAT }}@github.com/".insteadOf "https://github.com/"
-          git submodule update --remote
+          git submodule update --remote examples/openkrill-nix-example
 
       - name: Commit and push if changed
         run: |
