@@ -1,8 +1,4 @@
-# OpenKrill full-stack example — enables every module with all image targets.
-#
-# This is the reference deployment showing all openkrill modules working
-# together: k3s, cert-manager, trust-manager, ArgoCD, CloudNativePG,
-# Authelia SSO, OpenCloud, and Theia IDE.
+# OpenKrill default-stack example.
 #
 # Build images:
 #   nix build .#qcow2
@@ -140,6 +136,9 @@
           }
         ];
       };
+
+      # ── Dev Shell ─────────────────────────────────────────────────
+      devShells.${system}.default = openkrill.devShells.${system}.default;
 
       # ── Image outputs ─────────────────────────────────────────────
       packages.${system} = {
