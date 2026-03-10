@@ -70,7 +70,8 @@ in
     openkrill.gitops.enable = lib.mkDefault true;
 
     openkrill.apps = {
-      # Apps with no required options — safe to enable unconditionally.
+      argocd.enable           = lib.mkDefault true;
+      authelia.enable         = lib.mkDefault true;
       cert-manager.enable     = lib.mkDefault true;
       cloudnative-pg.enable   = lib.mkDefault true;
       core-dns.enable         = lib.mkDefault true;
@@ -78,11 +79,6 @@ in
       gateway-api.enable      = lib.mkDefault true;
       helm.enable             = lib.mkDefault true;
       traefik.enable          = lib.mkDefault true;
-
-      authelia.enable          = lib.mkDefault true;
-
-      # argocd requires caCertFile (types.path, no default).
-      # Enable it explicitly in your configuration.nix.
     };
   };
 }

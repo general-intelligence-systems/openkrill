@@ -109,9 +109,11 @@ in
 
       repoURL = mkOption {
         type = types.str;
+        default = "git://host-gateway.kube-system.svc/${gitopsCfg.repoName}";
         description = ''
           Git URL for ArgoCD to fetch manifests from.
           Must be reachable from inside the cluster.
+          Defaults to the host-gateway Service provided by the core-dns module.
         '';
       };
     };

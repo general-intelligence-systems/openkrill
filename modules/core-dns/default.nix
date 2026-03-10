@@ -10,9 +10,9 @@
 # 2. Custom DNS hosts (optional): a coredns-custom ConfigMap that adds
 #    arbitrary hostname -> IP mappings to k3s's embedded CoreDNS.
 #
-# When the host-gateway is enabled, gitops.repoURL is automatically set
-# to use the in-cluster service DNS name so ArgoCD can reach git-daemon
-# without a hardcoded node IP.
+# The gitops.repoURL option defaults to the host-gateway Service DNS
+# name (git://host-gateway.kube-system.svc/...) so ArgoCD can reach
+# git-daemon without a hardcoded node IP.
 
 { config, lib, ... }:
 with lib;
@@ -105,11 +105,6 @@ in
   };
 
   config = mkIf cfg.enable {
-    # Auto-wire gitops.repoURL when host-gateway is enabled
-    openkrill.gitops.repoURL = mkIf cfg.hostGateway.enable (
-      mkDefault "git://host-gateway.${cfg.namespace}.svc/${config.openkrill.gitops.repoName}"
-    );
-
     openkrill.apps.argocd.applications.core-dns = {
       namespace = "argocd";
       project = "default";

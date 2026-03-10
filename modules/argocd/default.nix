@@ -1,27 +1,47 @@
 # modules/argocd — ArgoCD GitOps controller
 #
-# Provides a thin wrapper around the Helm chart with CA cert distribution.
-# All OIDC, RBAC, and other configuration belongs in the consumer's `values`.
+# Thin wrapper around the Helm chart with Authelia OIDC and RBAC defaults.
+# When trust-manager is enabled, automatically mounts the cluster trust
+# bundle into all ArgoCD components for outbound CA trust (OIDC, git
+# repos over HTTPS, webhooks, etc.).
 { config, lib, charts, kubelib, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.argocd;
   helpers = import ../lib/helpers.nix { inherit lib; };
   domain = config.openkrill.domain;
-
-  caCert = builtins.readFile cfg.caCertFile;
-
-  # Build TLS certificates attrset from trustedDomains
-  tlsCerts = builtins.listToAttrs (map (d: {
-    name = d;
-    value = caCert;
-  }) cfg.trustedDomains);
+  trustCfg = config.openkrill.apps.trust-manager;
 
   defaults = {
     fullnameOverride = "argocd";
-    global.domain = "argocd.${domain}";
+    global = {
+      domain = "argocd.${domain}";
+    }
+    # When trust-manager is enabled, mount the cluster trust bundle into
+    # every ArgoCD component (server, repo-server, controller, dex).
+    # This is required because trust-manager outputs a single ConfigMap
+    # with concatenated CAs, which is structurally incompatible with
+    # ArgoCD's native argocd-tls-certs-cm (hostname-keyed).  Volume
+    # mounts to /etc/ssl/certs cover all outbound TLS: OIDC, git over
+    # HTTPS, webhooks, etc.
+    // optionalAttrs trustCfg.enable {
+      extraVolumes = [{
+        name = "trust-bundle";
+        configMap = {
+          name = trustCfg.bundleConfigMapName;
+          items = [{
+            key = trustCfg.bundleKey;
+            path = "ca-certificates.crt";
+          }];
+        };
+      }];
+      extraVolumeMounts = [{
+        name = "trust-bundle";
+        mountPath = "/etc/ssl/certs";
+        readOnly = true;
+      }];
+    };
     configs = {
-      tls.certificates = tlsCerts;
       cm."oidc.config" = ''
         name: 'Authelia'
         issuer: 'https://auth.${domain}'
@@ -56,17 +76,6 @@ in
     namespace = mkOption {
       type = types.str;
       default = "argocd";
-    };
-
-    caCertFile = mkOption {
-      type = types.path;
-      description = "Path to the CA cert file for internal TLS trust.";
-    };
-
-    trustedDomains = mkOption {
-      type = types.listOf types.str;
-      default = [];
-      description = "Domains whose TLS should be trusted via the CA cert.";
     };
 
     values = mkOption {
