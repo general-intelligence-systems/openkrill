@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Downloads all helm charts from nixhelm and passes any CRD YAML files
+# into bin/generate-crd-module to produce typed openkrill NixOS modules.
+#
+# Usage: bin/helm-chart-crds
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+process_chart() {
+  local repo="$1" chart_name="$2" repo_url="$3" chart="$4" version="$5"
+  local tmpdir chart_dir
+
+  tmpdir=$(mktemp -d)
+  trap 'rm -rf "$tmpdir"' RETURN
+
+  echo "  Downloading ${chart} v${version} from ${repo_url} ..." >&2
+  if ! helm pull --repo "$repo_url" --version "$version" --untar -d "$tmpdir" "$chart" 2>/dev/null; then
+    echo "  SKIP: helm pull failed" >&2
+    return
+  fi
+
+  chart_dir="${tmpdir}/${chart}"
+  if [[ ! -d "${chart_dir}/crds" ]]; then
+    echo "  SKIP: no crds/ directory" >&2
+    return
+  fi
+
+  local crd_files=()
+  while IFS= read -r -d '' f; do
+    crd_files+=("$f")
+  done < <(find "${chart_dir}/crds" -maxdepth 1 -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 | sort -z)
+
+  if [[ ${#crd_files[@]} -eq 0 ]]; then
+    echo "  SKIP: crds/ directory empty" >&2
+    return
+  fi
+
+  local out_dir="${PROJECT_DIR}/modules/${chart_name}"
+  mkdir -p "$out_dir"
+
+  echo "  Found ${#crd_files[@]} CRD file(s), generating module ..." >&2
+  "${SCRIPT_DIR}/generate-crd-module" "$chart_name" "${crd_files[@]}" > "${out_dir}/crds.nix"
+  echo "  Wrote ${out_dir}/crds.nix" >&2
+}
+
+echo "Evaluating all chartsMeta ..." >&2
+ALL_JSON=$(nix eval "path:${PROJECT_DIR}#chartsMeta" --json)
+
+echo "Iterating all nixhelm charts ..." >&2
+echo "$ALL_JSON" | ruby -rjson -e '
+  meta = JSON.parse(STDIN.read)
+  meta.each do |repo, charts|
+    charts.each do |chart_name, info|
+      puts [repo, chart_name, info["repo"], info["chart"], info["version"]].join("\t")
+    end
+  end
+' | while IFS=$'\t' read -r repo chart_name repo_url chart version; do
+  echo "[${repo}/${chart_name}]" >&2
+  process_chart "$repo" "$chart_name" "$repo_url" "$chart" "$version"
+done
+
+echo "Done." >&2

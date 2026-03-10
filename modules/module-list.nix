@@ -11,11 +11,13 @@
   ./cloudnative-pg
   ./external-secrets
   ./forgejo-runner
+  ./helm
   ./kamaji
   ./lago
   ./metacontroller
   ./opencloud
   ./theia-ide
+  ./traefik
   ./trust-manager
   ./victoriametrics
 ]

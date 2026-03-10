@@ -14,6 +14,15 @@
       forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems f;
     in
     {
+      # ── Chart metadata ──────────────────────────────────────────
+      #
+      # Raw chart metadata from nixhelm (repo, chart, version, chartHash).
+      # Used by bin/helm-chart-crds to download charts and extract CRDs.
+      #
+      #   nix eval .#chartsMeta.jetstack.cert-manager --json
+      #
+      chartsMeta = nixhelm.chartsMetadata;
+
       # ── Reusable NixOS module ──────────────────────────────────
       #
       # Includes the k3s service module and the app module framework
@@ -63,6 +72,12 @@
             inherit pkgs;
             openkrill-module = self.nixosModules.default;
           };
+          helm-module-test = import ./tests/helm-module-test.nix {
+            inherit pkgs;
+          };
+          traefik-module-test = import ./tests/traefik-module-test.nix {
+            inherit pkgs;
+          };
         }
       );
 
@@ -76,8 +91,8 @@
             packages = with pkgs; [
               git
               ruby_3_4
+              kubernetes-helm
               #kubectl
-              #kubernetes-helm
               #k9s
             ];
             shellHook = ''

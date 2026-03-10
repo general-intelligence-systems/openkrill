@@ -1,0 +1,29 @@
+name: Update CRD SHAs
+
+on:
+  schedule:
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+
+jobs:
+  update-crd-shas:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update CRD SHAs
+        run: bin/update-crd-shas
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet && exit 0
+          git add data/crds.csv
+          git commit -m "Update CRD SHAs"
+          git remote set-url origin "https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }}.git"
+          git push

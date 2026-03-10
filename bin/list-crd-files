@@ -1,0 +1,98 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Lists individual CRD YAML files for each entry in data/crds.csv by querying
+# the GitHub Contents API, and writes the result to data/crd-files.csv.
+#
+# Each row in the output CSV maps one schema_name to one YAML file, with the
+# file's blob SHA.
+#
+# Usage: bin/list-crd-files
+#
+# Requires: gh (GitHub CLI), authenticated
+
+require "csv"
+require "json"
+require "open3"
+
+INPUT_CSV  = File.join(__dir__, "..", "data", "crds.csv")
+OUTPUT_CSV = File.join(__dir__, "..", "data", "crd-files.csv")
+
+HEADERS = %w[repo_url schema_name helm_name crd_path file_path file_sha].freeze
+
+table = CSV.read(INPUT_CSV, headers: true)
+
+# Cache: "repo_url|crd_path" -> array of {name:, path:, sha:}
+# Avoids duplicate API calls when multiple CSV rows share the same repo+path.
+cache = {}
+
+output_rows = []
+total = table.count { |r| r["crd_path"] && !r["crd_path"].empty? }
+count = 0
+api_calls = 0
+skipped = 0
+
+table.each do |row|
+  crd_path = row["crd_path"]
+  repo_url = row["repo_url"]
+
+  if crd_path.nil? || crd_path.empty? || repo_url.nil? || repo_url.empty?
+    skipped += 1
+    next
+  end
+
+  count += 1
+  owner_repo = repo_url.sub("https://github.com/", "")
+  cache_key = "#{repo_url}|#{crd_path}"
+
+  unless cache.key?(cache_key)
+    $stderr.print "[#{count}/#{total}] #{owner_repo} #{crd_path} ... "
+
+    stdout, status = Open3.capture2(
+      "gh", "api",
+      "repos/#{owner_repo}/contents/#{crd_path}",
+      "--jq", '[.[] | select(.type == "file") | {name: .name, path: .path, sha: .sha}]'
+    )
+
+    if status.success? && !stdout.strip.empty?
+      entries = JSON.parse(stdout.strip)
+      files = entries.select { |e| e["name"].match?(/\.(yaml|yml)\z/i) }
+                     .sort_by { |e| e["name"] }
+      cache[cache_key] = files
+      api_calls += 1
+      $stderr.puts "#{files.size} YAML files"
+    else
+      cache[cache_key] = []
+      api_calls += 1
+      $stderr.puts "FAILED"
+    end
+  end
+
+  files = cache[cache_key]
+
+  if files.empty?
+    $stderr.puts "  WARN: no YAML files found under #{crd_path} for #{row["schema_name"]}"
+  end
+
+  files.each do |file|
+    output_rows << [
+      repo_url,
+      row["schema_name"],
+      row["helm_name"],
+      crd_path,
+      file["path"],
+      file["sha"]
+    ]
+  end
+end
+
+# Write output CSV
+CSV.open(OUTPUT_CSV, "w") do |csv|
+  csv << HEADERS
+  output_rows.each { |r| csv << r }
+end
+
+# Summary
+$stderr.puts
+$stderr.puts "Done. #{count} rows processed, #{api_calls} API calls, #{skipped} skipped."
+$stderr.puts "#{output_rows.size} file rows written to #{OUTPUT_CSV}"

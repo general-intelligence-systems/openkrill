@@ -33,4 +33,5 @@ Design documentation for Openkrill.
 | [k8s-manifests-architecture.md](./k8s-manifests-architecture.md) | [cluster/](../cluster/) | Architecture overview of the openkrill NixOS module system: manifests, apps, and gitops layers |
 | [k8s-manifests-helm.md](./k8s-manifests-helm.md) | [cluster/modules/](../cluster/modules/) | How to create a Helm-based app module under `modules/` |
 | [nix-module-apps.md](./nix-module-apps.md) | [cluster/modules/](../cluster/modules/) | How-to guide for creating NixOS-style cluster app modules under `cluster/modules/` |
+| [nix-module-crds.md](./nix-module-crds.md) | [modules/](../modules/) | How to create a CRD-only module from a CRD specification |
 

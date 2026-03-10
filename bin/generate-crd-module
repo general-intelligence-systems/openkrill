@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: bin/generate-crd-module <module-name> <crd.yaml> [<crd.yaml> ...]"
+  echo ""
+  echo "Generates an openkrill module from CRD YAML specifications."
+  echo "Output is printed to stdout."
+  echo ""
+  echo "Example:"
+  echo "  bin/generate-crd-module gateway gateway-crd.yaml > modules/gateway/default.nix"
+  echo "  bin/generate-crd-module gateway-api gateways.yaml httproutes.yaml > modules/gateway-api/default.nix"
+  exit 1
+}
+
+[[ $# -lt 2 ]] && usage
+
+MODULE_NAME="$1"
+shift
+
+# Convert each CRD YAML to JSON using Ruby (available in devshell)
+CRDS_JSON="["
+first=true
+for crd_file in "$@"; do
+  [[ ! -f "$crd_file" ]] && echo "Error: $crd_file not found" >&2 && exit 1
+  $first || CRDS_JSON+=","
+  CRDS_JSON+=$(ruby -ryaml -rjson -e "puts JSON.generate(YAML.safe_load_file(ARGV[0]))" "$crd_file")
+  first=false
+done
+CRDS_JSON+="]"
+
+# Write JSON to temp file (CRDs can be large)
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
+echo "$CRDS_JSON" > "$TMPFILE"
+
+# Run the Nix generator
+nix-instantiate --eval --strict --json -E "
+  let
+    pkgs = import <nixpkgs> {};
+    generator = import ${SCRIPT_DIR}/lib/generate-module.nix { inherit (pkgs) lib; };
+    crds = builtins.fromJSON (builtins.readFile ${TMPFILE});
+  in
+  generator.generateModule {
+    inherit crds;
+    moduleName = \"${MODULE_NAME}\";
+  }
+" | ruby -rjson -e 'puts JSON.parse(STDIN.read)'
