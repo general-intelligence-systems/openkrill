@@ -10,7 +10,5 @@
       default = "cluster.local";
       description = "Base domain for cluster services (e.g. mycompany.com).";
     };
-
-
   };
 }

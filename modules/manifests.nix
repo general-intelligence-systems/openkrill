@@ -161,6 +161,16 @@ in
       "L+ ${gitopsCfg.basePath}/${gitopsCfg.repoName} - - - - ${cfg.renderedManifestRepo}"
     ];
 
+    # The repo is a symlink to a Nix store path owned by root, but
+    # git-daemon runs as the `git` user.  Git ≥ 2.36 rejects this
+    # ownership mismatch.  Scope the safe.directory override to just
+    # the git-daemon service via environment variables.
+    systemd.services.git-daemon.environment = mkIf useGitDaemon {
+      GIT_CONFIG_COUNT = "1";
+      GIT_CONFIG_KEY_0 = "safe.directory";
+      GIT_CONFIG_VALUE_0 = "${gitopsCfg.basePath}/${gitopsCfg.repoName}";
+    };
+
     # Bootstrap every default-enabled module into the cluster via k3s
     # auto-deploy so the full stack is running before ArgoCD begins syncing.
     # Each module still has an ArgoCD Application CR for ongoing
