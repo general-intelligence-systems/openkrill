@@ -19,7 +19,14 @@ in
   ];
 
   options.openkrill.apps."gateway-api" = {
-    enable = mkEnableOption "gateway-api CRD resources";
+    # mkEnableOption defaults to false, but manifests.nix unconditionally
+    # references enabledManifests.gateway-api for k3s bootstrap auto-deploy.
+    # Must default to true so the manifest exists whenever the module is imported.
+    enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to enable gateway-api CRD resources.";
+    };
     extraManifests = helpers.mkExtraManifestsOption;
     safeUpgrades = mkOption {
       type = types.bool;

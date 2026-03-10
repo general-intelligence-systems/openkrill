@@ -76,7 +76,13 @@ in
     };
 
     gitops = {
-      enable = mkEnableOption "openkrill gitops serving";
+      # mkEnableOption defaults to false, but openkrill.nix sets this to
+      # mkDefault true so gitops serving is active whenever the module is imported.
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Whether to enable openkrill gitops serving.";
+      };
 
       method = mkOption {
         type = types.enum [ "gitDaemon" ];
@@ -155,15 +161,20 @@ in
       "L+ ${gitopsCfg.basePath}/${gitopsCfg.repoName} - - - - ${cfg.renderedManifestRepo}"
     ];
 
-    # Bootstrap core infrastructure into the cluster via k3s auto-deploy.
-    # cert-manager and trust-manager are included alongside ArgoCD so they
-    # are running before ArgoCD begins syncing apps that depend on TLS
-    # certificates or the cluster CA bundle.  All three still have ArgoCD
-    # Application CRs for ongoing self-management (same pattern ArgoCD
-    # itself uses).
+    # Bootstrap every default-enabled module into the cluster via k3s
+    # auto-deploy so the full stack is running before ArgoCD begins syncing.
+    # Each module still has an ArgoCD Application CR for ongoing
+    # self-management (same pattern ArgoCD itself uses).
     services.k3s.manifests = {
       openkrill-argocd.content = enabledManifests.argocd.content;
+      openkrill-authelia.content = enabledManifests.authelia.content;
       openkrill-cert-manager.content = enabledManifests.cert-manager.content;
+      openkrill-cloudnative-pg.content = enabledManifests.cloudnative-pg.content;
+      openkrill-core-dns.content = enabledManifests.core-dns.content;
+      openkrill-external-secrets.content = enabledManifests.external-secrets.content;
+      openkrill-gateway-api.content = enabledManifests.gateway-api.content;
+      openkrill-helm.content = enabledManifests.helm.content;
+      openkrill-traefik.content = enabledManifests.traefik.content;
       openkrill-trust-manager.content = enabledManifests.trust-manager.content;
     };
   };

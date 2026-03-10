@@ -515,7 +515,14 @@ let
 in
 {
   options.openkrill.apps.traefik = {
-    enable = mkEnableOption "Traefik CRD resources (IngressRoute, Middleware, etc.)";
+    # mkEnableOption defaults to false, but manifests.nix unconditionally
+    # references enabledManifests.traefik for k3s bootstrap auto-deploy.
+    # Must default to true so the manifest exists whenever the module is imported.
+    enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to enable Traefik CRD resources (IngressRoute, Middleware, etc.).";
+    };
 
     ingressRoutes = mkOption {
       type = types.attrsOf ingressRouteModule;

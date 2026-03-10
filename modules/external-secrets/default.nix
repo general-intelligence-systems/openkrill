@@ -117,7 +117,14 @@ in
   ];
 
   options.openkrill.apps.external-secrets = {
-    enable = mkEnableOption "External Secrets Operator";
+    # mkEnableOption defaults to false, but manifests.nix unconditionally
+    # references enabledManifests.external-secrets for k3s bootstrap auto-deploy.
+    # Must default to true so the manifest exists whenever the module is imported.
+    enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to enable External Secrets Operator.";
+    };
 
     namespace = mkOption {
       type = types.str;

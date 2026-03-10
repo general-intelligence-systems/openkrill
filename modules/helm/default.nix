@@ -304,7 +304,14 @@ let
 in
 {
   options.openkrill.apps.helm = {
-    enable = mkEnableOption "k3s HelmChart and HelmChartConfig CRD resources";
+    # mkEnableOption defaults to false, but manifests.nix unconditionally
+    # references enabledManifests.helm for k3s bootstrap auto-deploy.
+    # Must default to true so the manifest exists whenever the module is imported.
+    enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to enable k3s HelmChart and HelmChartConfig CRD resources.";
+    };
 
     charts = mkOption {
       type = types.attrsOf helmChartModule;

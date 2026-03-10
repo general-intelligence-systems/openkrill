@@ -207,7 +207,14 @@ let
 in
 {
   options.openkrill.apps.authelia = {
-    enable = mkEnableOption "Authelia SSO portal + OIDC provider";
+    # mkEnableOption defaults to false, but manifests.nix unconditionally
+    # references enabledManifests.authelia for k3s bootstrap auto-deploy.
+    # Must default to true so the manifest exists whenever the module is imported.
+    enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to enable Authelia SSO portal + OIDC provider.";
+    };
 
     namespace = mkOption {
       type = types.str;

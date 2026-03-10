@@ -44,7 +44,14 @@ let
 in
 {
   options.openkrill.apps.core-dns = {
-    enable = mkEnableOption "CoreDNS customisation and host-gateway access";
+    # mkEnableOption defaults to false, but manifests.nix unconditionally
+    # references enabledManifests.core-dns for k3s bootstrap auto-deploy.
+    # Must default to true so the manifest exists whenever the module is imported.
+    enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to enable CoreDNS customisation and host-gateway access.";
+    };
 
     namespace = mkOption {
       type = types.str;
