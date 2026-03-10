@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+
+require 'bundler/inline'
+
+gemfile do
+  source 'https://rubygems.org'
+  gem 'activemodel'
+end
+
+require 'json'
+require 'active_model'
+
+class HelmChart
+  include ActiveModel::API
+  include ActiveModel::Model
+  include ActiveModel::Attributes
+
+  attribute :name,      :string
+  attribute :repo,      :string
+  attribute :chart,     :string
+  attribute :chartHash, :string
+  attribute :version,   :string
+  attribute :bogusVersion, :string
+end
+
+raw_data = `nix eval "path:.#chartsMeta" --json`
+
+JSON.parse(raw_data).then do |json|
+
+  json.each do |entry|
+    org_name = entry[0]
+    repo_name = entry[1].keys.first
+    chart_data = entry[1].values.first
+
+    if org_name == "1password"
+      chart_data["name"] = org_name
+    else
+      chart_data["name"] = repo_name
+    end
+
+    HelmChart.new(chart_data).then do |chart|
+      if chart.repo.start_with?("oci://")
+        crds = `helm show crds #{chart.repo}/#{chart.chart} --version #{chart.version}`
+      else
+        crds = `helm show crds #{chart.chart} --repo #{chart.repo} --version #{chart.version}`
+      end
+
+      unless crds.strip.empty?
+        puts crds
+      end
+    end
+  end
+end
+
