@@ -154,6 +154,8 @@ in
     ];
 
     # Bootstrap ArgoCD into the cluster via k3s auto-deploy
-    services.k3s.manifests.openkrill-argocd.content = enabledManifests.argocd.content;
+    services.k3s.manifests = mkIf (enabledManifests ? argocd) {
+      openkrill-argocd.content = enabledManifests.argocd.content;
+    };
   };
 }

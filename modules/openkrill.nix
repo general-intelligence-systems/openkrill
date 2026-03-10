@@ -7,9 +7,15 @@
 #     services.openkrill.enable = true;
 #   }
 #
-# This module only configures the k3s service and related networking.
-# It does NOT set system.stateVersion, boot loader, or user accounts --
-# those are the consumer's responsibility.
+# This module configures the k3s service, related networking, and
+# enables the default app stack.  It does NOT set system.stateVersion,
+# boot loader, or user accounts -- those are the consumer's
+# responsibility.
+#
+# When enabled, the following apps are activated by default (via
+# mkDefault, so consumers can still opt out of individual apps):
+#
+#   openkrill.apps.core-dns.enable = false;  # to disable
 { config, lib, pkgs, ... }:
 
 let
@@ -55,6 +61,28 @@ in
       enable = true;
       role = cfg.role;
       extraFlags = lib.mkIf (cfg.extraFlags != "") cfg.extraFlags;
+    };
+
+    # ── Default app stack ────────────────────────────────────────────
+    # These are enabled by default when services.openkrill is enabled.
+    # Consumers can opt out of any individual app:
+    #   openkrill.apps.authelia.enable = false;
+    openkrill.gitops.enable = lib.mkDefault true;
+
+    openkrill.apps = {
+      # Apps with no required options — safe to enable unconditionally.
+      cert-manager.enable     = lib.mkDefault true;
+      cloudnative-pg.enable   = lib.mkDefault true;
+      core-dns.enable         = lib.mkDefault true;
+      external-secrets.enable = lib.mkDefault true;
+      gateway-api.enable      = lib.mkDefault true;
+      helm.enable             = lib.mkDefault true;
+      traefik.enable          = lib.mkDefault true;
+
+      authelia.enable          = lib.mkDefault true;
+
+      # argocd requires caCertFile (types.path, no default).
+      # Enable it explicitly in your configuration.nix.
     };
   };
 }

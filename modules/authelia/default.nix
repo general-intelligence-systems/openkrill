@@ -1,7 +1,6 @@
 # modules/authelia — Authelia SSO portal + OIDC provider
-# Provides ext_authz authentication for all services via Istio.
 # Acts as OpenID Connect 1.0 provider for ArgoCD, Windmill, Harbor, etc.
-# Uses LLDAP as the user directory backend.
+# Uses file-based user database by default.
 { config, lib, charts, kubelib, ... }:
 with lib;
 let
@@ -128,15 +127,10 @@ let
 
     configMap = {
       authentication_backend = {
-        ldap = {
+        file = {
           enabled = true;
-          implementation = "lldap";
-          address = cfg.ldapAddress;
-          base_dn = cfg.ldapBaseDn;
-          user = "uid=admin,ou=people,${cfg.ldapBaseDn}";
-          password = {
-            disabled = false;
-          };
+          path = "/config/users.yml";
+          watch = true;
         };
       };
 
@@ -220,20 +214,15 @@ in
       default = "authelia";
     };
 
-    ldapAddress = mkOption {
-      type = types.str;
-      default = "ldap://lldap.lldap.svc.cluster.local:3890";
-      description = "LDAP server address.";
-    };
-
-    ldapBaseDn = mkOption {
-      type = types.str;
-      description = "LDAP base DN (e.g. dc=cia,dc=net).";
-    };
-
     sessionCookies = mkOption {
       type = types.listOf types.attrs;
-      description = "Authelia session cookie configurations.";
+      default = [
+        {
+          domain = domain;
+          authelia_url = "https://auth.${domain}";
+        }
+      ];
+      description = "Authelia session cookie configurations. Defaults to a single cookie using openkrill.domain.";
     };
 
     accessControlRules = mkOption {
