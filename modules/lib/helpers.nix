@@ -31,4 +31,45 @@ rec {
       name = "${prefix}/${name}";
       value = { inherit content; };
     }) extraManifests;
+
+  # Generates a ServiceAccount + ClusterRole + ClusterRoleBinding triple.
+  # Returns a list of three K8s resource attrsets.
+  #
+  # Example:
+  #   mkClusterRBAC {
+  #     name = "eso-secret-store-reader";
+  #     namespace = "external-secrets";
+  #     rules = [
+  #       { apiGroups = [ "" ]; resources = [ "secrets" ]; verbs = [ "get" "list" "watch" ]; }
+  #     ];
+  #   }
+  mkClusterRBAC = { name, namespace, rules }: [
+    {
+      apiVersion = "v1";
+      kind = "ServiceAccount";
+      metadata = { inherit name namespace; };
+    }
+    {
+      apiVersion = "rbac.authorization.k8s.io/v1";
+      kind = "ClusterRole";
+      metadata = { inherit name; };
+      inherit rules;
+    }
+    {
+      apiVersion = "rbac.authorization.k8s.io/v1";
+      kind = "ClusterRoleBinding";
+      metadata = { inherit name; };
+      roleRef = {
+        apiGroup = "rbac.authorization.k8s.io";
+        kind = "ClusterRole";
+        inherit name;
+      };
+      subjects = [
+        {
+          kind = "ServiceAccount";
+          inherit name namespace;
+        }
+      ];
+    }
+  ];
 }

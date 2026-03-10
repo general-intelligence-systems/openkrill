@@ -1,13 +1,15 @@
 # modules/argocd — ArgoCD GitOps controller
-# OIDC: uses Authelia as the identity provider.
+#
+# Provides a thin wrapper around the Helm chart with CA cert distribution.
+# All OIDC, RBAC, and other configuration belongs in the consumer's `values`.
 { config, lib, charts, kubelib, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.argocd;
   helpers = import ../lib/helpers.nix { inherit lib; };
+  domain = config.openkrill.domain;
 
   caCert = builtins.readFile cfg.caCertFile;
-  indentedCaCert = builtins.replaceStrings [ "\n" ] [ "\n  " ] caCert;
 
   # Build TLS certificates attrset from trustedDomains
   tlsCerts = builtins.listToAttrs (map (d: {
@@ -17,43 +19,24 @@ let
 
   defaults = {
     fullnameOverride = "argocd";
+    global.domain = "argocd.${domain}";
     configs = {
-      params = {
-        "server.insecure" = "true";
-      };
-      tls = {
-        certificates = tlsCerts;
-      };
-      cm = {
-        url = "https://${cfg.domain}";
-        "oidc.config" = ''
-          name: Authelia
-          issuer: ${cfg.oidc.issuer}
-          clientID: argocd
-          clientSecret: $argocd-oidc-secret:oidc.authelia.clientSecret
-          clientAuthMethod: client_secret_basic
-          rootCA: |
-            ${indentedCaCert}
-          requestedScopes:
-            - openid
-            - email
-            - groups
-            - profile
-          enableUserInfoGroups: true
-          userInfoPath: /api/oidc/userinfo
-          userIDKey: email
-        '';
-      };
+      tls.certificates = tlsCerts;
+      cm."oidc.config" = ''
+        name: 'Authelia'
+        issuer: 'https://auth.${domain}'
+        clientID: 'argocd'
+        clientSecret: '$argocd-oidc-secret:oidc.authelia.clientSecret'
+        cliClientID: 'argocd-cli'
+        requestedScopes:
+          - 'openid'
+          - 'email'
+          - 'groups'
+        enableUserInfoGroups: true
+        userInfoPath: '/api/oidc/userinfo'
+      '';
       rbac = {
-        "policy.csv" = ''
-          g, nathankidd@hey.com, role:admin
-          p, role:admin, applications, *, */*, allow
-          p, role:admin, clusters, *, *, allow
-          p, role:admin, repositories, *, *, allow
-          p, role:admin, projects, *, *, allow
-          p, deploy-bot, applications, sync, */*, allow
-          p, deploy-bot, applications, get, */*, allow
-        '';
+        "policy.csv" = "g, argocd-admins, role:admin";
         "policy.default" = "role:readonly";
         scopes = "[email, groups]";
       };
@@ -61,17 +44,18 @@ let
   };
 in
 {
+  imports = [
+    ./applications.nix
+    ./applicationsets.nix
+    ./appprojects.nix
+  ];
+
   options.openkrill.apps.argocd = {
     enable = mkEnableOption "ArgoCD GitOps controller";
 
     namespace = mkOption {
       type = types.str;
       default = "argocd";
-    };
-
-    domain = mkOption {
-      type = types.str;
-      description = "FQDN for ArgoCD (e.g. argocd.cia.net).";
     };
 
     caCertFile = mkOption {
@@ -83,11 +67,6 @@ in
       type = types.listOf types.str;
       default = [];
       description = "Domains whose TLS should be trusted via the CA cert.";
-    };
-
-    oidc.issuer = mkOption {
-      type = types.str;
-      description = "OIDC issuer URL (e.g. https://auth.cia.net).";
     };
 
     values = mkOption {
