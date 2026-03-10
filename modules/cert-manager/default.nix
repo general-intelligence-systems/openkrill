@@ -64,7 +64,11 @@ let
 in
 {
   options.openkrill.apps.cert-manager = {
-    enable = mkEnableOption "cert-manager TLS certificate controller";
+    enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to enable cert-manager TLS certificate controller.";
+    };
 
     namespace = mkOption {
       type = types.str;

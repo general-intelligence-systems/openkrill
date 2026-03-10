@@ -71,7 +71,11 @@ in
   ];
 
   options.openkrill.apps.argocd = {
-    enable = mkEnableOption "ArgoCD GitOps controller";
+    enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to enable ArgoCD GitOps controller.";
+    };
 
     namespace = mkOption {
       type = types.str;

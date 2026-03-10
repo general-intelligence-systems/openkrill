@@ -69,7 +69,11 @@ let
 in
 {
   options.openkrill.apps.trust-manager = {
-    enable = mkEnableOption "trust-manager CA bundle distribution";
+    enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to enable trust-manager CA bundle distribution.";
+    };
 
     namespace = mkOption {
       type = types.str;
