@@ -1,12 +1,24 @@
 # modules/authelia — Authelia SSO portal + OIDC provider
 # Acts as OpenID Connect 1.0 provider for ArgoCD, Windmill, Harbor, etc.
-# Uses file-based user database by default.
+# Uses LLDAP as LDAP backend when openkrill.apps.lldap is enabled,
+# otherwise falls back to a file-based user database.
+#
+# Database: uses the shared CNPG PostgreSQL cluster.  A Database CRD
+# creates the "authelia" database and an ExternalSecret mirrors
+# connection credentials into the authelia namespace.
 { config, lib, charts, kubelib, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.authelia;
+  lldapCfg = config.openkrill.apps.lldap;
+  lldapEnabled = lldapCfg.enable;
+  cnpgCfg = config.openkrill.apps.cloudnative-pg;
   domain = config.openkrill.domain;
   helpers = import ../lib/helpers.nix { inherit lib; };
+
+  # CNPG shared cluster details
+  cnpgAppSecret = "${cnpgCfg.clusterName}-app";
+  dbSecretName = "authelia-db";
 
   # Derive client_id from display name: lowercase and remove spaces.
   #   "Argo CD" → "argocd"
@@ -126,7 +138,16 @@ let
     };
 
     configMap = {
-      authentication_backend = {
+      authentication_backend = if lldapEnabled then {
+        ldap = {
+          enabled = true;
+          implementation = "lldap";
+          address = "ldap://lldap.${lldapCfg.namespace}.svc.cluster.local:3890";
+          base_dn = lldapCfg.baseDn;
+          user = "UID=${lldapCfg.adminUser},OU=people,${lldapCfg.baseDn}";
+        };
+        password_reset.disable = false;
+      } else {
         file = {
           enabled = true;
           path = "/config/users.yml";
@@ -139,9 +160,18 @@ let
       };
 
       storage = {
-        local = {
+        local.enabled = false;
+        postgres = {
           enabled = true;
-          path = "/config/db.sqlite3";
+          address = "tcp://${cnpgCfg.clusterName}-rw.${cnpgCfg.namespace}.svc.cluster.local:5432";
+          database = "authelia";
+          schema = "public";
+          username = "app";
+          password = {
+            disabled = false;
+            secret_name = dbSecretName;
+            path = "password";
+          };
         };
       };
 
@@ -260,6 +290,30 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── CNPG Database (inside the shared cluster) ─────────────────────
+    openkrill.apps.cloudnative-pg.databases.authelia = {
+      namespace = cnpgCfg.namespace;
+      name = "authelia";
+      owner = "app";
+      cluster.name = cnpgCfg.clusterName;
+    };
+
+    # ── ExternalSecret for Authelia secrets ─────────────────────────
+    openkrill.apps.external-secrets.secrets.authelia = {
+      namespace = cfg.namespace;
+      keys =
+        [
+          "identity_providers.oidc.hmac_secret"
+          "identity_providers.oidc.jwks.0.key"
+          "session.encryption_key"
+          "storage.encryption_key"
+        ]
+        # When LLDAP is enabled, the authelia source secret in
+        # secret-store must also contain authentication.ldap.password.txt
+        # (the LDAP bind password, same value as LLDAP admin password).
+        ++ optional lldapEnabled "authentication.ldap.password.txt";
+    };
+
     openkrill.apps."gateway-api".httproutes.authelia = helpers.mkHTTPRoute {
       subdomain = "auth";
       namespace = cfg.namespace;
@@ -289,13 +343,48 @@ in
 
     openkrill.manifests = mkMerge [
       {
-        authelia.content = kubelib.fromHelm {
-          name = "authelia";
-          chart = charts.authelia.authelia;
-          namespace = cfg.namespace;
-          extraOpts = [ "--skip-schema-validation" ];
-          values = recursiveUpdate defaults cfg.values;
-        };
+        authelia.content =
+          (kubelib.fromHelm {
+            name = "authelia";
+            chart = charts.authelia.authelia;
+            namespace = cfg.namespace;
+            extraOpts = [ "--skip-schema-validation" ];
+            values = recursiveUpdate defaults cfg.values;
+          })
+          ++ [
+            # ── ExternalSecret: database credentials ──────────────
+            # Reads password from the shared CNPG cluster's app
+            # secret and creates a Secret the Authelia Helm chart
+            # can mount for the PostgreSQL password file.
+            {
+              apiVersion = "external-secrets.io/v1";
+              kind = "ExternalSecret";
+              metadata = {
+                name = dbSecretName;
+                namespace = cfg.namespace;
+              };
+              spec = {
+                refreshInterval = "1h";
+                secretStoreRef = {
+                  name = cnpgCfg.clusterSecretStoreName;
+                  kind = "ClusterSecretStore";
+                };
+                target = {
+                  name = dbSecretName;
+                  creationPolicy = "Owner";
+                };
+                data = [
+                  {
+                    secretKey = "password";
+                    remoteRef = {
+                      key = cnpgAppSecret;
+                      property = "password";
+                    };
+                  }
+                ];
+              };
+            }
+          ];
       }
       (helpers.mkExtraManifestsConfig "authelia" cfg.extraManifests)
     ];

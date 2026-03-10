@@ -1,6 +1,12 @@
-# modules/cloudnative-pg — CloudNativePG operator + database instances
-# Deploys the CNPG operator and all declared PostgreSQL clusters.
-# Individual app modules declare their databases here centrally.
+# modules/cloudnative-pg — CloudNativePG operator + CRD instances
+# Deploys the CNPG operator Helm chart and a single shared PostgreSQL
+# Cluster ("postgres" by default).  App modules declare Database CRDs
+# against this shared cluster and use the "cnpg-credentials"
+# ClusterSecretStore to mirror connection details into their own
+# namespaces.
+#
+# CRD-typed submodules (clusters, databases, backups, etc.) are
+# provided by the imported fragments.
 { config, lib, charts, kubelib, ... }:
 with lib;
 let
@@ -9,40 +15,63 @@ let
 
   defaults = { };
 
-  # Build a CNPG Cluster resource from a database submodule config
-  mkPgCluster = _name: db: {
-    apiVersion = "postgresql.cnpg.io/v1";
-    kind = "Cluster";
-    metadata = {
-      name = db.name;
-      namespace = db.namespace;
-    };
-    spec = {
-      instances = db.instances;
-      storage = {
-        size = db.storageSize;
+  # ── ClusterSecretStore + RBAC for CNPG-generated secrets ──────────
+  # App modules (lldap, authelia, …) need credentials from the
+  # postgres-app secret that CNPG generates in cfg.namespace.
+  # A dedicated ClusterSecretStore + SA/RBAC lets ExternalSecrets in
+  # any namespace read those credentials.
+  cnpgStoreServiceAccount = "cnpg-secret-store-reader";
+  cnpgStoreName = "cnpg-credentials";
+
+  cnpgStoreRBAC = helpers.mkClusterRBAC {
+    name = cnpgStoreServiceAccount;
+    namespace = cfg.namespace;
+    rules = [
+      {
+        apiGroups = [ "" ];
+        resources = [ "secrets" ];
+        verbs = [ "get" "list" "watch" ];
+      }
+      {
+        apiGroups = [ "" ];
+        resources = [ "namespaces" ];
+        verbs = [ "get" "list" "watch" ];
+      }
+    ];
+  };
+
+  cnpgClusterSecretStore = {
+    apiVersion = "external-secrets.io/v1beta1";
+    kind = "ClusterSecretStore";
+    metadata.name = cnpgStoreName;
+    spec.provider.kubernetes = {
+      remoteNamespace = cfg.namespace;
+      server.caProvider = {
+        type = "ConfigMap";
+        name = "kube-root-ca.crt";
+        namespace = cfg.namespace;
+        key = "ca.crt";
       };
-      bootstrap = {
-        initdb = {
-          database = db.database;
-          owner = db.owner;
-        }
-        // optionalAttrs (db.credentialSecretName != null) {
-          secret.name = db.credentialSecretName;
-        }
-        // optionalAttrs (db.postInitSQL != []) {
-          postInitSQL = db.postInitSQL;
-        }
-        // optionalAttrs (db.postInitApplicationSQL != []) {
-          postInitApplicationSQL = db.postInitApplicationSQL;
-        };
+      auth.serviceAccount = {
+        name = cnpgStoreServiceAccount;
+        namespace = cfg.namespace;
       };
     };
   };
-
-  pgClusters = mapAttrsToList mkPgCluster cfg.databases;
 in
 {
+  imports = [
+    ./backups.nix
+    ./clusterimagecatalogs.nix
+    ./clusters.nix
+    ./databases.nix
+    ./imagecatalogs.nix
+    ./poolers.nix
+    ./publications.nix
+    ./scheduledbackups.nix
+    ./subscriptions.nix
+  ];
+
   options.openkrill.apps.cloudnative-pg = {
     # mkEnableOption defaults to false, but manifests.nix unconditionally
     # references enabledManifests.cloudnative-pg for k3s bootstrap auto-deploy.
@@ -56,7 +85,24 @@ in
     namespace = mkOption {
       type = types.str;
       default = "cnpg-system";
-      description = "Namespace for the CNPG operator.";
+      description = "Namespace for the CNPG operator and the shared PostgreSQL cluster.";
+    };
+
+    clusterName = mkOption {
+      type = types.str;
+      default = "postgres";
+      description = "Name of the shared CNPG Cluster resource.";
+    };
+
+    clusterSecretStoreName = mkOption {
+      type = types.str;
+      default = cnpgStoreName;
+      readOnly = true;
+      description = ''
+        Name of the ClusterSecretStore that exposes CNPG-generated
+        secrets.  App modules reference this when creating
+        ExternalSecrets for database credentials.
+      '';
     };
 
     values = mkOption {
@@ -65,71 +111,20 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
-    databases = mkOption {
-      type = types.attrsOf (types.submodule ({ name, ... }: {
-        options = {
-          name = mkOption {
-            type = types.str;
-            default = "${name}-pg";
-            description = "CNPG Cluster resource name.";
-          };
-
-          namespace = mkOption {
-            type = types.str;
-            description = "Namespace for this database cluster.";
-          };
-
-          database = mkOption {
-            type = types.str;
-            default = name;
-            description = "Database name to create.";
-          };
-
-          owner = mkOption {
-            type = types.str;
-            default = name;
-            description = "Database owner role.";
-          };
-
-          instances = mkOption {
-            type = types.int;
-            default = 1;
-            description = "Number of PostgreSQL instances.";
-          };
-
-          storageSize = mkOption {
-            type = types.str;
-            default = "5Gi";
-            description = "PVC storage size for the database.";
-          };
-
-          credentialSecretName = mkOption {
-            type = types.nullOr types.str;
-            default = null;
-            description = "K8s Secret with bootstrap credentials. If null, CNPG auto-generates.";
-          };
-
-          postInitSQL = mkOption {
-            type = types.listOf types.str;
-            default = [];
-            description = "SQL statements to run after database creation (as superuser).";
-          };
-
-          postInitApplicationSQL = mkOption {
-            type = types.listOf types.str;
-            default = [];
-            description = "SQL statements to run after database creation (as the owner role).";
-          };
-        };
-      }));
-      default = {};
-      description = "PostgreSQL database instances managed by CNPG.";
-    };
-
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
+    # ── Shared CNPG Cluster ───────────────────────────────────────────
+    # Single PostgreSQL instance for the platform.  App modules add
+    # Database CRDs that create additional databases inside this cluster.
+    openkrill.apps.cloudnative-pg.clusters.${cfg.clusterName} = {
+      namespace = cfg.namespace;
+      instances = 1;
+      storage.size = "5Gi";
+    };
+
+    # ── ArgoCD Application CR ─────────────────────────────────────────
     openkrill.apps.argocd.applications.cloudnative-pg = {
       namespace = "argocd";
       project = "default";
@@ -149,6 +144,7 @@ in
       };
     };
 
+    # ── Manifests ─────────────────────────────────────────────────────
     openkrill.manifests = mkMerge [
       {
         cloudnative-pg.content =
@@ -158,7 +154,8 @@ in
             namespace = cfg.namespace;
             values = recursiveUpdate defaults cfg.values;
           })
-          ++ pgClusters;
+          ++ cnpgStoreRBAC
+          ++ [ cnpgClusterSecretStore ];
       }
       (helpers.mkExtraManifestsConfig "cloudnative-pg" cfg.extraManifests)
     ];

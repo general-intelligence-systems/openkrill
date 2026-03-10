@@ -15,6 +15,7 @@
   ./gateway-api
   ./helm
   ./kamaji
+  ./lldap
   ./lago
   ./metacontroller
   ./opencloud

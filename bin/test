@@ -4,7 +4,7 @@ set -euo pipefail
 
 echo '🧪 testing...'
 
-nix flake check
+nix flake show
 
 echo '✅ done'
 

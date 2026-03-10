@@ -44,22 +44,15 @@
           oidc.issuer = "https://auth.${domain}";
         };
 
-        # ── Database ────────────────────────────────────────────────
-        openkrill.apps.cloudnative-pg = {
+        # ── LDAP user management ────────────────────────────────────
+        openkrill.apps.lldap = {
           enable = true;
-          databases.authelia = {
-            namespace = "authelia";
-          };
-          databases.opencloud = {
-            namespace = "opencloud";
-            storageSize = "10Gi";
-          };
+          baseDn = "dc=example,dc=com";
         };
 
         # ── SSO ─────────────────────────────────────────────────────
         openkrill.apps.authelia = {
           enable = true;
-          ldapBaseDn = "dc=example,dc=com";
           sessionCookies = [
             {
               domain = domain;

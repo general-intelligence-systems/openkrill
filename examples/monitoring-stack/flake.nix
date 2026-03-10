@@ -27,7 +27,7 @@
       system = "x86_64-linux";
       domain = "example.com";
 
-      clusterConfig = { lib, ... }: {
+      clusterConfig = { config, lib, ... }: {
         imports = [
           openkrill.nixosModules.default
         ];
@@ -68,15 +68,13 @@
         };
 
         # ── Database ────────────────────────────────────────────────
-        openkrill.apps.cloudnative-pg = {
-          enable = true;
-          databases.myapp = {
-            namespace = "myapp";
-            storageSize = "50Gi";
-          };
-          databases.authelia = {
-            namespace = "authelia";
-          };
+        # The shared CNPG cluster ("postgres") and authelia's database
+        # are auto-provisioned.  Only declare app-specific databases.
+        openkrill.apps.cloudnative-pg.databases.myapp = {
+          namespace = config.openkrill.apps.cloudnative-pg.namespace;
+          name = "myapp";
+          owner = "app";
+          cluster.name = config.openkrill.apps.cloudnative-pg.clusterName;
         };
 
         # ── Custom app bundle ───────────────────────────────────────
