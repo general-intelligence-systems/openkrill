@@ -69,6 +69,9 @@ let
 in
 {
   options.openkrill.apps.trust-manager = {
+    # mkEnableOption defaults to false, but manifests.nix unconditionally
+    # references enabledManifests.trust-manager for k3s bootstrap auto-deploy.
+    # Must default to true so the manifest exists whenever the module is imported.
     enable = mkOption {
       type = types.bool;
       default = true;

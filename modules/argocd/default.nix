@@ -71,6 +71,9 @@ in
   ];
 
   options.openkrill.apps.argocd = {
+    # mkEnableOption defaults to false, but manifests.nix unconditionally
+    # references enabledManifests.argocd for k3s bootstrap auto-deploy.
+    # Must default to true so the manifest exists whenever the module is imported.
     enable = mkOption {
       type = types.bool;
       default = true;

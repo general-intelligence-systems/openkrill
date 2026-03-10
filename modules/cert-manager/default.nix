@@ -64,6 +64,9 @@ let
 in
 {
   options.openkrill.apps.cert-manager = {
+    # mkEnableOption defaults to false, but manifests.nix unconditionally
+    # references enabledManifests.cert-manager for k3s bootstrap auto-deploy.
+    # Must default to true so the manifest exists whenever the module is imported.
     enable = mkOption {
       type = types.bool;
       default = true;
