@@ -9,11 +9,35 @@ end
 
 require 'json'
 require 'active_model'
+require 'yaml'
+require 'fileutils'
+
+def valid_yaml?(string)
+  YAML.safe_load(string)
+  true
+rescue Psych::SyntaxError
+  false
+end
+
+def extract_crds(yaml_string)
+  docs = yaml_string.split(/^---\s*$/).map(&:strip).reject(&:empty?)
+  crd_docs = docs.select do |doc|
+    parsed = YAML.safe_load(doc)
+    parsed.is_a?(Hash) && parsed['kind'] == 'CustomResourceDefinition'
+  rescue
+    false
+  end
+  crd_docs.join("\n---\n")
+end
 
 class HelmChart
   include ActiveModel::API
   include ActiveModel::Model
   include ActiveModel::Attributes
+  extend ActiveModel::Callbacks
+
+  define_model_callbacks :initialize, only: :after
+  after_initialize :normalize_repo
 
   attribute :name,      :string
   attribute :repo,      :string
@@ -21,6 +45,17 @@ class HelmChart
   attribute :chartHash, :string
   attribute :version,   :string
   attribute :bogusVersion, :string
+
+  def initialize(*)
+    super
+    run_callbacks(:initialize)
+  end
+
+  private
+
+  def normalize_repo
+    self.repo = repo&.chomp('/')
+  end
 end
 
 raw_data = `nix eval "path:.#chartsMeta" --json`
@@ -45,8 +80,26 @@ JSON.parse(raw_data).then do |json|
         crds = `helm show crds #{chart.chart} --repo #{chart.repo} --version #{chart.version}`
       end
 
-      unless crds.strip.empty?
-        puts crds
+      # Fallback: some charts ship CRDs as templates (gated behind values like crds.install)
+      # which helm show crds won't pick up. Use helm template and filter for CRDs instead.
+      if crds.strip.empty?
+        if chart.repo.start_with?("oci://")
+          rendered = `helm template release #{chart.repo}/#{chart.chart} --version #{chart.version} --include-crds 2>/dev/null`
+        else
+          rendered = `helm template release #{chart.chart} --repo #{chart.repo} --version #{chart.version} --include-crds 2>/dev/null`
+        end
+        crds = extract_crds(rendered)
+      end
+
+      if crds.strip.length > 0
+        if valid_yaml?(crds)
+          FileUtils.mkdir_p('crds')
+          File.write("crds/#{chart.name}.yaml", crds)
+        else
+          puts 'invalid yaml'
+        end
+      else
+        puts "No CRDs for #{chart.name} \t\t#{chart.repo}/#{chart.chart}"
       end
     end
   end
