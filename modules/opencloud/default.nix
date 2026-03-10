@@ -6,6 +6,10 @@ with lib;
 let
   cfg = config.openkrill.apps.opencloud;
   helpers = import ../lib/helpers.nix { inherit lib; };
+  domain = config.openkrill.domain;
+  authFilters = if config.openkrill.apps.authelia.enable && config.openkrill.apps.traefik.enable
+    then [{ type = "ExtensionRef"; extensionRef = { group = "traefik.io"; kind = "Middleware"; name = "forwardauth-authelia"; }; }]
+    else [];
 
   mkImageOption = { registry ? "docker.io", repository, tag }: {
     registry = lib.mkOption {
@@ -33,6 +37,7 @@ in
 
     domain = lib.mkOption {
       type = lib.types.str;
+      default = "cloud.${config.openkrill.domain}";
       description = "FQDN for OpenCloud (e.g. cloud.portal.net).";
     };
 
@@ -209,6 +214,7 @@ in
     collabora = {
       domain = lib.mkOption {
         type = lib.types.str;
+        default = "office.${config.openkrill.domain}";
         description = "FQDN for Collabora (e.g. office.portal.net).";
       };
 
@@ -305,6 +311,24 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps."gateway-api".httproutes.opencloud = helpers.mkHTTPRoute {
+      subdomain = "cloud";
+      namespace = cfg.namespace;
+      service = "opencloud";
+      port = 9200;
+      filters = authFilters;
+      inherit domain;
+    };
+
+    openkrill.apps."gateway-api".httproutes.collabora = helpers.mkHTTPRoute {
+      subdomain = "office";
+      namespace = cfg.namespace;
+      service = "opencloud-collabora";
+      port = 9980;
+      filters = authFilters;
+      inherit domain;
+    };
+
     openkrill.apps.argocd.applications.opencloud = {
       namespace = "argocd";
       project = "default";

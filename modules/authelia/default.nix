@@ -253,6 +253,14 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps."gateway-api".httproutes.authelia = helpers.mkHTTPRoute {
+      subdomain = "auth";
+      namespace = cfg.namespace;
+      service = "authelia";
+      port = 80;
+      inherit domain;
+    };
+
     openkrill.apps.argocd.applications.authelia = {
       namespace = "argocd";
       project = "default";

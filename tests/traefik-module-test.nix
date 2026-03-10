@@ -22,6 +22,19 @@ let
       type = lib.types.attrs;
       default = {};
     };
+    # Stubs for cross-module references from traefik module
+    options.openkrill.apps."gateway-api" = {
+      enable = lib.mkOption { type = lib.types.bool; default = false; };
+      gatewayclasses = lib.mkOption { type = lib.types.attrs; default = {}; };
+    };
+    options.openkrill.apps.helm.chartConfigs = lib.mkOption {
+      type = lib.types.attrs;
+      default = {};
+    };
+    options.openkrill.apps.authelia = {
+      enable = lib.mkOption { type = lib.types.bool; default = false; };
+      namespace = lib.mkOption { type = lib.types.str; default = "authelia"; };
+    };
   };
 
   eval = lib.evalModules {

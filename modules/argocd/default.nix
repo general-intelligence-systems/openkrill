@@ -100,6 +100,14 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps."gateway-api".httproutes.argocd = helpers.mkHTTPRoute {
+      subdomain = "argocd";
+      namespace = cfg.namespace;
+      service = "argocd-server";
+      port = 443;
+      inherit domain;
+    };
+
     openkrill.apps.argocd.applications.argocd = {
       namespace = "argocd";
       project = "default";

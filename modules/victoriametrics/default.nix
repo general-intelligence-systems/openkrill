@@ -6,6 +6,10 @@ with lib;
 let
   cfg = config.openkrill.apps.victoriametrics;
   helpers = import ../lib/helpers.nix { inherit lib; };
+  domain = config.openkrill.domain;
+  authFilters = if config.openkrill.apps.authelia.enable && config.openkrill.apps.traefik.enable
+    then [{ type = "ExtensionRef"; extensionRef = { group = "traefik.io"; kind = "Middleware"; name = "forwardauth-authelia"; }; }]
+    else [];
 
   defaults = {
     victoria-metrics-operator = {
@@ -144,6 +148,15 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps."gateway-api".httproutes.grafana = helpers.mkHTTPRoute {
+      subdomain = "grafana";
+      namespace = cfg.namespace;
+      service = "victoriametrics-grafana";
+      port = 80;
+      filters = authFilters;
+      inherit domain;
+    };
+
     openkrill.apps.argocd.applications.victoriametrics = {
       namespace = "argocd";
       project = "default";
