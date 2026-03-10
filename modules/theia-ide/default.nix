@@ -5,6 +5,10 @@ with lib;
 let
   cfg = config.openkrill.apps.theia-ide;
   helpers = import ../lib/helpers.nix { inherit lib; };
+  domain = config.openkrill.domain;
+  authFilters = if config.openkrill.apps.authelia.enable && config.openkrill.apps.traefik.enable
+    then [{ type = "ExtensionRef"; extensionRef = { group = "traefik.io"; kind = "Middleware"; name = "forwardauth-authelia"; }; }]
+    else [];
 
   chart = kubelib.downloadHelmChart {
     repo = "https://bjw-s-labs.github.io/helm-charts/";
@@ -60,6 +64,15 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps."gateway-api".httproutes.theia-ide = helpers.mkHTTPRoute {
+      subdomain = "theia";
+      namespace = cfg.namespace;
+      service = "theia-ide";
+      port = 3000;
+      filters = authFilters;
+      inherit domain;
+    };
+
     openkrill.apps.argocd.applications.theia-ide = {
       namespace = "argocd";
       project = "default";

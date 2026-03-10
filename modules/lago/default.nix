@@ -5,6 +5,10 @@ with lib;
 let
   cfg = config.openkrill.apps.lago;
   helpers = import ../lib/helpers.nix { inherit lib; };
+  domain = config.openkrill.domain;
+  authFilters = if config.openkrill.apps.authelia.enable && config.openkrill.apps.traefik.enable
+    then [{ type = "ExtensionRef"; extensionRef = { group = "traefik.io"; kind = "Middleware"; name = "forwardauth-authelia"; }; }]
+    else [];
 
   defaults = { };
 in
@@ -27,6 +31,15 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps."gateway-api".httproutes.lago = helpers.mkHTTPRoute {
+      subdomain = "lago";
+      namespace = cfg.namespace;
+      service = "lago-front";
+      port = 80;
+      filters = authFilters;
+      inherit domain;
+    };
+
     openkrill.apps.argocd.applications.lago = {
       namespace = "argocd";
       project = "default";

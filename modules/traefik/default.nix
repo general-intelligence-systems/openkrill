@@ -545,6 +545,38 @@ in
   };
 
   config = mkIf cfg.enable {
+    # When gateway-api is also enabled, configure Traefik as the
+    # Gateway API controller and register its GatewayClass.
+    openkrill.apps.helm.chartConfigs.traefik = mkIf config.openkrill.apps."gateway-api".enable {
+      valuesContent = ''
+        providers:
+          kubernetesGateway:
+            enabled: true
+      '';
+    };
+
+    openkrill.apps."gateway-api".gatewayclasses.traefik = mkIf config.openkrill.apps."gateway-api".enable {
+      namespace = "kube-system";
+      controllerName = "traefik.io/gateway-controller";
+    };
+
+    # ForwardAuth middleware — created when Authelia is also enabled.
+    openkrill.apps.traefik.middlewares.forwardauth-authelia = mkIf config.openkrill.apps.authelia.enable {
+      namespace = "kube-system";
+      spec = {
+        forwardAuth = {
+          address = "http://authelia.${config.openkrill.apps.authelia.namespace}.svc.cluster.local/api/authz/forward-auth";
+          trustForwardHeader = true;
+          authResponseHeaders = [
+            "Remote-User"
+            "Remote-Groups"
+            "Remote-Email"
+            "Remote-Name"
+          ];
+        };
+      };
+    };
+
     openkrill.apps.argocd.applications.traefik = {
       namespace = "argocd";
       project = "default";

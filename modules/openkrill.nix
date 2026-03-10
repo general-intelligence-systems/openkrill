@@ -49,6 +49,12 @@ in
       default = true;
       description = "Whether to open the Kubernetes API port (6443) in the firewall.";
     };
+
+    tls.secretName = lib.mkOption {
+      type = lib.types.str;
+      default = "wildcard-tls";
+      description = "Name of the TLS Secret referenced by the default Gateway.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -80,6 +86,57 @@ in
       helm.enable             = lib.mkDefault true;
       traefik.enable          = lib.mkDefault true;
       trust-manager.enable    = lib.mkDefault true;
+    };
+
+    # ── Default Gateway ──────────────────────────────────────────────
+    # Shared HTTPS + HTTP Gateway that app modules attach routes to.
+    openkrill.apps."gateway-api" = {
+      gateways.main = lib.mkDefault {
+        namespace = "kube-system";
+        gatewayClassName = "traefik";
+        listeners = [
+          {
+            name = "https";
+            port = 443;
+            protocol = "HTTPS";
+            hostname = "*.${config.openkrill.domain}";
+            tls = {
+              mode = "Terminate";
+              certificateRefs = [{
+                kind = "Secret";
+                name = cfg.tls.secretName;
+              }];
+            };
+            allowedRoutes.namespaces.from = "All";
+          }
+          {
+            name = "http";
+            port = 80;
+            protocol = "HTTP";
+            hostname = "*.${config.openkrill.domain}";
+            allowedRoutes.namespaces.from = "All";
+          }
+        ];
+      };
+
+      httproutes.http-to-https = lib.mkDefault {
+        namespace = "kube-system";
+        hostnames = [ "*.${config.openkrill.domain}" ];
+        parentRefs = [{
+          name = "main";
+          namespace = "kube-system";
+          sectionName = "http";
+        }];
+        rules = [{
+          filters = [{
+            type = "RequestRedirect";
+            requestRedirect = {
+              scheme = "https";
+              statusCode = 301;
+            };
+          }];
+        }];
+      };
     };
   };
 }
