@@ -148,6 +148,7 @@ in
     openkrill.manifests = mkMerge [
       {
         cloudnative-pg.content =
+          [ (k8s.mkNamespace cfg.namespace) ]
           (kubelib.fromHelm {
             name = "cloudnative-pg";
             chart = charts.cloudnative-pg.cloudnative-pg;
