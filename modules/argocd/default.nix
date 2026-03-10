@@ -121,12 +121,14 @@ in
 
     openkrill.manifests = mkMerge [
       {
-        argocd.content = [ (k8s.mkNamespace cfg.namespace) ] ++ kubelib.fromHelm {
-          name = "argo-cd";
-          chart = charts.argoproj.argo-cd;
-          namespace = cfg.namespace;
-          values = recursiveUpdate defaults cfg.values;
-        };
+        argocd.content =
+          [ (k8s.mkNamespace cfg.namespace) ]
+          ++ kubelib.fromHelm {
+            name = "argo-cd";
+            chart = charts.argoproj.argo-cd;
+            namespace = cfg.namespace;
+            values = recursiveUpdate defaults cfg.values;
+          };
       }
       (helpers.mkExtraManifestsConfig "argocd" cfg.extraManifests)
     ];

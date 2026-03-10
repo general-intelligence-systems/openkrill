@@ -9,7 +9,7 @@
 #
 # The CA keypair is stored in Secret/openkrill-authority-secret, which
 # trust-manager auto-wires as the source for cluster-wide CA distribution.
-{ config, lib, charts, kubelib, ... }:
+{ config, lib, charts, kubelib, k8s, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.cert-manager;
@@ -134,7 +134,8 @@ in
     openkrill.manifests = mkMerge [
       {
         cert-manager.content =
-          helmResources
+          [ (k8s.mkNamespace cfg.namespace) ]
+          ++ helmResources
           ++ optionals cfg.selfSignedCA.enable caResources;
       }
       (helpers.mkExtraManifestsConfig "cert-manager" cfg.extraManifests)
