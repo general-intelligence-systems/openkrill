@@ -134,6 +134,14 @@ let
             }
           ];
         };
+        ${dbSecretName} = {
+          items = [
+            {
+              key = "password";
+              path = "password";
+            }
+          ];
+        };
       };
     };
 
