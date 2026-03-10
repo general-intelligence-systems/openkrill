@@ -9,6 +9,7 @@
   ./authelia
   ./cert-manager
   ./cloudnative-pg
+  ./core-dns
   ./external-secrets
   ./forgejo-runner
   ./gateway-api

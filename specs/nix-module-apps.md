@@ -36,18 +36,11 @@ the manifest pipeline, ad-hoc app support, and shared types:
       type = lib.types.str;
       default = "cluster.local";
     };
-    argocd = lib.mkOption {
-      type = lib.types.attrsOf lib.types.anything;
-      default = {};
-    };
   };
   ```
 
   - **`openkrill.domain`** — The base domain for cluster services
     (e.g. `mycompany.com`).  Defaults to `"cluster.local"`.
-  - **`openkrill.argocd`** — Per-app ArgoCD metadata (serverSideApply,
-    namespace override, project).  Modules that need special ArgoCD
-    behavior set `openkrill.argocd.<name>` in their config block.
 
 - **`modules/manifests.nix`** — Declares the manifest pipeline:
 
@@ -149,7 +142,7 @@ flake.nix
         │
         └── imports ./modules
               ├── openkrill.nix      → services.openkrill (k3s service)
-              ├── options.nix        → openkrill.domain, openkrill.argocd
+              ├── options.nix        → openkrill.domain
               ├── manifests.nix      → openkrill.manifests pipeline → bare git repo
               ├── custom.nix         → openkrill.apps.custom ad-hoc bundles
               └── module-list.nix    → registered app modules
@@ -628,16 +621,31 @@ openkrill.apps.my-app = {
 };
 ```
 
-### 6. (Optional) Add ArgoCD metadata
+### 6. Add ArgoCD Application CR
 
-By default, the ArgoCD metadata is empty. If the app needs special ArgoCD
-behavior (e.g. server-side apply for CRDs), declare it in the module's
-`config` block:
+Each module declares its own ArgoCD Application CR so ArgoCD knows to
+sync it from the git-daemon manifest repo.  See
+[argocd.md](./argocd.md) for the full pattern.
 
 ```nix
 config = lib.mkIf cfg.enable {
-  openkrill.argocd.my-app = {
-    serverSideApply = true;       # needed if chart installs CRDs
+  openkrill.apps.argocd.applications.my-app = {
+    namespace = "argocd";
+    project = "default";
+    source = {
+      repoURL = config.openkrill.gitops.repoURL;
+      targetRevision = "rendered-manifests";
+      path = ".";
+      directory.include = "my-app.yaml";
+    };
+    destination = {
+      server = "https://kubernetes.default.svc";
+      namespace = cfg.namespace;
+    };
+    syncPolicy = {
+      automated = { prune = true; selfHeal = true; };
+      syncOptions = [ "CreateNamespace=true" ];
+    };
   };
 
   openkrill.manifests = lib.mkMerge [
@@ -648,6 +656,8 @@ config = lib.mkIf cfg.enable {
   ];
 };
 ```
+
+Add `"ServerSideApply=true"` to `syncOptions` if the module includes CRDs.
 
 ### 7. Stage files for flake visibility
 
@@ -986,7 +996,7 @@ Before submitting a new module:
 - [ ] `config` block uses `lib.mkMerge` with `helpers.mkExtraManifestsConfig`
 - [ ] `helm.nix` uses `lib.recursiveUpdate defaults cfg.values` for the `values` arg
 - [ ] `helm.nix` (or `resources.nix`) returns a list of K8s resource attrsets
-- [ ] (If needed) `openkrill.argocd.<name>` set for serverSideApply/namespace override
+- [ ] ArgoCD Application CR declared via `openkrill.apps.argocd.applications.<name>` (see [argocd.md](./argocd.md))
 - [ ] Config enabled in consumer's `configuration.nix`
 - [ ] Files staged: `git add modules/<name>/`
 - [ ] `bin/test` passes (`nix flake check`)

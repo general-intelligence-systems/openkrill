@@ -33,6 +33,25 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.argocd.applications.my-app = {
+      namespace = "argocd";
+      project = "default";
+      source = {
+        repoURL = config.openkrill.gitops.repoURL;
+        targetRevision = "rendered-manifests";
+        path = ".";
+        directory.include = "my-app.yaml";
+      };
+      destination = {
+        server = "https://kubernetes.default.svc";
+        namespace = "my-app";
+      };
+      syncPolicy = {
+        automated = { prune = true; selfHeal = true; };
+        syncOptions = [ "CreateNamespace=true" ];
+      };
+    };
+
     openkrill.manifests = mkMerge [
       {
         "my-app".content =
