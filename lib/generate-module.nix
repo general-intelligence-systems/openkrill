@@ -99,7 +99,7 @@ let
         }
       ) fieldNames;
     in {
-      defs = concatStrings (map (r: r.defs) results);
+      defs = concatLists (map (r: r.defs) results);
       optionLines = map (r: r.optionLine) results;
       builderLines = concatLists (map (r: r.builderLines) results);
     };
@@ -147,7 +147,7 @@ let
         else
           [ ''} // optionalAttrs (res."${name}" != null) { inherit (res) "${name}"; } // {'' ];
     in {
-      defs = "";
+      defs = [];
       inherit optionLine builderLines;
     };
 
@@ -166,7 +166,7 @@ let
         else if hasAttr "default" schema then schema.default
         else null;
 
-      defs = walked.defs + ''
+      defBody = ''
         ${modName} = types.submodule {
           options = {
             ${concatStringsSep "\n" walked.optionLines}
@@ -176,6 +176,8 @@ let
           ${concatStringsSep "\n" walked.builderLines}
         };
       '';
+
+      defs = walked.defs ++ [{ name = modName; value = defBody; }];
 
       optionLine = ''"${name}" = ${mkOptionStr { inherit type description default; }};'';
 
@@ -205,7 +207,7 @@ let
         else if hasAttr "default" schema then schema.default
         else [];
 
-      defs = walked.defs + ''
+      defBody = ''
         ${modName} = types.submodule {
           options = {
             ${concatStringsSep "\n" walked.optionLines}
@@ -215,6 +217,8 @@ let
           ${concatStringsSep "\n" walked.builderLines}
         };
       '';
+
+      defs = walked.defs ++ [{ name = modName; value = defBody; }];
 
       optionLine = ''"${name}" = ${mkOptionStr { inherit type description default; }};'';
 
@@ -247,7 +251,7 @@ let
 
   # ── Top-level module assembly ────────────────────────────────────
 
-  generateModule = { crds, moduleName }:
+  generateModule = { crds, moduleName, standalone ? true }:
     let
       perCrd = map (crd:
         let
@@ -267,7 +271,11 @@ let
       ) crds;
 
       # Submodule + builder definitions (in let block)
-      letDefs = concatStrings (map (d: d.walked.defs) perCrd);
+      # Deduplicate by name — listToAttrs keeps the first occurrence,
+      # so shared types (e.g. ParentRefModule) emitted by multiple CRDs
+      # are only included once.
+      allDefs = concatLists (map (d: d.walked.defs) perCrd);
+      letDefs = concatStrings (attrValues (listToAttrs allDefs));
 
       # Top-level submodule per CRD kind
       topSubmodules = concatStrings (map (d: ''
@@ -315,7 +323,7 @@ let
             "(mapAttrsToList ${d.topBuilderFn} cfg.\"${d.info.plural}\")"
           ) perCrd;
 
-    in removeEmptyLines ''
+    in removeEmptyLines (if standalone then ''
       # Auto-generated openkrill module for ${moduleName}
       # Generated from CRD specification. See specs/nix-module-crds.md.
       { config, lib, ... }:
@@ -351,7 +359,35 @@ let
           ];
         };
       }
-    '';
+    '' else ''
+      # Auto-generated openkrill module fragment for ${moduleName}
+      # Generated from CRD specification. See specs/nix-module-crds.md.
+      # This is a fragment — import from a composing module that declares
+      # enable, extraManifests, and other shared options.
+      { config, lib, ... }:
+      with lib;
+      let
+        cfg = config.openkrill.apps."${moduleName}";
+        compact = filterAttrs (_: v: v != null);
+
+        ${letDefs}
+
+        ${topSubmodules}
+
+        ${topBuilders}
+
+        allResources = ${resourceExpr};
+      in
+      {
+        options.openkrill.apps."${moduleName}" = {
+          ${optionDecls}
+        };
+
+        config = mkIf cfg.enable {
+          openkrill.manifests."${moduleName}".content = allResources;
+        };
+      }
+    '');
 
 in {
   inherit generateModule;

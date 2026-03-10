@@ -2,16 +2,27 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: bin/generate-crd-module <module-name> <crd.yaml> [<crd.yaml> ...]"
+  echo "Usage: bin/generate-crd-module [--fragment] <module-name> <crd.yaml> [<crd.yaml> ...]"
   echo ""
   echo "Generates an openkrill module from CRD YAML specifications."
   echo "Output is printed to stdout."
   echo ""
+  echo "Options:"
+  echo "  --fragment  Omit enable/extraManifests options and the mkIf wrapper."
+  echo "              Use when generating files to be imported by a composing module."
+  echo ""
   echo "Example:"
   echo "  bin/generate-crd-module gateway gateway-crd.yaml > modules/gateway/default.nix"
   echo "  bin/generate-crd-module gateway-api gateways.yaml httproutes.yaml > modules/gateway-api/default.nix"
+  echo "  bin/generate-crd-module --fragment gateway-api gateways.yaml > modules/gateway-api/gateways.nix"
   exit 1
 }
+
+STANDALONE=true
+if [[ "${1:-}" == "--fragment" ]]; then
+  STANDALONE=false
+  shift
+fi
 
 [[ $# -lt 2 ]] && usage
 
@@ -45,5 +56,6 @@ nix-instantiate --eval --strict --json -E "
   generator.generateModule {
     inherit crds;
     moduleName = \"${MODULE_NAME}\";
+    standalone = ${STANDALONE};
   }
-" | ruby -rjson -e 'puts JSON.parse(STDIN.read)'
+" | ruby -rjson -e 'puts JSON.parse(STDIN.read)' | nix run nixpkgs#nixfmt --

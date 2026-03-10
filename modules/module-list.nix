@@ -11,6 +11,7 @@
   ./cloudnative-pg
   ./external-secrets
   ./forgejo-runner
+  ./gateway-api
   ./helm
   ./kamaji
   ./lago
