@@ -545,6 +545,23 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.argocd.applications.traefik = {
+      namespace = "argocd";
+      project = "default";
+      source = {
+        repoURL = config.openkrill.gitops.repoURL;
+        targetRevision = "rendered-manifests";
+        path = ".";
+        directory.include = "traefik.yaml";
+      };
+      destination = {
+        server = "https://kubernetes.default.svc";
+      };
+      syncPolicy = {
+        automated = { prune = true; selfHeal = true; };
+      };
+    };
+
     openkrill.manifests = mkMerge [
       {
         traefik.content = allResources;

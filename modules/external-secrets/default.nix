@@ -224,7 +224,24 @@ in
   };
 
   config = mkIf cfg.enable {
-    openkrill.argocd.external-secrets.serverSideApply = true;
+    openkrill.apps.argocd.applications.external-secrets = {
+      namespace = "argocd";
+      project = "default";
+      source = {
+        repoURL = config.openkrill.gitops.repoURL;
+        targetRevision = "rendered-manifests";
+        path = ".";
+        directory.include = "external-secrets.yaml";
+      };
+      destination = {
+        server = "https://kubernetes.default.svc";
+        namespace = cfg.namespace;
+      };
+      syncPolicy = {
+        automated = { prune = true; selfHeal = true; };
+        syncOptions = [ "CreateNamespace=true" "ServerSideApply=true" ];
+      };
+    };
 
     openkrill.manifests = mkMerge [
       {

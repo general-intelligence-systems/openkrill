@@ -11,10 +11,6 @@
       description = "Base domain for cluster services (e.g. mycompany.com).";
     };
 
-    argocd = lib.mkOption {
-      type = lib.types.attrsOf lib.types.anything;
-      default = {};
-      description = "ArgoCD cross-module configuration.";
-    };
+
   };
 }

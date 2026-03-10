@@ -29,6 +29,23 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.argocd.applications.gateway-api = {
+      namespace = "argocd";
+      project = "default";
+      source = {
+        repoURL = config.openkrill.gitops.repoURL;
+        targetRevision = "rendered-manifests";
+        path = ".";
+        directory.include = "gateway-api.yaml";
+      };
+      destination = {
+        server = "https://kubernetes.default.svc";
+      };
+      syncPolicy = {
+        automated = { prune = true; selfHeal = true; };
+      };
+    };
+
     openkrill.manifests = mkMerge [
       (mkIf cfg.safeUpgrades {
         "gateway-api".content = [

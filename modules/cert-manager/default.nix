@@ -30,6 +30,25 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.argocd.applications.cert-manager = {
+      namespace = "argocd";
+      project = "default";
+      source = {
+        repoURL = config.openkrill.gitops.repoURL;
+        targetRevision = "rendered-manifests";
+        path = ".";
+        directory.include = "cert-manager.yaml";
+      };
+      destination = {
+        server = "https://kubernetes.default.svc";
+        namespace = cfg.namespace;
+      };
+      syncPolicy = {
+        automated = { prune = true; selfHeal = true; };
+        syncOptions = [ "CreateNamespace=true" ];
+      };
+    };
+
     openkrill.manifests = mkMerge [
       {
         cert-manager.content = kubelib.fromHelm {

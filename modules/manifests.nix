@@ -106,6 +106,14 @@ in
           on branch `rendered-manifests`.
         '';
       };
+
+      repoURL = mkOption {
+        type = types.str;
+        description = ''
+          Git URL for ArgoCD to fetch manifests from.
+          Must be reachable from inside the cluster.
+        '';
+      };
     };
   };
 
@@ -144,5 +152,8 @@ in
       "d ${gitopsCfg.basePath} 0755 root root -"
       "L+ ${gitopsCfg.basePath}/${gitopsCfg.repoName} - - - - ${cfg.renderedManifestRepo}"
     ];
+
+    # Bootstrap ArgoCD into the cluster via k3s auto-deploy
+    services.k3s.manifests.openkrill-argocd.content = enabledManifests.argocd.content;
   };
 }

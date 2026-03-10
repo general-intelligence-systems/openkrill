@@ -144,6 +144,25 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.argocd.applications.forgejo-runner = {
+      namespace = "argocd";
+      project = "default";
+      source = {
+        repoURL = config.openkrill.gitops.repoURL;
+        targetRevision = "rendered-manifests";
+        path = ".";
+        directory.include = "forgejo-runner.yaml";
+      };
+      destination = {
+        server = "https://kubernetes.default.svc";
+        namespace = cfg.namespace;
+      };
+      syncPolicy = {
+        automated = { prune = true; selfHeal = true; };
+        syncOptions = [ "CreateNamespace=true" ];
+      };
+    };
+
     openkrill.manifests = mkMerge [
       { forgejo-runner.content = allResources; }
       (helpers.mkExtraManifestsConfig "forgejo-runner" cfg.extraManifests)
