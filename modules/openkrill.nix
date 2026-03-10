@@ -79,6 +79,7 @@ in
       gateway-api.enable      = lib.mkDefault true;
       helm.enable             = lib.mkDefault true;
       traefik.enable          = lib.mkDefault true;
+      trust-manager.enable    = lib.mkDefault true;
     };
   };
 }

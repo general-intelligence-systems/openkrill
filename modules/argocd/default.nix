@@ -15,7 +15,7 @@ let
   defaults = {
     fullnameOverride = "argocd";
     global = {
-      domain = "argocd.${domain}";
+      domain = cfg.domain;
     }
     # When trust-manager is enabled, mount the cluster trust bundle into
     # every ArgoCD component (server, repo-server, controller, dex).
@@ -44,7 +44,7 @@ let
     configs = {
       cm."oidc.config" = ''
         name: 'Authelia'
-        issuer: 'https://auth.${domain}'
+        issuer: '${cfg.oidc.issuer}'
         clientID: 'argocd'
         clientSecret: '$argocd-oidc-secret:oidc.authelia.clientSecret'
         cliClientID: 'argocd-cli'
@@ -76,6 +76,18 @@ in
     namespace = mkOption {
       type = types.str;
       default = "argocd";
+    };
+
+    domain = mkOption {
+      type = types.str;
+      default = "argocd.${domain}";
+      description = "FQDN for the ArgoCD web UI (e.g. argocd.example.com).";
+    };
+
+    oidc.issuer = mkOption {
+      type = types.str;
+      default = "https://auth.${domain}";
+      description = "OIDC issuer URL for Authelia (e.g. https://auth.example.com).";
     };
 
     values = mkOption {
