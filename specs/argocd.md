@@ -18,28 +18,47 @@ ArgoCD Application CR.
 
 ## Bootstrap
 
-ArgoCD is bootstrapped into the cluster via k3s auto-deploy.
-`modules/manifests.nix` feeds the rendered ArgoCD manifest into
-`services.k3s.manifests`, which symlinks the YAML into
+Core infrastructure is bootstrapped into the cluster via k3s
+auto-deploy.  `modules/manifests.nix` feeds the rendered manifests for
+ArgoCD, cert-manager, and trust-manager into `services.k3s.manifests`,
+which symlinks the YAML into
 `/var/lib/rancher/k3s/server/manifests/`.  k3s applies everything in
 that directory on startup.
 
 ```nix
 # modules/manifests.nix
-services.k3s.manifests.openkrill-argocd.content = enabledManifests.argocd.content;
+services.k3s.manifests = {
+  openkrill-argocd.content = enabledManifests.argocd.content;
+  openkrill-cert-manager.content = enabledManifests.cert-manager.content;
+  openkrill-trust-manager.content = enabledManifests.trust-manager.content;
+};
 ```
 
-Once ArgoCD is running, it manages its own future updates (and all
-other apps) via the git-daemon manifest repo.
+cert-manager and trust-manager are bootstrapped alongside ArgoCD so
+they are running before ArgoCD begins syncing apps that depend on TLS
+certificates or the cluster CA bundle.  All three still declare their
+own ArgoCD Application CRs for ongoing self-management — the same
+dual-write pattern ArgoCD itself uses (k3s gets them started, ArgoCD
+takes over with self-heal and auto-prune).
+
+k3s auto-deploy applies manifests in alphabetical order by filename.
+The resulting order is `openkrill-argocd.yaml`,
+`openkrill-cert-manager.yaml`, `openkrill-trust-manager.yaml` — which
+is fine since ArgoCD does not depend on the other two for initial
+startup, and cert-manager correctly precedes trust-manager (trust-manager
+depends on cert-manager CRDs).
 
 The flow:
 
 ```
 nixos-rebuild switch
-  -> k3s auto-deploys ArgoCD from /var/lib/rancher/k3s/server/manifests/
+  -> k3s auto-deploys cert-manager, trust-manager, and ArgoCD
+     from /var/lib/rancher/k3s/server/manifests/
+  -> cert-manager and trust-manager controllers start, CRDs become available
   -> ArgoCD starts, reads Application CRs (bundled in the same manifest)
   -> ArgoCD syncs each app from the git-daemon repo
-  -> ArgoCD manages itself going forward
+     (apps can now safely create Certificates and use the CA bundle)
+  -> ArgoCD manages all three + every other app going forward
 ```
 
 ---

@@ -155,9 +155,16 @@ in
       "L+ ${gitopsCfg.basePath}/${gitopsCfg.repoName} - - - - ${cfg.renderedManifestRepo}"
     ];
 
-    # Bootstrap ArgoCD into the cluster via k3s auto-deploy
-    services.k3s.manifests = mkIf (enabledManifests ? argocd) {
+    # Bootstrap core infrastructure into the cluster via k3s auto-deploy.
+    # cert-manager and trust-manager are included alongside ArgoCD so they
+    # are running before ArgoCD begins syncing apps that depend on TLS
+    # certificates or the cluster CA bundle.  All three still have ArgoCD
+    # Application CRs for ongoing self-management (same pattern ArgoCD
+    # itself uses).
+    services.k3s.manifests = {
       openkrill-argocd.content = enabledManifests.argocd.content;
+      openkrill-cert-manager.content = enabledManifests.cert-manager.content;
+      openkrill-trust-manager.content = enabledManifests.trust-manager.content;
     };
   };
 }
