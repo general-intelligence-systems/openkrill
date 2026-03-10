@@ -4,7 +4,7 @@
 # When trust-manager is enabled, automatically mounts the cluster trust
 # bundle into all ArgoCD components for outbound CA trust (OIDC, git
 # repos over HTTPS, webhooks, etc.).
-{ config, lib, charts, kubelib, ... }:
+{ config, lib, charts, kubelib, k8s, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.argocd;
@@ -129,7 +129,7 @@ in
 
     openkrill.manifests = mkMerge [
       {
-        argocd.content = kubelib.fromHelm {
+        argocd.content = [ (k8s.mkNamespace cfg.namespace) ] ++ kubelib.fromHelm {
           name = "argo-cd";
           chart = charts.argoproj.argo-cd;
           namespace = cfg.namespace;
