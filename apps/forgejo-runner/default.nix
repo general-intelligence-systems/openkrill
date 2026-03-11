@@ -5,7 +5,8 @@
 with lib;
 let
   cfg = config.openkrill.apps.forgejo-runner;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
+  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
 
   runnerModule = types.submodule {
     options = {
@@ -140,10 +141,18 @@ in
       description = "Runner instances to deploy. Each key becomes the runner/deployment name.";
     };
 
+    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.forgejo-runner.networkPolicy = {
+      egress = [
+        { to = "forgejo"; ports = [{ port = 3000; }]; }
+        { to = "world"; ports = [{ port = 443; } { port = 80; }]; }
+        { to = "dns"; }
+      ];
+    };
     # ── Secret generators (one per runner) ─────────────────────────────
     openkrill.secrets.generators = mapAttrs (_name: runner: {
       packages = with pkgs; [ openssl ];

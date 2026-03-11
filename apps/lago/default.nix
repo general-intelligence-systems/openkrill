@@ -4,7 +4,8 @@
 with lib;
 let
   cfg = config.openkrill.apps.lago;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
+  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
   domain = config.openkrill.domain;
   authFilters = if config.openkrill.apps.authelia.enable && config.openkrill.apps.traefik.enable
     then [{ type = "ExtensionRef"; extensionRef = { group = "traefik.io"; kind = "Middleware"; name = "forwardauth-authelia"; }; }]
@@ -27,10 +28,20 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
+    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.lago.networkPolicy = {
+      ingress = [
+        { from = "traefik"; ports = [{ port = 80; }]; }
+      ];
+      egress = [
+        { to = "cloudnative-pg"; ports = [{ port = 5432; }]; }
+        { to = "dns"; }
+      ];
+    };
     openkrill.apps."gateway-api".httproutes.lago = helpers.mkHTTPRoute {
       subdomain = "lago";
       namespace = cfg.namespace;

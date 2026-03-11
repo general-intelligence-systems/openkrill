@@ -8,7 +8,8 @@
 with lib;
 let
   cfg = config.openkrill.apps.argocd;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
+  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
   domain = config.openkrill.domain;
   trustCfg = config.openkrill.apps.trust-manager;
 
@@ -96,10 +97,21 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
+    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.argocd.networkPolicy = {
+      ingress = [
+        { from = "traefik"; ports = [{ port = 80; }]; }
+      ];
+      egress = [
+        { to = "core-dns"; ports = [{ port = 9418; }]; }
+        { to = "kubernetes-api"; }
+        { to = "dns"; }
+      ];
+    };
     # ── Secret generator ─────────────────────────────────────────────
     # The OIDC client secret is deterministic — it must match the value
     # in Authelia's oidcClients config (which defaults to

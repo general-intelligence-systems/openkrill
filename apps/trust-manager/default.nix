@@ -16,7 +16,8 @@ with lib;
 let
   cfg = config.openkrill.apps.trust-manager;
   certManagerCfg = config.openkrill.apps.cert-manager;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
+  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
 
   chart = kubelib.downloadHelmChart {
     repo = "https://charts.jetstack.io/";
@@ -121,10 +122,17 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
+    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.trust-manager.networkPolicy = {
+      egress = [
+        { to = "kubernetes-api"; }
+        { to = "dns"; }
+      ];
+    };
     openkrill.apps.argocd.applications.trust-manager = {
       namespace = "argocd";
       project = "default";

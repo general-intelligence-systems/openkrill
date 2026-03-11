@@ -4,7 +4,8 @@
 with lib;
 let
   cfg = config.openkrill.apps.metacontroller;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
+  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
 
   version = "4.12.11";
 
@@ -44,10 +45,18 @@ in
       };
     };
 
+    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.metacontroller.networkPolicy = {
+      egress = [
+        { to = "kubernetes-api"; }
+        { to = "cluster"; }
+        { to = "dns"; }
+      ];
+    };
     openkrill.apps.argocd.applications.metacontroller = {
       namespace = "argocd";
       project = "default";

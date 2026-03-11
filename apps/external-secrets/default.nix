@@ -7,7 +7,8 @@
 with lib;
 let
   cfg = config.openkrill.apps.external-secrets;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
+  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
 
   # ── Normalise a key entry: plain string -> mirrored {sourceKey, targetKey} ─
   normalizeKey = k:
@@ -242,10 +243,17 @@ in
       description = "ExternalSecret definitions - each entry syncs a secret from the source namespace.";
     };
 
+    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.external-secrets.networkPolicy = {
+      egress = [
+        { to = "kubernetes-api"; }
+        { to = "dns"; }
+      ];
+    };
     openkrill.apps.argocd.applications.external-secrets = {
       namespace = "argocd";
       project = "default";

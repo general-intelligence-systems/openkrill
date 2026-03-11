@@ -22,7 +22,8 @@ with lib;
 let
   cfg = config.openkrill.apps.lldap;
   cnpgCfg = config.openkrill.apps.cloudnative-pg;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
+  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
   domain = config.openkrill.domain;
 
   # Name of the CNPG-generated app secret for the shared cluster.
@@ -71,10 +72,21 @@ in
       };
     };
 
+    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = lib.mkIf cfg.enable {
+    openkrill.apps.lldap.networkPolicy = {
+      ingress = [
+        { from = "authelia"; ports = [{ port = 3890; }]; }
+        { from = "traefik"; ports = [{ port = 17170; }]; }
+      ];
+      egress = [
+        { to = "cloudnative-pg"; ports = [{ port = 5432; }]; }
+        { to = "dns"; }
+      ];
+    };
     # ── CNPG Database (inside the shared cluster) ─────────────────────
     openkrill.apps.cloudnative-pg.databases.lldap = {
       namespace = cnpgCfg.namespace;

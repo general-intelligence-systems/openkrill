@@ -5,7 +5,8 @@
 with lib;
 let
   cfg = config.openkrill.apps.victoriametrics;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
+  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
   domain = config.openkrill.domain;
   authFilters = if config.openkrill.apps.authelia.enable && config.openkrill.apps.traefik.enable
     then [{ type = "ExtensionRef"; extensionRef = { group = "traefik.io"; kind = "Middleware"; name = "forwardauth-authelia"; }; }]
@@ -144,10 +145,20 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
+    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
+    openkrill.apps.victoriametrics.networkPolicy = {
+      ingress = [
+        { from = "traefik"; ports = [{ port = 3000; } { port = 8428; }]; }
+      ];
+      egress = [
+        { to = "cluster"; }
+        { to = "dns"; }
+      ];
+    };
     openkrill.apps."gateway-api".httproutes.grafana = helpers.mkHTTPRoute {
       subdomain = "grafana";
       namespace = cfg.namespace;

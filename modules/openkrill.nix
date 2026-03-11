@@ -66,7 +66,11 @@ in
     services.k3s = {
       enable = true;
       role = cfg.role;
-      extraFlags = lib.mkIf (cfg.extraFlags != "") cfg.extraFlags;
+      extraFlags = lib.mkMerge [
+        (lib.mkIf (cfg.extraFlags != "") cfg.extraFlags)
+        (lib.mkIf config.openkrill.apps.cilium.enable
+          (lib.mkAfter " --flannel-backend=none --disable-network-policy"))
+      ];
     };
 
     # ── Default app stack ────────────────────────────────────────────
@@ -79,11 +83,13 @@ in
       argocd.enable           = lib.mkDefault true;
       authelia.enable         = lib.mkDefault true;
       cert-manager.enable     = lib.mkDefault true;
+      cilium.enable           = lib.mkDefault true;
       cloudnative-pg.enable   = lib.mkDefault true;
       core-dns.enable         = lib.mkDefault true;
       external-secrets.enable = lib.mkDefault true;
       gateway-api.enable      = lib.mkDefault true;
       helm.enable             = lib.mkDefault true;
+      network-policies.enable = lib.mkDefault true;
       traefik.enable          = lib.mkDefault true;
       trust-manager.enable    = lib.mkDefault true;
     };

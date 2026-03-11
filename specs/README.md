@@ -38,6 +38,12 @@ Design documentation for Openkrill.
 | [argocd.md](./argocd.md) | [apps/argocd/](../apps/argocd/) | 191 | ArgoCD bootstrap via k3s and per-module Application CR pattern |
 | [core-dns.md](./core-dns.md) | [apps/core-dns/](../apps/core-dns/) | 506 | Host-gateway access and custom CoreDNS entries for reaching host services from pods |
 
+## Security
+
+| Spec | Code | Lines | Purpose |
+|------|------|------:|---------|
+| [network-policies.md](./network-policies.md) | — | 453 | How network segmentation is enforced with Cilium CNI and per-app CiliumNetworkPolicy declarations |
+
 ## Secrets
 
 | Spec | Code | Lines | Purpose |
