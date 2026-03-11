@@ -12,9 +12,9 @@ usage() {
   echo "              Use when generating files to be imported by a composing module."
   echo ""
   echo "Example:"
-  echo "  bin/generate-crd-module gateway gateway-crd.yaml > modules/gateway/default.nix"
-  echo "  bin/generate-crd-module gateway-api gateways.yaml httproutes.yaml > modules/gateway-api/default.nix"
-  echo "  bin/generate-crd-module --fragment gateway-api gateways.yaml > modules/gateway-api/gateways.nix"
+  echo "  bin/generate-crd-module gateway gateway-crd.yaml > apps/gateway/default.nix"
+  echo "  bin/generate-crd-module gateway-api gateways.yaml httproutes.yaml > apps/gateway-api/default.nix"
+  echo "  bin/generate-crd-module --fragment gateway-api gateways.yaml > apps/gateway-api/gateways.nix"
   exit 1
 }
 

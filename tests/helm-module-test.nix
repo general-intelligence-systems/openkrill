@@ -27,7 +27,7 @@ let
   eval = lib.evalModules {
     modules = [
       manifestsStub
-      ../modules/helm/default.nix
+      ../apps/helm/default.nix
       {
         config.openkrill.apps.helm = {
           enable = true;

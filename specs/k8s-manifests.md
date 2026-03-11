@@ -33,7 +33,7 @@ auto-discovers both modules and application sets:
 | Component | Path | Purpose |
 |---|---|---|
 | **Sub-flake** | `flake.nix` | Auto-discovers modules + sets, runs mkCluster per set |
-| **Modules** | `modules/<name>/` | Auto-discovered app modules (28 total) |
+| **Modules** | `apps/<name>/` | Auto-discovered app modules (28 total) |
 | **Base options** | `modules/default.nix` | Declares `openkrill.domain`, `openkrill.manifests`, `openkrill.argocd` |
 | **Management set** | `sets/management/default.nix` | Enables/configures apps for `cia.net` |
 | **Tenant set** | `sets/tenant/default.nix` | Enables/configures apps for tenant clusters |
@@ -42,8 +42,8 @@ auto-discovers both modules and application sets:
 ```
 flake.nix  (single sub-flake — auto-discovers everything)
   │
-  ├── Auto-discovers modules: builtins.readDir ./modules
-  │     → [ ./modules ./modules/argo-cd ./modules/authelia ... ]
+   ├── Loads modules: ./modules (framework) + module-list.nix (auto-discovers app modules from ./apps/)
+  │     → all directories under ./apps/ are loaded via builtins.readDir
   │
   ├── Auto-discovers sets: builtins.readDir ./sets
   │     → [ "management", "tenant" ]
@@ -271,10 +271,10 @@ patterns, see [nix-module-apps.md](./nix-module-apps.md).
 ### 1. Create the app module
 
 ```sh
-mkdir -p modules/my-app
+mkdir -p apps/my-app
 ```
 
-Create `modules/my-app/default.nix`:
+Create `apps/my-app/default.nix`:
 
 ```nix
 { config, lib, yaml, k8s, ... }:
@@ -299,7 +299,7 @@ in
 }
 ```
 
-Create `modules/my-app/helm.nix`:
+Create `apps/my-app/helm.nix`:
 
 ```nix
 { yaml, cfg }:
@@ -315,8 +315,8 @@ yaml.fromHelm {
 
 ### 2. Auto-discovery (no registration needed)
 
-Modules are auto-discovered from `modules/`.  Creating the directory
-and staging it with `git add` is all that's needed — no list to update.
+App modules are auto-discovered by `modules/module-list.nix` via `builtins.readDir`.
+Creating the directory and staging it with `git add` is all that's needed — no list to update.
 
 ### 3. Add management config
 
@@ -359,7 +359,7 @@ the app module.
 ### 7. Test
 
 ```sh
-git add modules/my-app/
+git add apps/my-app/
 nix build .#management-my-app && cat result     # check YAML output
 nix build .#manifests                            # full build, no regressions
 ```
@@ -372,7 +372,7 @@ Same process as management, with these differences:
 
 ### 1. Create the app module (same as management)
 
-Module goes in `modules/my-app/`.  The module is shared — it should
+Module goes in `apps/my-app/`.  The module is shared — it should
 not contain any management-specific or tenant-specific hardcoded values.
 
 **Important**: If the module references `config.openkrill.domain` or passes it
@@ -381,7 +381,7 @@ for management, `change.me` for tenant).
 
 ### 2. Auto-discovery (no registration needed)
 
-If the module is new, create the directory under `modules/` and
+If the module is new, create the directory under `apps/` and
 stage it with `git add`.  If the module already exists, skip this step.
 
 ### 3. Add tenant config
@@ -416,7 +416,7 @@ Add a database to `openkrill.apps.cloudnative-pg.databases` in
 ### 7. Test
 
 ```sh
-git add modules/my-app/
+git add apps/my-app/
 nix build .#tenant-my-app && cat result
 nix build .#manifests
 ```
@@ -425,7 +425,7 @@ nix build .#manifests
 
 ## HOW-TO: Add an Existing Management App to Tenants
 
-If an app module already exists in `modules/` and is used by the
+If an app module already exists in `apps/` and is used by the
 management cluster, adding it to tenants requires only config changes — no
 new module code.
 
@@ -540,18 +540,18 @@ sequence:
 
 ### Adding a management app
 
-- [ ] Module created: `modules/<name>/default.nix` + `helm.nix` (or `resources.nix`)
+- [ ] Module created: `apps/<name>/default.nix` + `helm.nix` (or `resources.nix`)
 - [ ] Config added in `sets/management/default.nix`
 - [ ] (If needed) `openkrill.argocd.<name>` set for serverSideApply/namespace override
 - [ ] VirtualService added to `istio-routing` config (if app needs ingress)
 - [ ] Database added to `cloudnative-pg` config (if app needs PostgreSQL)
-- [ ] Files staged: `git add modules/<name>/`
+- [ ] Files staged: `git add apps/<name>/`
 - [ ] `nix build .#management-<name> && cat result` produces correct YAML
 - [ ] `nix build .#manifests` succeeds
 
 ### Adding a tenant app
 
-- [ ] Module exists in `modules/<name>/` (create if new; reuse if existing)
+- [ ] Module exists in `apps/<name>/` (create if new; reuse if existing)
 - [ ] Module has no hardcoded domain values (uses `config.openkrill.domain` or options)
 - [ ] Config added in `sets/tenant/default.nix`
 - [ ] (If needed) `openkrill.argocd.<name>` set for serverSideApply/namespace override

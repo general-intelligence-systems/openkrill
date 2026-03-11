@@ -330,7 +330,7 @@ let
       with lib;
       let
         cfg = config.openkrill.apps."${moduleName}";
-        helpers = import ../lib/helpers.nix { inherit lib; };
+        helpers = import ../../modules/lib/helpers.nix { inherit lib; };
         compact = filterAttrs (_: v: v != null);
 
         ${letDefs}

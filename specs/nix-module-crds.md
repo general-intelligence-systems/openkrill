@@ -2,7 +2,7 @@
 
 For when you have a CRD specification and want a typed openkrill module that generates custom resource instances. No Helm chart involved -- the controller is assumed to be already running.
 
-Reference implementations: `modules/helm/default.nix`, `modules/traefik/default.nix`.
+Reference implementations: `apps/helm/default.nix`, `apps/traefik/default.nix`.
 
 ## Step 1: Read the CRD
 
@@ -54,22 +54,22 @@ Type the fields users will configure structurally -- routes, services, TLS block
 
 Use `types.attrsOf types.anything` for specs that are polymorphic -- where the CRD has many mutually exclusive keys and typing every variant is impractical. Examples:
 
-- **Typed:** Traefik IngressRoute routes, services, TLS (`modules/traefik/default.nix`)
+- **Typed:** Traefik IngressRoute routes, services, TLS (`apps/traefik/default.nix`)
 - **Passthrough:** Traefik Middleware spec -- dozens of mutually exclusive middleware types (`spec.headers`, `spec.rateLimit`, `spec.forwardAuth`, etc.)
-- **Typed:** HelmChart spec -- every field is well-defined and commonly used (`modules/helm/default.nix`)
+- **Typed:** HelmChart spec -- every field is well-defined and commonly used (`apps/helm/default.nix`)
 
 When in doubt, type it. Passthrough is a last resort for genuinely polymorphic specs.
 
 ## Step 4: Scaffold the module
 
 ```nix
-# modules/my-crd/default.nix — MyCRD resources
+# apps/my-crd/default.nix — MyCRD resources
 # Generates example.io/v1 MyCRD custom resources.
 { config, lib, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.my-crd;
-  helpers = import ../lib/helpers.nix { inherit lib; };
+  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
 
   # ── Sub-submodules ───────────────────────────────────────────────
 
@@ -186,16 +186,10 @@ Use `optionalAttrs` when mixing required and optional fields. Use `compact` for 
 
 ## Step 5: Register and test
 
-### Register the module
+### Auto-discovery
 
-Add to `modules/module-list.nix`:
-
-```nix
-[
-  # ...existing modules...
-  ./my-crd
-]
-```
+App modules are auto-discovered by `modules/module-list.nix` via `builtins.readDir`
+-- no manual registration is needed. Just create your directory under `apps/`.
 
 ### Write the smoke test
 
@@ -221,7 +215,7 @@ let
   eval = lib.evalModules {
     modules = [
       manifestsStub
-      ../modules/my-crd/default.nix
+      ../apps/my-crd/default.nix
       {
         config.openkrill.apps.my-crd = {
           enable = true;
@@ -263,7 +257,7 @@ checks = forAllSystems (system:
 - [ ] Required spec fields have no default
 - [ ] Optional fields use `nullOr`/`[]`/`false` defaults
 - [ ] Resource builder uses `optionalAttrs`/`compact` to omit unset fields
-- [ ] Module registered in `modules/module-list.nix`
+- [ ] App module auto-discovered via `modules/module-list.nix` (no manual registration needed)
 - [ ] Smoke test evaluates representative config via `evalModules` + `toJSON`
 - [ ] Check registered in `flake.nix`
 - [ ] `git add` and `bin/test` passes

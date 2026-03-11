@@ -64,7 +64,7 @@ Any host service listening on `0.0.0.0` (like git-daemon on port
 
 ### Resources produced
 
-**DaemonSet** (`modules/core-dns/resources.nix`):
+**DaemonSet** (`apps/core-dns/resources.nix`):
 
 ```yaml
 apiVersion: apps/v1
@@ -106,7 +106,7 @@ spec:
   pod alive so Kubernetes maintains the endpoint registration.
   Resource cost is negligible (~1m CPU, 4Mi RAM per node).
 
-**Service** (`modules/core-dns/resources.nix`):
+**Service** (`apps/core-dns/resources.nix`):
 
 ```yaml
 apiVersion: v1
@@ -137,7 +137,7 @@ services (registries, databases, etc.).
 ### Nix implementation
 
 ```nix
-# modules/core-dns/resources.nix (simplified)
+# apps/core-dns/resources.nix (simplified)
 
 hostGatewayResources = lib.optionals gw.enable [
   {
@@ -227,7 +227,7 @@ next plugin in the chain.
 ### Nix implementation
 
 ```nix
-# modules/core-dns/resources.nix (simplified)
+# apps/core-dns/resources.nix (simplified)
 
 hostsLines = lib.concatStringsSep "\n"
   (lib.mapAttrsToList (hostname: ip: "${ip} ${hostname}") cfg.customHosts);
@@ -257,7 +257,7 @@ When the host-gateway is enabled, the module automatically sets
 `openkrill.gitops.repoURL` to use the in-cluster Service DNS name:
 
 ```nix
-# modules/core-dns/default.nix
+# apps/core-dns/default.nix
 openkrill.gitops.repoURL = mkIf cfg.hostGateway.enable (
   mkDefault "git://host-gateway.${cfg.namespace}.svc/${config.openkrill.gitops.repoName}"
 );

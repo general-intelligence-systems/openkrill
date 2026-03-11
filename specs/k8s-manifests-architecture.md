@@ -33,6 +33,5 @@ Consumers never set `specialArgs` — the flake handles it.
 
 ## Adding a new module
 
-1. Create `modules/<my-app>/default.nix`
-2. Add it to the `imports` list in `modules/default.nix`
-3. Follow one of the module authoring specs depending on complexity
+1. Create `apps/<my-app>/default.nix` (auto-discovered by `modules/module-list.nix` via `builtins.readDir`)
+2. Follow one of the module authoring specs depending on complexity

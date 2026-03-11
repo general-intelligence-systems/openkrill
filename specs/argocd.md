@@ -20,18 +20,16 @@ ArgoCD Application CR.
 
 Core infrastructure is bootstrapped into the cluster via k3s
 auto-deploy.  `modules/manifests.nix` feeds the rendered manifests for
-ArgoCD, cert-manager, and trust-manager into `services.k3s.manifests`,
+all enabled app modules into `services.k3s.manifests`,
 which symlinks the YAML into
 `/var/lib/rancher/k3s/server/manifests/`.  k3s applies everything in
 that directory on startup.
 
 ```nix
 # modules/manifests.nix
-services.k3s.manifests = {
-  openkrill-argocd.content = enabledManifests.argocd.content;
-  openkrill-cert-manager.content = enabledManifests.cert-manager.content;
-  openkrill-trust-manager.content = enabledManifests.trust-manager.content;
-};
+services.k3s.manifests = mapAttrs' (name: manifest:
+  nameValuePair "openkrill-${name}" { content = manifest.content; }
+) enabledManifests;
 ```
 
 cert-manager and trust-manager are bootstrapped alongside ArgoCD so

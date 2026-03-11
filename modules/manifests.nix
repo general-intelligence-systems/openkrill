@@ -171,21 +171,12 @@ in
       GIT_CONFIG_VALUE_0 = "${gitopsCfg.basePath}/${gitopsCfg.repoName}";
     };
 
-    # Bootstrap every default-enabled module into the cluster via k3s
-    # auto-deploy so the full stack is running before ArgoCD begins syncing.
+    # Bootstrap every enabled module into the cluster via k3s auto-deploy
+    # so the full stack is running before ArgoCD begins syncing.
     # Each module still has an ArgoCD Application CR for ongoing
     # self-management (same pattern ArgoCD itself uses).
-    services.k3s.manifests = {
-      openkrill-argocd.content = enabledManifests.argocd.content;
-      openkrill-authelia.content = enabledManifests.authelia.content;
-      openkrill-cert-manager.content = enabledManifests.cert-manager.content;
-      openkrill-cloudnative-pg.content = enabledManifests.cloudnative-pg.content;
-      openkrill-core-dns.content = enabledManifests.core-dns.content;
-      openkrill-external-secrets.content = enabledManifests.external-secrets.content;
-      openkrill-gateway-api.content = enabledManifests.gateway-api.content;
-      openkrill-helm.content = enabledManifests.helm.content;
-      openkrill-traefik.content = enabledManifests.traefik.content;
-      openkrill-trust-manager.content = enabledManifests.trust-manager.content;
-    };
+    services.k3s.manifests = mapAttrs' (name: manifest:
+      nameValuePair "openkrill-${name}" { content = manifest.content; }
+    ) enabledManifests;
   };
 }

@@ -4,20 +4,20 @@ The simplest module type. One helm chart, a `values` option, and `extraManifests
 
 ## Step 1: Create the file
 
-Create `modules/<my-app>/default.nix`.
+Create `apps/<my-app>/default.nix`.
 
 ## Step 2: Scaffold the module
 
 Every helm module follows this exact structure:
 
 ```nix
-# modules/my-app.nix
+# apps/my-app/default.nix
 
 { config, lib, charts, kubelib, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.myApp;
-  helpers = import ./lib/helpers.nix { inherit lib; };
+  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.myApp = {
@@ -74,24 +74,11 @@ in
 }
 ```
 
-## Step 3: Register the module
+## Step 3: Auto-discovery
 
-Add the import to `modules/default.nix`:
-
-```nix
-{
-  imports = [
-    ./manifests.nix
-    ./custom.nix
-    ./cert-manager.nix
-    ./cnpg.nix
-    ./ingress-nginx.nix
-    ./istio.nix
-    ./prometheus.nix
-    ./my-app.nix          # ← add here
-  ];
-}
-```
+App modules are auto-discovered by `modules/module-list.nix` via `builtins.readDir`
+-- no manual registration is needed. Just create your directory under `apps/` and it
+will be picked up automatically.
 
 ## Required elements
 

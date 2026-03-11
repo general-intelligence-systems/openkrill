@@ -1,7 +1,7 @@
 # HOW-TO: Creating an App Module
 
 This guide explains how to add a new application by creating a
-NixOS-style module under `modules/`.
+NixOS-style app module under `apps/`.
 
 ---
 
@@ -106,16 +106,15 @@ the manifest pipeline, ad-hoc app support, and shared types:
 - **`modules/lib/helpers.nix`** — Shared types and helpers for
   `extraManifests` (see [extraManifests Pattern](#extramanifests-pattern)).
 
-### Layer 2: App Modules (`modules/<name>/default.nix`)
+### Layer 2: App Modules (`apps/<name>/default.nix`)
 
 Each module declares its own options under `openkrill.apps.<name>` and, when
 enabled, populates `openkrill.manifests.<name>.content` with a list of K8s
 resource attrsets (Deployments, Services, ConfigMaps, CRDs, etc.).
 
-Modules are **registered** in `modules/module-list.nix`.  When adding a new
-module, you must add its import path to this file.  Every registered module
-is loaded into every NixOS evaluation, but produces no resources unless
-explicitly enabled (guarded by `lib.mkIf cfg.enable`).
+Modules are **auto-discovered** by `modules/module-list.nix` via `builtins.readDir`.
+Every directory under `apps/` is loaded automatically into every NixOS evaluation,
+but produces no resources unless explicitly enabled (guarded by `lib.mkIf cfg.enable`).
 
 ### Layer 3: Consumer Configuration
 
@@ -145,9 +144,9 @@ flake.nix
               ├── options.nix        → openkrill.domain
               ├── manifests.nix      → openkrill.manifests pipeline → bare git repo
               ├── custom.nix         → openkrill.apps.custom ad-hoc bundles
-              └── module-list.nix    → registered app modules
+              └── module-list.nix    → auto-discovers app modules (in ../apps/) via readDir
                     │
-                    └── Each module:
+                    └── Each app module:
                           options: openkrill.apps.<name> = { enable, namespace, values, extraManifests, ... }
                           config:  openkrill.manifests.<name>.content = [ ...k8s attrsets... ]
 
@@ -174,7 +173,7 @@ Use when: the app is a straightforward Helm chart with no post-processing.
 
 **Structure:**
 ```
-modules/my-app/
+apps/my-app/
   default.nix    # module: options + config
   helm.nix       # Helm chart values -> list of K8s attrsets
 ```
@@ -184,7 +183,7 @@ modules/my-app/
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-app;
-  helpers = import ../lib/helpers.nix { inherit lib; };
+  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.my-app = {
@@ -314,7 +313,7 @@ in `resources.nix` with no Helm chart involved)
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-policies;
-  helpers = import ../lib/helpers.nix { inherit lib; };
+  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.my-policies = {
@@ -361,7 +360,7 @@ openkrill.apps.my-policies = {
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-app;
-  helpers = import ../lib/helpers.nix { inherit lib; };
+  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.my-app = {
@@ -420,7 +419,7 @@ Use when: the module manages a dynamic collection of similar things
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-app;
-  helpers = import ../lib/helpers.nix { inherit lib; };
+  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
 
   mkResource = name: sub: {
     apiVersion = "example.io/v1";
@@ -482,7 +481,7 @@ Useful submodule patterns:
 ### 1. Create the directory
 
 ```sh
-mkdir -p modules/my-app
+mkdir -p apps/my-app
 ```
 
 ### 2. Write `default.nix`
@@ -490,11 +489,11 @@ mkdir -p modules/my-app
 Start from the Helm-only skeleton (Pattern 1) and adjust:
 
 ```nix
-# modules/my-app — Short description
+# apps/my-app — Short description
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-app;
-  helpers = import ../lib/helpers.nix { inherit lib; };
+  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.my-app = {
@@ -592,19 +591,11 @@ kubelib.fromHelm {
 }
 ```
 
-### 4. Register the module
+### 4. Auto-discovery
 
-Add your module to `modules/module-list.nix`:
-
-```nix
-[
-  ./argocd
-  ./authelia
-  ./cert-manager
-  # ... existing modules ...
-  ./my-app          # <-- add your module here
-]
-```
+App modules are auto-discovered by `modules/module-list.nix` via `builtins.readDir`
+-- no manual registration is needed. Just create your directory under `apps/` and it
+will be picked up automatically.
 
 Since the module is guarded by `lib.mkIf cfg.enable`, it produces no
 resources unless explicitly enabled in a consumer's configuration.
@@ -664,7 +655,7 @@ Add `"ServerSideApply=true"` to `syncOptions` if the module includes CRDs.
 Nix flakes only see files tracked by git. Stage your new files:
 
 ```sh
-git add modules/my-app/
+git add apps/my-app/
 ```
 
 ### 8. Test
@@ -838,7 +829,7 @@ The shared helpers in `modules/lib/helpers.nix` provide:
 In every module's options block:
 
 ```nix
-helpers = import ../lib/helpers.nix { inherit lib; };
+helpers = import ../../modules/lib/helpers.nix { inherit lib; };
 
 # In options:
 extraManifests = helpers.mkExtraManifestsOption;
@@ -986,8 +977,8 @@ otherAppEnabled = config.openkrill.apps.other.enable;
 
 Before submitting a new module:
 
-- [ ] Directory created: `modules/<name>/`
-- [ ] Module registered in `modules/module-list.nix`
+- [ ] Directory created: `apps/<name>/`
+- [ ] App module auto-discovered via `modules/module-list.nix` (no manual registration needed)
 - [ ] `default.nix` has `options` and `config` sections
 - [ ] Every option has a type; required options have no default
 - [ ] `values` option declared (type `lib.types.attrs`, default `{}`) for helm-based modules
@@ -998,6 +989,6 @@ Before submitting a new module:
 - [ ] `helm.nix` (or `resources.nix`) returns a list of K8s resource attrsets
 - [ ] ArgoCD Application CR declared via `openkrill.apps.argocd.applications.<name>` (see [argocd.md](./argocd.md))
 - [ ] Config enabled in consumer's `configuration.nix`
-- [ ] Files staged: `git add modules/<name>/`
+- [ ] Files staged: `git add apps/<name>/`
 - [ ] `bin/test` passes (`nix flake check`)
 - [ ] No CNPG Cluster resources emitted by the app module (use cloudnative-pg module instead)
