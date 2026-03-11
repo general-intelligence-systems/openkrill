@@ -36,9 +36,22 @@
         openkrill.domain = domain;
         openkrill.gitops.enable = true;
 
-        # ── GitOps ──────────────────────────────────────────────────
-        # cert-manager, trust-manager, and argocd are enabled by default.
-        # The self-signed CA chain and trust bundle are auto-configured.
+        # ── Core infrastructure ──────────────────────────────────────
+        openkrill.apps.argocd.enable           = true;
+        openkrill.apps.cert-manager.enable     = true;
+        openkrill.apps.cilium.enable           = true;
+        openkrill.apps.cloudnative-pg.enable   = true;
+        openkrill.apps.core-dns.enable         = true;
+        openkrill.apps.external-secrets.enable = true;
+        openkrill.apps.gateway-api.enable      = true;
+        openkrill.apps.helm.enable             = true;
+        openkrill.apps.metacontroller.enable   = true;
+        openkrill.apps.network-policies.enable = true;
+        openkrill.apps.openkrill-operator.enable = true;
+        openkrill.apps.traefik.enable          = true;
+        openkrill.apps.trust-manager.enable    = true;
+
+        # ── ArgoCD ───────────────────────────────────────────────────
         openkrill.apps.argocd = {
           domain = "argocd.${domain}";
           oidc.issuer = "https://auth.${domain}";

@@ -128,11 +128,24 @@ in
 
   config = mkIf cfg.enable {
     openkrill.apps.trust-manager.networkPolicy = {
+      ingress = [
+        { from = "victoriametrics"; ports = [{ port = 9402; }]; }
+      ];
       egress = [
         { to = "kubernetes-api"; }
         { to = "dns"; }
       ];
     };
+
+    # ── VictoriaMetrics scrape ─────────────────────────────────────────
+    openkrill.apps.victoriametrics.vmservicescrapes.trust-manager =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."app.kubernetes.io/name" = "trust-manager";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "http-metrics"; }];
+      };
+
     openkrill.apps.argocd.applications.trust-manager = {
       namespace = "argocd";
       project = "default";

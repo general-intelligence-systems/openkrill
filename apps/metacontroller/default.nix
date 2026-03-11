@@ -51,12 +51,43 @@ in
 
   config = mkIf cfg.enable {
     openkrill.apps.metacontroller.networkPolicy = {
+      ingress = [
+        { from = "victoriametrics"; ports = [{ port = 9999; }]; }
+      ];
       egress = [
         { to = "kubernetes-api"; }
         { to = "cluster"; }
         { to = "dns"; }
       ];
     };
+
+    # ── VictoriaMetrics scrape + alerts ────────────────────────────────
+    openkrill.apps.victoriametrics.vmservicescrapes.metacontroller =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."app.kubernetes.io/name" = "metacontroller";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "9999"; path = "/metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.metacontroller-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "metacontroller";
+          rules = [{
+            alert = "MetacontrollerDown";
+            expr = ''up{job=~".*metacontroller.*"} == 0'';
+            "for" = "5m";
+            labels.severity = "critical";
+            annotations = {
+              summary = "Metacontroller is down";
+              description = "Metacontroller has been unreachable for 5 minutes.";
+            };
+          }];
+        }];
+      };
+
     openkrill.apps.argocd.applications.metacontroller = {
       namespace = "argocd";
       project = "default";

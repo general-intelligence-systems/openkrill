@@ -122,6 +122,8 @@ let
       replicas = 1;
     };
 
+    configMap.telemetry.metrics.enabled = true;
+
     secret = {
       existingSecret = "authelia";
       additionalSecrets = {
@@ -288,6 +290,7 @@ in
     openkrill.apps.authelia.networkPolicy = {
       ingress = [
         { from = "traefik"; ports = [{ port = 80; }]; }
+        { from = "victoriametrics"; ports = [{ port = 9959; }]; }
       ];
       egress = [
         { to = "lldap"; ports = [{ port = 3890; }]; }
@@ -295,6 +298,33 @@ in
         { to = "dns"; }
       ];
     };
+
+    # ── VictoriaMetrics scrape + alerts ────────────────────────────────
+    openkrill.apps.victoriametrics.vmservicescrapes.authelia =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."app.kubernetes.io/name" = "authelia";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.authelia-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "authelia";
+          rules = [{
+            alert = "AutheliaDown";
+            expr = ''up{job=~".*authelia.*"} == 0'';
+            "for" = "5m";
+            labels.severity = "critical";
+            annotations = {
+              summary = "Authelia is down";
+              description = "Authelia SSO portal has been unreachable for 5 minutes.";
+            };
+          }];
+        }];
+      };
     # ── CNPG Database (inside the shared cluster) ─────────────────────
     openkrill.apps.cloudnative-pg.databases.authelia = {
       namespace = cnpgCfg.namespace;

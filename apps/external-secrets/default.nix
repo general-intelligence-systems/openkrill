@@ -249,11 +249,42 @@ in
 
   config = mkIf cfg.enable {
     openkrill.apps.external-secrets.networkPolicy = {
+      ingress = [
+        { from = "victoriametrics"; ports = [{ port = 8080; }]; }
+      ];
       egress = [
         { to = "kubernetes-api"; }
         { to = "dns"; }
       ];
     };
+
+    # ── VictoriaMetrics scrape + alerts ────────────────────────────────
+    openkrill.apps.victoriametrics.vmservicescrapes.external-secrets =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."app.kubernetes.io/name" = "external-secrets";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.external-secrets-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "external-secrets";
+          rules = [{
+            alert = "ExternalSecretSyncFailed";
+            expr = ''externalsecret_status_condition{status!="True",condition="SecretSynced"} == 1'';
+            "for" = "10m";
+            labels.severity = "critical";
+            annotations = {
+              summary = "ExternalSecret {{ $labels.name }} sync failed";
+              description = "ExternalSecret {{ $labels.name }} in namespace {{ $labels.namespace }} has not synced for 10 minutes.";
+            };
+          }];
+        }];
+      };
+
     openkrill.apps.argocd.applications.external-secrets = {
       namespace = "argocd";
       project = "default";

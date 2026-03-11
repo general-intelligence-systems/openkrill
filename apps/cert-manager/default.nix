@@ -115,12 +115,55 @@ in
 
   config = mkIf cfg.enable {
     openkrill.apps.cert-manager.networkPolicy = {
+      ingress = [
+        { from = "victoriametrics"; ports = [{ port = 9402; }]; }
+      ];
       egress = [
         { to = "kubernetes-api"; }
         { to = "world"; ports = [{ port = 443; }]; }
         { to = "dns"; }
       ];
     };
+
+    # ── VictoriaMetrics scrape + alerts ────────────────────────────────
+    openkrill.apps.victoriametrics.vmservicescrapes.cert-manager =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."app.kubernetes.io/name" = "cert-manager";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "http-metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.cert-manager-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "cert-manager";
+          rules = [
+            {
+              alert = "CertManagerCertExpiringSoon";
+              expr = ''(certmanager_certificate_expiration_timestamp_seconds - time()) < 604800'';
+              "for" = "1h";
+              labels.severity = "warning";
+              annotations = {
+                summary = "Certificate {{ $labels.name }} expires in less than 7 days";
+                description = "Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} expires in less than 7 days.";
+              };
+            }
+            {
+              alert = "CertManagerCertNotReady";
+              expr = ''certmanager_certificate_ready_status{condition="False"} == 1'';
+              "for" = "15m";
+              labels.severity = "critical";
+              annotations = {
+                summary = "Certificate {{ $labels.name }} is not ready";
+                description = "Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} has been not ready for 15 minutes.";
+              };
+            }
+          ];
+        }];
+      };
+
     openkrill.apps.argocd.applications.cert-manager = {
       namespace = "argocd";
       project = "default";

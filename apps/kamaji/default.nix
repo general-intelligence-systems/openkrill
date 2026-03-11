@@ -8,8 +8,8 @@ let
   networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
 
   defaults = {
-    # Disable analytics traces by default
-    telemetry.disabled = true;
+    # Enable telemetry for Prometheus metrics scraping
+    telemetry.disabled = false;
   };
 in
 {
@@ -33,11 +33,42 @@ in
 
   config = mkIf cfg.enable {
     openkrill.apps.kamaji.networkPolicy = {
+      ingress = [
+        { from = "victoriametrics"; ports = [{ port = 8080; }]; }
+      ];
       egress = [
         { to = "kubernetes-api"; }
         { to = "dns"; }
       ];
     };
+
+    # ── VictoriaMetrics scrape + alerts ────────────────────────────────
+    openkrill.apps.victoriametrics.vmservicescrapes.kamaji =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."app.kubernetes.io/name" = "kamaji";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.kamaji-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "kamaji";
+          rules = [{
+            alert = "KamajiDown";
+            expr = ''up{job=~".*kamaji.*"} == 0'';
+            "for" = "5m";
+            labels.severity = "critical";
+            annotations = {
+              summary = "Kamaji operator is down";
+              description = "Kamaji control plane manager has been unreachable for 5 minutes.";
+            };
+          }];
+        }];
+      };
+
     openkrill.apps.argocd.applications.kamaji = {
       namespace = "argocd";
       project = "default";

@@ -8,14 +8,16 @@
 #   }
 #
 # This module configures the k3s service, related networking, and
-# enables the default app stack.  It does NOT set system.stateVersion,
-# boot loader, or user accounts -- those are the consumer's
-# responsibility.
+# the default Gateway.  It does NOT set system.stateVersion, boot
+# loader, or user accounts -- those are the consumer's responsibility.
 #
-# When enabled, the following apps are activated by default (via
-# mkDefault, so consumers can still opt out of individual apps):
+# App modules are opt-in.  Enable the ones you need:
 #
-#   openkrill.apps.core-dns.enable = false;  # to disable
+#   openkrill.apps.cert-manager.enable = true;
+#   openkrill.apps.argocd.enable = true;
+#   # etc.
+#
+# See examples/default-stack for a full-stack configuration.
 { config, lib, pkgs, ... }:
 
 let
@@ -71,27 +73,6 @@ in
         (lib.mkIf config.openkrill.apps.cilium.enable
           (lib.mkAfter " --flannel-backend=none --disable-network-policy"))
       ];
-    };
-
-    # ── Default app stack ────────────────────────────────────────────
-    # These are enabled by default when services.openkrill is enabled.
-    # Consumers can opt out of any individual app:
-    #   openkrill.apps.authelia.enable = false;
-    openkrill.gitops.enable = lib.mkDefault true;
-
-    openkrill.apps = {
-      argocd.enable           = lib.mkDefault true;
-      authelia.enable         = lib.mkDefault true;
-      cert-manager.enable     = lib.mkDefault true;
-      cilium.enable           = lib.mkDefault true;
-      cloudnative-pg.enable   = lib.mkDefault true;
-      core-dns.enable         = lib.mkDefault true;
-      external-secrets.enable = lib.mkDefault true;
-      gateway-api.enable      = lib.mkDefault true;
-      helm.enable             = lib.mkDefault true;
-      network-policies.enable = lib.mkDefault true;
-      traefik.enable          = lib.mkDefault true;
-      trust-manager.enable    = lib.mkDefault true;
     };
 
     # ── Default Gateway ──────────────────────────────────────────────

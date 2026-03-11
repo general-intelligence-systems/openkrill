@@ -32,7 +32,7 @@ Design documentation for Openkrill.
 | [k8s-manifests.md](./k8s-manifests.md) | [cluster/](../cluster/) | 561 | How the Nix module system produces K8s manifests for management and tenant clusters, and how to add apps to each |
 | [k8s-manifests-architecture.md](./k8s-manifests-architecture.md) | [cluster/](../cluster/) | 38 | Architecture overview of the openkrill NixOS module system: manifests, apps, and gitops layers |
 | [k8s-manifests-helm.md](./k8s-manifests-helm.md) | [apps/](../apps/) | 170 | How to create a Helm-based app module under `apps/` |
-| [nix-module-apps.md](./nix-module-apps.md) | [apps/](../apps/) | 1004 | How-to guide for creating NixOS-style app modules under `apps/` |
+| [nix-module-apps.md](./nix-module-apps.md) | [apps/](../apps/) | 1027 | How-to guide for creating NixOS-style app modules under `apps/` |
 | [nix-module-crds.md](./nix-module-crds.md) | [apps/](../apps/) | 269 | How to hand-write a CRD-only module from a CRD specification |
 | [nix-module-app-generator.md](./nix-module-app-generator.md) | [lib/generate-module.nix](../lib/generate-module.nix) | 493 | How to auto-generate typed CRD fragments with `bin/create-module-crds` |
 | [argocd.md](./argocd.md) | [apps/argocd/](../apps/argocd/) | 191 | ArgoCD bootstrap via k3s and per-module Application CR pattern |
@@ -49,4 +49,10 @@ Design documentation for Openkrill.
 | Spec | Code | Lines | Purpose |
 |------|------|------:|---------|
 | [secrets.md](./secrets.md) | [modules/secret-generators.nix](../modules/secret-generators.nix), [apps/external-secrets/](../apps/external-secrets/) | 395 | How secrets are generated, stored, and distributed via ESO; how to add secrets to an app module |
+
+## Monitoring
+
+| Spec | Code | Lines | Purpose |
+|------|------|------:|---------|
+| [monitoring.md](./monitoring.md) | [apps/victoriametrics/](../apps/victoriametrics/) | 561 | How app modules declare VictoriaMetrics scrape configs and alert rules via the cross-module aggregation pattern |
 

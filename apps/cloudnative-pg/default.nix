@@ -152,6 +152,48 @@ in
       };
     };
 
+    # ── VictoriaMetrics scrape + alerts (when VM is enabled) ──────────
+    openkrill.apps.victoriametrics.vmservicescrapes.cnpg =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."cnpg.io/cluster" = cfg.clusterName;
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{
+          port = "metrics";
+          path = "/metrics";
+        }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.cnpg-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "cnpg";
+          rules = [
+            {
+              alert = "CNPGClusterNotHealthy";
+              expr = ''cnpg_collector_up == 0'';
+              "for" = "5m";
+              labels.severity = "critical";
+              annotations = {
+                summary = "CNPG cluster {{ $labels.cluster }} is not healthy";
+                description = "CNPG metrics collector has been down for 5 minutes.";
+              };
+            }
+            {
+              alert = "CNPGHighReplicationLag";
+              expr = ''cnpg_pg_replication_lag > 30'';
+              "for" = "5m";
+              labels.severity = "warning";
+              annotations = {
+                summary = "CNPG replication lag on {{ $labels.cluster }}";
+                description = "Replication lag exceeds 30 seconds for 5 minutes.";
+              };
+            }
+          ];
+        }];
+      };
+
     # ── Manifests ─────────────────────────────────────────────────────
     openkrill.manifests = mkMerge [
       {

@@ -15,6 +15,11 @@ let
 
   defaults = {
     fullnameOverride = "argocd";
+    controller.metrics.enabled = true;
+    server.metrics.enabled = true;
+    repoServer.metrics.enabled = true;
+    applicationSet.metrics.enabled = true;
+    notifications.metrics.enabled = true;
     global = {
       domain = cfg.domain;
     }
@@ -105,6 +110,7 @@ in
     openkrill.apps.argocd.networkPolicy = {
       ingress = [
         { from = "traefik"; ports = [{ port = 80; }]; }
+        { from = "victoriametrics"; ports = [{ port = 8082; } { port = 8083; } { port = 8084; }]; }
       ];
       egress = [
         { to = "core-dns"; ports = [{ port = 9418; }]; }
@@ -112,6 +118,45 @@ in
         { to = "dns"; }
       ];
     };
+
+    # ── VictoriaMetrics scrape + alerts ────────────────────────────────
+    openkrill.apps.victoriametrics.vmservicescrapes.argocd =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."app.kubernetes.io/part-of" = "argocd";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.argocd-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "argocd";
+          rules = [
+            {
+              alert = "ArgoAppOutOfSync";
+              expr = ''sum(argocd_app_info{sync_status!="Synced"}) > 0'';
+              "for" = "15m";
+              labels.severity = "warning";
+              annotations = {
+                summary = "ArgoCD applications out of sync";
+                description = "One or more ArgoCD applications have been out of sync for 15 minutes.";
+              };
+            }
+            {
+              alert = "ArgoAppDegraded";
+              expr = ''sum(argocd_app_info{health_status!~"Healthy|Progressing"}) > 0'';
+              "for" = "15m";
+              labels.severity = "warning";
+              annotations = {
+                summary = "ArgoCD applications degraded";
+                description = "One or more ArgoCD applications are in a degraded health state.";
+              };
+            }
+          ];
+        }];
+      };
     # ── Secret generator ─────────────────────────────────────────────
     # The OIDC client secret is deterministic — it must match the value
     # in Authelia's oidcClients config (which defaults to

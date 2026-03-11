@@ -15,7 +15,8 @@ NixOS-style app module under `apps/`.
 6. [extraManifests Pattern](#extramanifests-pattern)
 7. [Ad-hoc App Bundles (custom)](#ad-hoc-app-bundles-custom)
 8. [Available Module Arguments](#available-module-arguments)
-9. [Checklist](#checklist)
+9. [Cross-Module Integrations](#cross-module-integrations)
+10. [Checklist](#checklist)
 
 ---
 
@@ -973,6 +974,37 @@ otherAppEnabled = config.openkrill.apps.other.enable;
 
 ---
 
+## Cross-Module Integrations
+
+App modules participate in several cross-module aggregation patterns.
+Each pattern follows the same structure: the app module declares what
+it needs under a shared option namespace, and a central module assembles
+the result.
+
+When creating a new app module, wire up the applicable integrations
+from this table:
+
+| Integration | Option Path | Required? | Spec |
+|-------------|------------|:---------:|------|
+| ArgoCD Application | `openkrill.apps.argocd.applications.<name>` | yes | [argocd.md](./argocd.md) |
+| Network Policy | `openkrill.apps.<name>.networkPolicy` | yes | [network-policies.md](./network-policies.md) |
+| Secrets | `openkrill.secrets.generators.<name>`, `openkrill.apps.external-secrets.secrets.<name>` | if needed | [secrets.md](./secrets.md) |
+| HTTP Routes | `openkrill.apps.gateway-api.httproutes.<name>` | if web UI | — |
+| Monitoring | `openkrill.apps.victoriametrics.vmservicescrapes.<name>`, `.vmrules.<name>` | if metrics | [monitoring.md](./monitoring.md) |
+| Databases | `openkrill.apps.cloudnative-pg.databases.<name>` | if PostgreSQL | — |
+| OIDC Clients | `openkrill.apps.authelia.oidcClients.<name>` | if SSO | — |
+
+**ArgoCD** and **Network Policy** are required for every app module.
+The rest depend on what the app needs.
+
+All cross-module declarations are placed in the app's `config` block,
+guarded by `mkIf` on the target module's `enable` flag.  For example,
+monitoring declarations use
+`mkIf config.openkrill.apps.victoriametrics.enable` so they are only
+evaluated when VictoriaMetrics is enabled.
+
+---
+
 ## Checklist
 
 Before submitting a new module:
@@ -988,6 +1020,7 @@ Before submitting a new module:
 - [ ] `helm.nix` uses `lib.recursiveUpdate defaults cfg.values` for the `values` arg
 - [ ] `helm.nix` (or `resources.nix`) returns a list of K8s resource attrsets
 - [ ] ArgoCD Application CR declared via `openkrill.apps.argocd.applications.<name>` (see [argocd.md](./argocd.md))
+- [ ] Monitoring declared if app exposes metrics (see [monitoring.md](./monitoring.md))
 - [ ] Config enabled in consumer's `configuration.nix`
 - [ ] Files staged: `git add apps/<name>/`
 - [ ] `bin/test` passes (`nix flake check`)

@@ -545,6 +545,46 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── VictoriaMetrics scrape + alerts ────────────────────────────────
+    # Traefik is k3s-bundled in kube-system; no network policy needed.
+    openkrill.apps.victoriametrics.vmservicescrapes.traefik =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."app.kubernetes.io/name" = "traefik";
+        namespaceSelector.matchNames = [ "kube-system" ];
+        endpoints = [{ port = "traefik"; path = "/metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.traefik-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "traefik";
+          rules = [
+            {
+              alert = "TraefikHighHTTP5xxRate";
+              expr = ''sum(rate(traefik_service_requests_total{code=~"5.."}[5m])) / sum(rate(traefik_service_requests_total[5m])) > 0.05'';
+              "for" = "5m";
+              labels.severity = "warning";
+              annotations = {
+                summary = "Traefik high 5xx error rate";
+                description = "More than 5% of Traefik requests are returning 5xx errors.";
+              };
+            }
+            {
+              alert = "TraefikBackendDown";
+              expr = ''traefik_service_server_up == 0'';
+              "for" = "5m";
+              labels.severity = "critical";
+              annotations = {
+                summary = "Traefik backend {{ $labels.service }} is down";
+                description = "Traefik reports backend server {{ $labels.service }} has been down for 5 minutes.";
+              };
+            }
+          ];
+        }];
+      };
+
     # When gateway-api is also enabled, configure Traefik as the
     # Gateway API controller and register its GatewayClass.
     openkrill.apps.helm.chartConfigs.traefik = mkIf config.openkrill.apps."gateway-api".enable {

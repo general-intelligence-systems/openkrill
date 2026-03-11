@@ -1,6 +1,11 @@
 # apps/victoriametrics — VictoriaMetrics k8s monitoring stack
 # Deploys VM Operator + VMSingle + VMAgent + VMAlert + VMAlertmanager
 # with node-exporter, kube-state-metrics, Grafana, and default scrape targets.
+#
+# CRD fragments (auto-generated from upstream CRD specs) let other app
+# modules declare VMServiceScrape, VMRule, etc. under
+# openkrill.apps.victoriametrics.* with mkIf so that resources are only
+# rendered when this module is enabled.
 { config, lib, charts, kubelib, ... }:
 with lib;
 let
@@ -125,6 +130,17 @@ let
   };
 in
 {
+  imports = [
+    ./vmalertmanagerconfigs.nix
+    ./vmnodescrapes.nix
+    ./vmpodscrapes.nix
+    ./vmprobes.nix
+    ./vmrules.nix
+    ./vmscrapeconfigs.nix
+    ./vmservicescrapes.nix
+    ./vmstaticscrapes.nix
+  ];
+
   options.openkrill.apps.victoriametrics = {
     enable = mkEnableOption "VictoriaMetrics monitoring stack";
 

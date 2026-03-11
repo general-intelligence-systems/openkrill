@@ -39,6 +39,10 @@ let
       relay.enabled = true;
     };
 
+    # -- Metrics --
+    prometheus.enabled = true;
+    operator.prometheus.enabled = true;
+
     # -- Operator --
     operator.replicas = 1;
   };
@@ -70,6 +74,54 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── VictoriaMetrics scrape + alerts ────────────────────────────────
+    # Cilium runs in kube-system and is the CNI — no network policy needed.
+    openkrill.apps.victoriametrics.vmservicescrapes.cilium-agent =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."k8s-app" = "cilium";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "prometheus"; path = "/metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmservicescrapes.cilium-operator =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."io.cilium/app" = "operator";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "prometheus"; path = "/metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.cilium-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "cilium";
+          rules = [
+            {
+              alert = "CiliumAgentUnhealthy";
+              expr = ''cilium_unreachable_nodes > 0'';
+              "for" = "10m";
+              labels.severity = "warning";
+              annotations = {
+                summary = "Cilium agent has unreachable nodes";
+                description = "Cilium agent on {{ $labels.instance }} reports unreachable nodes for 10 minutes.";
+              };
+            }
+            {
+              alert = "CiliumEndpointNotReady";
+              expr = ''sum(cilium_endpoint_state{endpoint_state!="ready"}) > 0'';
+              "for" = "15m";
+              labels.severity = "warning";
+              annotations = {
+                summary = "Cilium endpoints not ready";
+                description = "Some Cilium endpoints have been in a non-ready state for 15 minutes.";
+              };
+            }
+          ];
+        }];
+      };
+
     openkrill.apps.argocd.applications.cilium = {
       namespace = "argocd";
       project = "default";

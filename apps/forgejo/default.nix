@@ -44,6 +44,7 @@ let
         MIGRATE = 3600;
       };
       repository.MAX_CREATION_LIMIT = -1;
+      metrics.ENABLED = "true";
     };
     persistence = {
       enabled = true;
@@ -92,6 +93,7 @@ in
       ingress = [
         { from = "traefik"; ports = [{ port = 3000; }]; }
         { from = "forgejo-runner"; ports = [{ port = 3000; }]; }
+        { from = "victoriametrics"; ports = [{ port = 3000; }]; }
       ];
       egress = [
         { to = "cloudnative-pg"; ports = [{ port = 5432; }]; }
@@ -99,6 +101,34 @@ in
         { to = "dns"; }
       ];
     };
+
+    # ── VictoriaMetrics scrape + alerts ────────────────────────────────
+    openkrill.apps.victoriametrics.vmservicescrapes.forgejo =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        selector.matchLabels."app.kubernetes.io/name" = "forgejo";
+        namespaceSelector.matchNames = [ cfg.namespace ];
+        endpoints = [{ port = "http"; path = "/metrics"; }];
+      };
+
+    openkrill.apps.victoriametrics.vmrules.forgejo-alerts =
+      mkIf config.openkrill.apps.victoriametrics.enable {
+        namespace = config.openkrill.apps.victoriametrics.namespace;
+        groups = [{
+          name = "forgejo";
+          rules = [{
+            alert = "ForgejoDown";
+            expr = ''up{job=~".*forgejo.*"} == 0'';
+            "for" = "5m";
+            labels.severity = "critical";
+            annotations = {
+              summary = "Forgejo is down";
+              description = "Forgejo git hosting has been unreachable for 5 minutes.";
+            };
+          }];
+        }];
+      };
+
     # ── Gateway API HTTPRoute ───────────────────────────────────────
     openkrill.apps."gateway-api".httproutes.forgejo = helpers.mkHTTPRoute {
       subdomain = "git";
