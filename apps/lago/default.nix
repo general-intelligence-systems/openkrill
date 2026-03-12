@@ -15,13 +15,8 @@ in
     namespace = mkOption {
       type = types.str;
       default = "lago";
-    };
-
-    values = mkOption {
-      type = types.attrs;
-      default = {};
-      description = "Helm chart value overrides, deep-merged with module defaults.";
-    };
+  };
+}
 
     extraManifests = helpers.mkExtraManifestsOption;
   };
@@ -60,4 +55,4 @@ in
       values = recursiveUpdate defaults cfg.values;
     };
   };
-}
+
