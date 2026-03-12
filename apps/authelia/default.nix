@@ -411,7 +411,7 @@ in
       subdomain = "auth";
       namespace = cfg.namespace;
       service = "authelia";
-      port = 80;
+      port = 443;
       auth = false;  # Authelia itself must not go through ForwardAuth
     };
 
