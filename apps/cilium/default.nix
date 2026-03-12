@@ -1,4 +1,4 @@
-# apps/cilium — Cilium CNI
+# apps/ciliu — Cilium CNI
 #
 # Deploys Cilium as the cluster CNI, replacing k3s's bundled Flannel.
 # Provides BPF-based networking, CiliumNetworkPolicy CRDs, L7-aware

@@ -95,6 +95,41 @@ in
       cluster.name = cnpgCfg.clusterName;
     };
 
+    # ── ExternalSecret: database credentials ─────────────────────────
+    # Reads username + password from the CNPG-generated app secret and
+    # templates a postgres:// URI with the lldap database name.
+    openkrill.apps.external-secrets.externalsecrets.${dbSecretName} = {
+      namespace = cfg.namespace;
+      secretStoreRef = {
+        name = cnpgCfg.clusterSecretStoreName;
+        kind = "ClusterSecretStore";
+      };
+      refreshInterval = "1h";
+      target = {
+        name = dbSecretName;
+        creationPolicy = "Owner";
+        template.data = {
+          uri = "postgresql://{{ .username }}:{{ .password }}@${cnpgCfg.clusterName}-rw.${cnpgCfg.namespace}.svc.cluster.local:5432/lldap";
+        };
+      };
+      data = [
+        {
+          secretKey = "username";
+          remoteRef = {
+            key = cnpgAppSecret;
+            property = "username";
+          };
+        }
+        {
+          secretKey = "password";
+          remoteRef = {
+            key = cnpgAppSecret;
+            property = "password";
+          };
+        }
+      ];
+    };
+
     # ── ExternalSecret for LLDAP secrets ─────────────────────────────
     openkrill.apps.external-secrets.secrets.lldap = {
       namespace = cfg.namespace;
@@ -150,10 +185,7 @@ in
     openkrill.manifests = lib.mkMerge [
       {
         lldap.content = import ./resources.nix {
-          inherit cfg domain dbSecretName cnpgAppSecret;
-          cnpgNamespace = cnpgCfg.namespace;
-          cnpgClusterName = cnpgCfg.clusterName;
-          cnpgStoreName = cnpgCfg.clusterSecretStoreName;
+          inherit cfg domain dbSecretName;
         };
       }
       (helpers.mkExtraManifestsConfig "lldap" cfg.extraManifests)

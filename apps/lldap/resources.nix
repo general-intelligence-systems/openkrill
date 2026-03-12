@@ -1,11 +1,11 @@
 # apps/lldap/resources.nix — Raw K8s resources for LLDAP
 #
-# Returns a list of resource attrsets: ExternalSecret (DB creds) +
-# Deployment + two Services.
+# Returns a list of resource attrsets: Deployment + two Services.
 # App secrets come from the ExternalSecret declared in default.nix.
 # Database credentials come from the shared CNPG cluster's app secret,
-# mirrored into this namespace via a dedicated ExternalSecret.
-{ cfg, domain, dbSecretName, cnpgAppSecret, cnpgNamespace, cnpgClusterName, cnpgStoreName }:
+# mirrored into this namespace via the externalsecrets typed CRD option
+# declared in default.nix.
+{ cfg, domain, dbSecretName }:
 let
   labels = {
     "app.kubernetes.io/name" = "lldap";
@@ -13,48 +13,6 @@ let
   };
 in
 [
-  # ── ExternalSecret: database credentials ────────────────────────────
-  # Reads username + password from the CNPG-generated app secret and
-  # templates a postgres:// URI with the lldap database name.
-  {
-    apiVersion = "external-secrets.io/v1";
-    kind = "ExternalSecret";
-    metadata = {
-      name = dbSecretName;
-      namespace = cfg.namespace;
-    };
-    spec = {
-      refreshInterval = "1h";
-      secretStoreRef = {
-        name = cnpgStoreName;
-        kind = "ClusterSecretStore";
-      };
-      target = {
-        name = dbSecretName;
-        creationPolicy = "Owner";
-        template.data = {
-          uri = "postgresql://{{ .username }}:{{ .password }}@${cnpgClusterName}-rw.${cnpgNamespace}.svc.cluster.local:5432/lldap";
-        };
-      };
-      data = [
-        {
-          secretKey = "username";
-          remoteRef = {
-            key = cnpgAppSecret;
-            property = "username";
-          };
-        }
-        {
-          secretKey = "password";
-          remoteRef = {
-            key = cnpgAppSecret;
-            property = "password";
-          };
-        }
-      ];
-    };
-  }
-
   # ── Deployment ───────────────────────────────────────────────────
   {
     apiVersion = "apps/v1";

@@ -14,59 +14,7 @@ let
   normalizeKey = k:
     if builtins.isString k then { sourceKey = k; targetKey = k; } else k;
 
-  # ── Build an ExternalSecret CR from a secret submodule entry ──────────
-  mkExternalSecret = _name: sec:
-    let
-      hasLabels = sec.labels != {};
-      hasTemplateData = sec.templateData != {};
-      hasTemplate = hasLabels || hasTemplateData;
 
-      # When templateData is used, remote-ref values are injected via
-      # Go template syntax ({{ .sshPrivateKey }}) so both static and
-      # dynamic values end up in the final Secret.
-      templateBlock = optionalAttrs hasTemplate {
-        template = {}
-          // optionalAttrs hasLabels {
-            metadata.labels = sec.labels;
-          }
-          // optionalAttrs hasTemplateData {
-            data = sec.templateData
-              // builtins.listToAttrs (map (key:
-                let k = normalizeKey key; in
-                { name = k.targetKey; value = "{{ .${k.targetKey} }}"; }
-              ) sec.keys);
-          };
-      };
-    in
-    {
-      apiVersion = "external-secrets.io/v1";
-      kind = "ExternalSecret";
-      metadata = {
-        name = sec.name;
-        namespace = sec.namespace;
-      };
-      spec = {
-        refreshInterval = sec.refreshInterval;
-        secretStoreRef = {
-          name = cfg.clusterSecretStoreName;
-          kind = "ClusterSecretStore";
-        };
-        target = {
-          name = sec.targetSecretName;
-          creationPolicy = "Owner";
-        }
-        // templateBlock;
-        data = map (key: let k = normalizeKey key; in {
-          secretKey = k.targetKey;
-          remoteRef = {
-            key = sec.remoteSecretName;
-            property = k.sourceKey;
-          };
-        }) sec.keys;
-      };
-    };
-
-  externalSecrets = mapAttrsToList mkExternalSecret cfg.secrets;
 
   # ── RBAC for the Kubernetes provider ──────────────────────────────────
   rbacResources = helpers.mkClusterRBAC {
@@ -88,28 +36,6 @@ let
 
   # ── Source namespace ──────────────────────────────────────────────────
   sourceNamespace = k8s.mkNamespace cfg.sourceNamespace;
-
-  # ── ClusterSecretStore (Kubernetes provider) ────────────────────────
-  # Reads source secrets from the secret-store namespace using the
-  # eso-secret-store-reader ServiceAccount created by rbacResources.
-  clusterSecretStore = {
-    apiVersion = "external-secrets.io/v1beta1";
-    kind = "ClusterSecretStore";
-    metadata.name = cfg.clusterSecretStoreName;
-    spec.provider.kubernetes = {
-      remoteNamespace = cfg.sourceNamespace;
-      server.caProvider = {
-        type = "ConfigMap";
-        name = "kube-root-ca.crt";
-        namespace = cfg.namespace;
-        key = "ca.crt";
-      };
-      auth.serviceAccount = {
-        name = "eso-secret-store-reader";
-        namespace = cfg.namespace;
-      };
-    };
-  };
 
 in
 {
@@ -248,6 +174,68 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── ClusterSecretStore (Kubernetes provider) ────────────────────────
+    # Reads source secrets from the secret-store namespace using the
+    # eso-secret-store-reader ServiceAccount created by rbacResources.
+    openkrill.apps.external-secrets.clustersecretstores.${cfg.clusterSecretStoreName} = {
+      namespace = cfg.namespace;
+      provider.kubernetes = {
+        remoteNamespace = cfg.sourceNamespace;
+        server.caProvider = {
+          type = "ConfigMap";
+          name = "kube-root-ca.crt";
+          namespace = cfg.namespace;
+          key = "ca.crt";
+        };
+        auth.serviceAccount = {
+          name = "eso-secret-store-reader";
+          namespace = cfg.namespace;
+        };
+      };
+    };
+
+    # ── Map secrets convenience option → typed externalsecrets CRD ────
+    # The secrets.<name> option provides a simplified interface; this
+    # wiring delegates to the auto-generated externalsecrets CRD module
+    # so resources are type-checked and version-pinned.
+    openkrill.apps.external-secrets.externalsecrets = mapAttrs (_name: sec:
+      let
+        hasLabels = sec.labels != {};
+        hasTemplateData = sec.templateData != {};
+        hasTemplate = hasLabels || hasTemplateData;
+      in {
+        namespace = sec.namespace;
+        secretStoreRef = {
+          name = cfg.clusterSecretStoreName;
+          kind = "ClusterSecretStore";
+        };
+        refreshInterval = sec.refreshInterval;
+        target = {
+          name = sec.targetSecretName;
+          creationPolicy = "Owner";
+        } // optionalAttrs hasTemplate {
+          template = {}
+            // optionalAttrs hasLabels {
+              metadata.labels = sec.labels;
+            }
+            // optionalAttrs hasTemplateData {
+              data = sec.templateData
+                // builtins.listToAttrs (map (key:
+                  let k = normalizeKey key; in
+                  { name = k.targetKey; value = "{{ .${k.targetKey} }}"; }
+                ) sec.keys);
+            };
+        };
+        data = map (key: let k = normalizeKey key; in {
+          secretKey = k.targetKey;
+          remoteRef = {
+            key = sec.remoteSecretName;
+            property = k.sourceKey;
+          };
+        }) sec.keys;
+      }
+    ) cfg.secrets;
+
     openkrill.apps.external-secrets.networkPolicy = {
       ingress = [
         { from = "victoriametrics"; ports = [{ port = 8080; }]; }
@@ -314,9 +302,7 @@ in
             values = cfg.values;
           })
           ++ [ sourceNamespace ]
-          ++ rbacResources
-          ++ [ clusterSecretStore ]
-          ++ externalSecrets;
+          ++ rbacResources;
       }
       (helpers.mkExtraManifestsConfig "external-secrets" cfg.extraManifests)
     ];

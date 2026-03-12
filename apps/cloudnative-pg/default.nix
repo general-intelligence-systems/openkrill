@@ -41,24 +41,6 @@ let
     ];
   };
 
-  cnpgClusterSecretStore = {
-    apiVersion = "external-secrets.io/v1beta1";
-    kind = "ClusterSecretStore";
-    metadata.name = cnpgStoreName;
-    spec.provider.kubernetes = {
-      remoteNamespace = cfg.namespace;
-      server.caProvider = {
-        type = "ConfigMap";
-        name = "kube-root-ca.crt";
-        namespace = cfg.namespace;
-        key = "ca.crt";
-      };
-      auth.serviceAccount = {
-        name = cnpgStoreServiceAccount;
-        namespace = cfg.namespace;
-      };
-    };
-  };
 in
 {
   imports = [
@@ -110,6 +92,26 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── ClusterSecretStore for CNPG-generated secrets ──────────────────
+    # App modules (lldap, authelia, …) use this store to read database
+    # credentials from the CNPG-generated app secret.
+    openkrill.apps.external-secrets.clustersecretstores.${cnpgStoreName} = {
+      namespace = cfg.namespace;
+      provider.kubernetes = {
+        remoteNamespace = cfg.namespace;
+        server.caProvider = {
+          type = "ConfigMap";
+          name = "kube-root-ca.crt";
+          namespace = cfg.namespace;
+          key = "ca.crt";
+        };
+        auth.serviceAccount = {
+          name = cnpgStoreServiceAccount;
+          namespace = cfg.namespace;
+        };
+      };
+    };
+
     openkrill.apps.cloudnative-pg.networkPolicy = {
       ingress = [
         { from = "authelia"; ports = [{ port = 5432; }]; }
@@ -204,8 +206,7 @@ in
             namespace = cfg.namespace;
             values = recursiveUpdate defaults cfg.values;
           })
-          ++ cnpgStoreRBAC
-          ++ [ cnpgClusterSecretStore ];
+          ++ cnpgStoreRBAC;
       }
       (helpers.mkExtraManifestsConfig "cloudnative-pg" cfg.extraManifests)
     ];
