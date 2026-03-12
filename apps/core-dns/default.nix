@@ -124,13 +124,8 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        core-dns.content = import ./resources.nix {
-          inherit lib cfg;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "core-dns" cfg.extraManifests)
-    ];
+    openkrill.manifests.core-dns.content = import ./resources.nix {
+      inherit lib cfg;
+    };
   };
 }

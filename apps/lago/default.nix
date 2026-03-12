@@ -70,16 +70,11 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        lago.content = kubelib.fromHelm {
-          name = "lago";
-          chart = charts.getlago.lago;
-          namespace = cfg.namespace;
-          values = recursiveUpdate defaults cfg.values;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "lago" cfg.extraManifests)
-    ];
+    openkrill.manifests.lago.content = kubelib.fromHelm {
+      name = "lago";
+      chart = charts.getlago.lago;
+      namespace = cfg.namespace;
+      values = recursiveUpdate defaults cfg.values;
+    };
   };
 }

@@ -361,11 +361,6 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        cilium.content = helmResources;
-      }
-      (helpers.mkExtraManifestsConfig "cilium" cfg.extraManifests)
-    ];
+    openkrill.manifests.cilium.content = helmResources;
   };
 }

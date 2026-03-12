@@ -203,16 +203,11 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        victoriametrics.content = kubelib.fromHelm {
-          name = "victoriametrics";
-          chart = charts.victoriametrics.victoria-metrics-k8s-stack;
-          namespace = cfg.namespace;
-          values = recursiveUpdate defaults cfg.values;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "victoriametrics" cfg.extraManifests)
-    ];
+    openkrill.manifests.victoriametrics.content = kubelib.fromHelm {
+      name = "victoriametrics";
+      chart = charts.victoriametrics.victoria-metrics-k8s-stack;
+      namespace = cfg.namespace;
+      values = recursiveUpdate defaults cfg.values;
+    };
   };
 }

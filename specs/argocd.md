@@ -29,7 +29,7 @@ that directory on startup.
 # modules/manifests.nix
 services.k3s.manifests = mapAttrs' (name: manifest:
   nameValuePair "openkrill-${name}" { content = manifest.content; }
-) enabledManifests;
+) cfg.manifests;
 ```
 
 cert-manager and trust-manager are bootstrapped alongside ArgoCD so
@@ -97,9 +97,7 @@ config = mkIf cfg.enable {
     };
   };
 
-  openkrill.manifests = mkMerge [
-    # ... existing manifest content ...
-  ];
+  openkrill.manifests.my-app.content = [ ... ];
 };
 ```
 

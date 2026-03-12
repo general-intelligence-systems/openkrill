@@ -195,19 +195,14 @@ in
       };
 
     # ── Manifests ─────────────────────────────────────────────────────
-    openkrill.manifests = mkMerge [
-      {
-        cloudnative-pg.content =
-          (kubelib.fromHelm {
-            name = "cloudnative-pg";
-            chart = charts.cloudnative-pg.cloudnative-pg;
-            namespace = cfg.namespace;
-            values = recursiveUpdate defaults cfg.values;
-          })
-          ++ cnpgStoreRBAC
-          ++ [ cnpgClusterSecretStore ];
-      }
-      (helpers.mkExtraManifestsConfig "cloudnative-pg" cfg.extraManifests)
-    ];
+    openkrill.manifests.cloudnative-pg.content =
+      (kubelib.fromHelm {
+        name = "cloudnative-pg";
+        chart = charts.cloudnative-pg.cloudnative-pg;
+        namespace = cfg.namespace;
+        values = recursiveUpdate defaults cfg.values;
+      })
+      ++ cnpgStoreRBAC
+      ++ [ cnpgClusterSecretStore ];
   };
 }

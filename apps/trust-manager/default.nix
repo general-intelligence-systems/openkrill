@@ -165,11 +165,6 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        trust-manager.content = [ (k8s.mkNamespace cfg.namespace) ] ++ helmResources ++ [ bundle ];
-      }
-      (helpers.mkExtraManifestsConfig "trust-manager" cfg.extraManifests)
-    ];
+    openkrill.manifests.trust-manager.content = [ (k8s.mkNamespace cfg.namespace) ] ++ helmResources ++ [ bundle ];
   };
 }

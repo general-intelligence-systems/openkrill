@@ -107,15 +107,10 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        metacontroller.content =
-          (parseManifests "metacontroller-namespace.yaml")
-          ++ (parseManifests "metacontroller-rbac.yaml")
-          ++ (parseManifests "metacontroller-crds-v1.yaml")
-          ++ (parseManifests "metacontroller.yaml");
-      }
-      (helpers.mkExtraManifestsConfig "metacontroller" cfg.extraManifests)
-    ];
+    openkrill.manifests.metacontroller.content =
+      (parseManifests "metacontroller-namespace.yaml")
+      ++ (parseManifests "metacontroller-rbac.yaml")
+      ++ (parseManifests "metacontroller-crds-v1.yaml")
+      ++ (parseManifests "metacontroller.yaml");
   };
 }

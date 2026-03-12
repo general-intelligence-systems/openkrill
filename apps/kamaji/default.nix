@@ -88,16 +88,11 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        kamaji.content = kubelib.fromHelm {
-          name = "kamaji";
-          chart = charts.clastix.kamaji;
-          namespace = cfg.namespace;
-          values = recursiveUpdate defaults cfg.values;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "kamaji" cfg.extraManifests)
-    ];
+    openkrill.manifests.kamaji.content = kubelib.fromHelm {
+      name = "kamaji";
+      chart = charts.clastix.kamaji;
+      namespace = cfg.namespace;
+      values = recursiveUpdate defaults cfg.values;
+    };
   };
 }

@@ -634,11 +634,6 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        traefik.content = allResources;
-      }
-      (helpers.mkExtraManifestsConfig "traefik" cfg.extraManifests)
-    ];
+    openkrill.manifests.traefik.content = allResources;
   };
 }

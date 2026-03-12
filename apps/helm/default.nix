@@ -340,11 +340,6 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        helm.content = helmCharts ++ helmChartConfigs;
-      }
-      (helpers.mkExtraManifestsConfig "helm" cfg.extraManifests)
-    ];
+    openkrill.manifests.helm.content = helmCharts ++ helmChartConfigs;
   };
 }

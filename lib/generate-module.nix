@@ -351,12 +351,7 @@ let
         };
 
         config = mkIf cfg.enable {
-          openkrill.manifests = mkMerge [
-            {
-              "${moduleName}".content = allResources;
-            }
-            (helpers.mkExtraManifestsConfig "${moduleName}" cfg.extraManifests)
-          ];
+          openkrill.manifests."${moduleName}".content = allResources;
         };
       }
     '' else ''

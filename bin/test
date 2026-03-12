@@ -4,6 +4,8 @@ set -euo pipefail
 
 echo '🧪 testing...'
 
+find . -path ./mirrors -prune -o -name '*.nix' -print -exec nix-instantiate --parse {} + > /dev/null
+
 nix flake show
 
 echo '✅ done'

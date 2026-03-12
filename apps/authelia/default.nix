@@ -400,52 +400,47 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        authelia.content =
-          (kubelib.fromHelm {
-            name = "authelia";
-            chart = charts.authelia.authelia;
+    openkrill.manifests.authelia.content =
+      (kubelib.fromHelm {
+        name = "authelia";
+        chart = charts.authelia.authelia;
+        namespace = cfg.namespace;
+        extraOpts = [ "--skip-schema-validation" ];
+        values = recursiveUpdate defaults cfg.values;
+      })
+      ++ [
+        # ── ExternalSecret: database credentials ──────────────
+        # Reads password from the shared CNPG cluster's app
+        # secret and creates a Secret the Authelia Helm chart
+        # can mount for the PostgreSQL password file.
+        {
+          apiVersion = "external-secrets.io/v1";
+          kind = "ExternalSecret";
+          metadata = {
+            name = dbSecretName;
             namespace = cfg.namespace;
-            extraOpts = [ "--skip-schema-validation" ];
-            values = recursiveUpdate defaults cfg.values;
-          })
-          ++ [
-            # ── ExternalSecret: database credentials ──────────────
-            # Reads password from the shared CNPG cluster's app
-            # secret and creates a Secret the Authelia Helm chart
-            # can mount for the PostgreSQL password file.
-            {
-              apiVersion = "external-secrets.io/v1";
-              kind = "ExternalSecret";
-              metadata = {
-                name = dbSecretName;
-                namespace = cfg.namespace;
-              };
-              spec = {
-                refreshInterval = "1h";
-                secretStoreRef = {
-                  name = cnpgCfg.clusterSecretStoreName;
-                  kind = "ClusterSecretStore";
+          };
+          spec = {
+            refreshInterval = "1h";
+            secretStoreRef = {
+              name = cnpgCfg.clusterSecretStoreName;
+              kind = "ClusterSecretStore";
+            };
+            target = {
+              name = dbSecretName;
+              creationPolicy = "Owner";
+            };
+            data = [
+              {
+                secretKey = "password";
+                remoteRef = {
+                  key = cnpgAppSecret;
+                  property = "password";
                 };
-                target = {
-                  name = dbSecretName;
-                  creationPolicy = "Owner";
-                };
-                data = [
-                  {
-                    secretKey = "password";
-                    remoteRef = {
-                      key = cnpgAppSecret;
-                      property = "password";
-                    };
-                  }
-                ];
-              };
-            }
-          ];
-      }
-      (helpers.mkExtraManifestsConfig "authelia" cfg.extraManifests)
-    ];
+              }
+            ];
+          };
+        }
+      ];
   };
 }

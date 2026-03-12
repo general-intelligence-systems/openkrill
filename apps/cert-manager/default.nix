@@ -183,14 +183,9 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        cert-manager.content =
-          [ (k8s.mkNamespace cfg.namespace) ]
-          ++ helmResources
-          ++ optionals cfg.selfSignedCA.enable caResources;
-      }
-      (helpers.mkExtraManifestsConfig "cert-manager" cfg.extraManifests)
-    ];
+    openkrill.manifests.cert-manager.content =
+      [ (k8s.mkNamespace cfg.namespace) ]
+      ++ helmResources
+      ++ optionals cfg.selfSignedCA.enable caResources;
   };
 }

@@ -52,24 +52,19 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        "my-app".content =
-          kubelib.fromHelm {
-            name = "my-app";
-            chart = charts.my-repo.my-chart;
-            namespace = "my-app";
-            values = cfg.values;
-          };
+    openkrill.manifests."my-app".content =
+      kubelib.fromHelm {
+        name = "my-app";
+        chart = charts.my-repo.my-chart;
+        namespace = "my-app";
+        values = cfg.values;
+      };
 
-        "my-app-ns".content = {
-          apiVersion = "v1";
-          kind = "Namespace";
-          metadata.name = "my-app";
-        };
-      }
-      (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-    ];
+    openkrill.manifests."my-app-ns".content = {
+      apiVersion = "v1";
+      kind = "Namespace";
+      metadata.name = "my-app";
+    };
   };
 }
 ```
@@ -88,8 +83,8 @@ Every module **must** have:
 - `values` as `types.attrsOf types.anything`
 - `extraManifests = helpers.mkExtraManifestsOption`
 - `config` block guarded by `mkIf cfg.enable`
-- Manifests written to `openkrill.manifests` via `mkMerge`
-- `helpers.mkExtraManifestsConfig` as the last entry in the merge
+- Manifests written directly to `openkrill.manifests.<name>.content`
+- `extraManifests` fan-out is handled centrally by `modules/manifests.nix`
 
 ## Chart references
 

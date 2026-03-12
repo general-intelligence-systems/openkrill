@@ -49,7 +49,6 @@ the manifest pipeline, ad-hoc app support, and shared types:
   options.openkrill.manifests = lib.mkOption {
     type = lib.types.attrsOf (lib.types.submodule {
       options = {
-        enable  = lib.mkOption { type = lib.types.bool; default = true; };
         content = lib.mkOption { type = with lib.types; either attrs (listOf attrs); };
       };
     });
@@ -81,9 +80,8 @@ the manifest pipeline, ad-hoc app support, and shared types:
   ```
 
   The pipeline then:
-  1. Filters to enabled manifests (`enable = true` is the default).
-  2. Wraps lists of resources as Kubernetes `List` objects.
-  3. Serializes each entry to YAML via `pkgs.formats.yaml`.
+  1. Wraps lists of resources as Kubernetes `List` objects.
+  2. Serializes each entry to YAML via `pkgs.formats.yaml`.
   4. Commits all YAML files into a bare git repo
      (`openkrill.renderedManifestRepo`) on branch `rendered-manifests`
      with fixed identity and timestamps for reproducibility.  Same
@@ -205,14 +203,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    openkrill.manifests = lib.mkMerge [
-      {
-        my-app.content = import ./helm.nix {
-          inherit lib charts kubelib cfg;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-    ];
+    openkrill.manifests.my-app.content = import ./helm.nix {
+      inherit lib charts kubelib cfg;
+    };
   };
 }
 ```
@@ -330,12 +323,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    openkrill.manifests = lib.mkMerge [
-      {
-        my-policies.content = cfg.policies;
-      }
-      (helpers.mkExtraManifestsConfig "my-policies" cfg.extraManifests)
-    ];
+    openkrill.manifests.my-policies.content = cfg.policies;
   };
 }
 ```
@@ -374,12 +362,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    openkrill.manifests = lib.mkMerge [
-      {
-        my-app.content = import ./resources.nix { inherit cfg; };
-      }
-      (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-    ];
+    openkrill.manifests.my-app.content = import ./resources.nix { inherit cfg; };
   };
 }
 ```
@@ -394,14 +377,9 @@ Use when: the module has optional features that add extra K8s resources
 **`default.nix`:**
 ```nix
 config = lib.mkIf cfg.enable {
-  openkrill.manifests = lib.mkMerge [
-    {
-      my-app.content =
-        (import ./helm.nix { inherit lib charts kubelib cfg; })
-        ++ (lib.optionals cfg.oidc.enable (import ./oidc-setup.nix { inherit cfg; }));
-    }
-    (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-  ];
+  openkrill.manifests.my-app.content =
+    (import ./helm.nix { inherit lib charts kubelib cfg; })
+    ++ (lib.optionals cfg.oidc.enable (import ./oidc-setup.nix { inherit cfg; }));
 };
 ```
 
@@ -450,14 +428,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    openkrill.manifests = lib.mkMerge [
-      {
-        my-app.content =
-          (import ./helm.nix { inherit lib charts kubelib cfg; })
-          ++ (lib.mapAttrsToList mkResource cfg.things);
-      }
-      (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-    ];
+    openkrill.manifests.my-app.content =
+      (import ./helm.nix { inherit lib charts kubelib cfg; })
+      ++ (lib.mapAttrsToList mkResource cfg.things);
   };
 }
 ```
@@ -517,14 +490,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    openkrill.manifests = lib.mkMerge [
-      {
-        my-app.content = import ./helm.nix {
-          inherit lib charts kubelib cfg;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-    ];
+    openkrill.manifests.my-app.content = import ./helm.nix {
+      inherit lib charts kubelib cfg;
+    };
   };
 }
 ```
@@ -541,15 +509,10 @@ it to helm.nix:
 
 ```nix
 config = lib.mkIf cfg.enable {
-  openkrill.manifests = lib.mkMerge [
-    {
-      my-app.content = import ./helm.nix {
-        inherit charts kubelib cfg;
-        clusterDomain = config.openkrill.domain;
-      };
-    }
-    (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-  ];
+  openkrill.manifests.my-app.content = import ./helm.nix {
+    inherit charts kubelib cfg;
+    clusterDomain = config.openkrill.domain;
+  };
 };
 ```
 
@@ -640,12 +603,7 @@ config = lib.mkIf cfg.enable {
     };
   };
 
-  openkrill.manifests = lib.mkMerge [
-    {
-      my-app.content = import ./helm.nix { inherit lib charts kubelib cfg; };
-    }
-    (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-  ];
+  openkrill.manifests.my-app.content = import ./helm.nix { inherit lib charts kubelib cfg; };
 };
 ```
 
@@ -717,10 +675,7 @@ Every module wraps its config in `lib.mkIf`:
 
 ```nix
 config = lib.mkIf cfg.enable {
-  openkrill.manifests = lib.mkMerge [
-    { my-app.content = [ ... ]; }
-    (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-  ];
+  openkrill.manifests.my-app.content = [ ... ];
 };
 ```
 
@@ -818,16 +773,20 @@ The shared helpers in `modules/lib/helpers.nix` provide:
   either a single resource attrset or a list of resource attrsets.
 
 - **`helpers.mkExtraManifestsConfig`** — Takes a prefix and the
-  `extraManifests` attrset, returns config to merge into
-  `openkrill.manifests`. Each key is prefixed with the app name to avoid
-  collisions (e.g. `cert-manager/my-issuer`).  Since manifest keys
-  containing `/` create subdirectories in the rendered repo, extra
-  manifests end up namespaced under their app's directory
+  `extraManifests` attrset, fans each key into
+  `openkrill.manifests."<prefix>/<key>"`. This is used centrally by
+  `modules/manifests.nix` — individual app modules don't need to call it.
+  Each key is prefixed with the app name to avoid collisions
+  (e.g. `cert-manager/my-issuer`).  Since manifest keys containing `/`
+  create subdirectories in the rendered repo, extra manifests end up
+  namespaced under their app's directory
   (e.g. `cert-manager/my-issuer.yaml`).
 
 ### Module-side usage
 
-In every module's options block:
+In every module's options block, declare the `extraManifests` option.
+The fan-out into `openkrill.manifests` is handled centrally by
+`modules/manifests.nix` — no per-module wiring needed:
 
 ```nix
 helpers = import ../../modules/lib/helpers.nix { inherit lib; };
@@ -835,12 +794,9 @@ helpers = import ../../modules/lib/helpers.nix { inherit lib; };
 # In options:
 extraManifests = helpers.mkExtraManifestsOption;
 
-# In config:
+# In config — just set your manifest content directly:
 config = lib.mkIf cfg.enable {
-  openkrill.manifests = lib.mkMerge [
-    { my-app.content = ...; }
-    (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-  ];
+  openkrill.manifests.my-app.content = ...;
 };
 ```
 
@@ -1016,7 +972,7 @@ Before submitting a new module:
 - [ ] `values` option declared (type `lib.types.attrs`, default `{}`) for helm-based modules
 - [ ] `extraManifests` option declared via `helpers.mkExtraManifestsOption`
 - [ ] `config` block is guarded with `lib.mkIf cfg.enable`
-- [ ] `config` block uses `lib.mkMerge` with `helpers.mkExtraManifestsConfig`
+- [ ] `config` block sets `openkrill.manifests.<name>.content` directly (extraManifests fan-out is centralized)
 - [ ] `helm.nix` uses `lib.recursiveUpdate defaults cfg.values` for the `values` arg
 - [ ] `helm.nix` (or `resources.nix`) returns a list of K8s resource attrsets
 - [ ] ArgoCD Application CR declared via `openkrill.apps.argocd.applications.<name>` (see [argocd.md](./argocd.md))

@@ -9,7 +9,6 @@ let
     options.openkrill.manifests = lib.mkOption {
       type = lib.types.attrsOf (lib.types.submodule {
         options = {
-          enable  = lib.mkOption { type = lib.types.bool; default = true; };
           content = lib.mkOption { type = with lib.types; either attrs (listOf attrs); };
         };
       });

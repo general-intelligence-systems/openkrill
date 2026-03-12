@@ -154,12 +154,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    openkrill.manifests = mkMerge [
-      {
-        my-crd.content = allResources;
-      }
-      (helpers.mkExtraManifestsConfig "my-crd" cfg.extraManifests)
-    ];
+    openkrill.manifests.my-crd.content = allResources;
   };
 }
 ```

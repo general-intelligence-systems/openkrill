@@ -147,16 +147,11 @@ in
     };
 
     # ── Manifests ────────────────────────────────────────────────────
-    openkrill.manifests = lib.mkMerge [
-      {
-        lldap.content = import ./resources.nix {
-          inherit cfg domain dbSecretName cnpgAppSecret;
-          cnpgNamespace = cnpgCfg.namespace;
-          cnpgClusterName = cnpgCfg.clusterName;
-          cnpgStoreName = cnpgCfg.clusterSecretStoreName;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "lldap" cfg.extraManifests)
-    ];
+    openkrill.manifests.lldap.content = import ./resources.nix {
+      inherit cfg domain dbSecretName cnpgAppSecret;
+      cnpgNamespace = cnpgCfg.namespace;
+      cnpgClusterName = cnpgCfg.clusterName;
+      cnpgStoreName = cnpgCfg.clusterSecretStoreName;
+    };
   };
 }

@@ -102,16 +102,11 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        theia-ide.content = kubelib.fromHelm {
-          name = "theia-ide";
-          inherit chart;
-          namespace = cfg.namespace;
-          values = recursiveUpdate defaults cfg.values;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "theia-ide" cfg.extraManifests)
-    ];
+    openkrill.manifests.theia-ide.content = kubelib.fromHelm {
+      name = "theia-ide";
+      inherit chart;
+      namespace = cfg.namespace;
+      values = recursiveUpdate defaults cfg.values;
+    };
   };
 }

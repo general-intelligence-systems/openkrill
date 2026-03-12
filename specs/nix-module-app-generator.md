@@ -52,7 +52,7 @@ The generator has two modes, controlled by the `--fragment` flag:
 
 Generates a **complete app module** — the output is a self-contained
 `default.nix` with `mkEnableOption`, `extraManifests`,
-`mkIf cfg.enable` guard, and `mkMerge`.
+`mkIf cfg.enable` guard.
 
 Use standalone mode when the app **is** just a set of CRD instances
 with no Helm chart, RBAC, or other resources alongside them.
@@ -79,10 +79,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    openkrill.manifests = mkMerge [
-      { "my-crd".content = allResources; }
-      (helpers.mkExtraManifestsConfig "my-crd" cfg.extraManifests)
-    ];
+    openkrill.manifests."my-crd".content = allResources;
   };
 }
 ```
@@ -236,19 +233,14 @@ in
     };
 
     # Helm chart + namespace
-    openkrill.manifests = mkMerge [
-      {
-        my-app.content =
-          [ (k8s.mkNamespace cfg.namespace) ]
-          ++ (kubelib.fromHelm {
-            name = "my-app";
-            chart = charts.my-repo.my-chart;
-            namespace = cfg.namespace;
-            values = lib.recursiveUpdate {} cfg.values;
-          });
-      }
-      (helpers.mkExtraManifestsConfig "my-app" cfg.extraManifests)
-    ];
+    openkrill.manifests.my-app.content =
+      [ (k8s.mkNamespace cfg.namespace) ]
+      ++ (kubelib.fromHelm {
+        name = "my-app";
+        chart = charts.my-repo.my-chart;
+        namespace = cfg.namespace;
+        values = lib.recursiveUpdate {} cfg.values;
+      });
   };
 }
 ```

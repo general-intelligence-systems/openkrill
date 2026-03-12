@@ -206,19 +206,14 @@ in
     };
 
     # ── Manifests ──────────────────────────────────────────────────────
-    openkrill.manifests = mkMerge [
-      {
-        openkrill-operator.content =
-          [ (k8s.mkNamespace cfg.namespace) ]
-          ++ kubelib.fromHelm {
-            name = "agent-controller";
-            chart = charts.openkrill.agent-controller;
-            namespace = cfg.namespace;
-            values = cfg.values;
-          }
-          ++ allCRs;
+    openkrill.manifests.openkrill-operator.content =
+      [ (k8s.mkNamespace cfg.namespace) ]
+      ++ kubelib.fromHelm {
+        name = "agent-controller";
+        chart = charts.openkrill.agent-controller;
+        namespace = cfg.namespace;
+        values = cfg.values;
       }
-      (helpers.mkExtraManifestsConfig "openkrill-operator" cfg.extraManifests)
-    ];
+      ++ allCRs;
   };
 }
