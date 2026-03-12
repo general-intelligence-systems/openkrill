@@ -18,8 +18,8 @@
 #     ];
 #   };
 #
-# The network-policies module reads these declarations and generates
-# CiliumNetworkPolicy resources.  See specs/network-policies.md.
+# The cilium module reads these declarations and generates typed
+# CiliumNetworkPolicy CRD instances.  See specs/network-policies.md.
 
 { lib }:
 with lib;
@@ -85,8 +85,8 @@ rec {
   };
 
   # The network policy option set that each app module uses.
-  # Returns null when not configured, signalling the network-policies
-  # module to skip this app.
+  # Returns null when not configured, signalling the cilium module
+  # to skip this app.
   mkNetworkPolicyOption = mkOption {
     type = types.nullOr (types.submodule {
       options = {
@@ -113,7 +113,7 @@ rec {
     default = null;
     description = ''
       Network policy declaration for this app.  When non-null, the
-      network-policies module generates a CiliumNetworkPolicy in the
+      cilium module generates a CiliumNetworkPolicy in the
       app's namespace allowing the declared traffic.
     '';
   };

@@ -42,7 +42,7 @@ Design documentation for Openkrill.
 
 | Spec | Code | Lines | Purpose |
 |------|------|------:|---------|
-| [network-policies.md](./network-policies.md) | — | 453 | How network segmentation is enforced with Cilium CNI and per-app CiliumNetworkPolicy declarations |
+| [network-policies.md](./network-policies.md) | — | 688 | How network segmentation is enforced with Cilium CNI and per-app CiliumNetworkPolicy declarations |
 
 ## Secrets
 

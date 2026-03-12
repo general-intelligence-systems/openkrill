@@ -1,8 +1,8 @@
 # HOW-TO: Network Policies with Cilium
 
 How network segmentation is enforced using Cilium as the CNI and
-CiliumNetworkPolicy resources generated from per-app declarations in
-the module system.
+typed CiliumNetworkPolicy CRD instances generated from per-app
+declarations in the module system.
 
 ---
 
@@ -12,7 +12,7 @@ the module system.
 2. [Architecture Overview](#architecture-overview)
 3. [Cilium Module (`apps/cilium/`)](#cilium-module)
 4. [Declaring Network Policy in an App Module](#declaring-network-policy-in-an-app-module)
-5. [Network Policies Module (`apps/network-policies/`)](#network-policies-module)
+5. [Policy Compilation](#policy-compilation)
 6. [Baseline Policies](#baseline-policies)
 7. [Identifier Resolution](#identifier-resolution)
 8. [Agent Pod Policies (openkrill-operator)](#agent-pod-policies)
@@ -42,29 +42,32 @@ pod and with external endpoints.  This is problematic because:
 
 ## Architecture Overview
 
-Three components work together:
+The cilium module handles both CNI deployment and network policy
+generation in a single module, using auto-generated typed CRD
+fragments for CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy:
 
 ```
 +---------------------------------+
-|  apps/cilium/                   |  Cilium CNI (replaces Flannel)
+|  apps/cilium/                   |  Cilium CNI + policy generation
 |  - Helm chart deployment        |  - BPF-based enforcement
 |  - k3s CNI integration          |  - policyEnforcementMode: always
-|  - Hubble observability         |  - CiliumNetworkPolicy CRDs
+|  - Hubble observability         |  - Typed CRD fragments
+|  - Policy compiler              |  - Baseline policies
+|  - Identifier resolution        |  - Per-app policy assembly
 +----------------+----------------+
-                 |
-+----------------v----------------+
+                 ^
++----------------+----------------+
 |  Per-app networkPolicy options  |  Each app module declares its needs
 |  - ingress: who can reach me    |  - Declared alongside other options
 |  - egress: who I need to reach  |  - Uses shared option type
 |  - Follows existing patterns    |
-+----------------+----------------+
-                 |
-+----------------v----------------+
-|  apps/network-policies/         |  Central assembly
-|  - Reads all app declarations   |  - Generates CiliumNetworkPolicy
-|  - Baseline policies            |  - Escape hatch for custom rules
 +---------------------------------+
 ```
+
+The cilium module reads all per-app `networkPolicy` declarations,
+resolves identifiers to Cilium endpoint/entity selectors, and writes
+the results into typed `ciliumnetworkpolicies` options provided by
+the auto-generated CRD fragment.
 
 For dynamic workloads (openkrill-operator Heartbeat pods), the
 operator itself generates CiliumNetworkPolicy resources as child
@@ -80,6 +83,32 @@ Deploys Cilium as the cluster CNI, replacing k3s's bundled Flannel.
 Cilium provides BPF-based networking, CiliumNetworkPolicy CRDs,
 L7-aware enforcement, FQDN-based egress rules, and Hubble
 observability.
+
+The module also owns all network policy generation -- reading per-app
+declarations, compiling them into typed CiliumNetworkPolicy CRD
+instances, and generating baseline infrastructure policies.
+
+### Module Structure
+
+```
+apps/cilium/
+  default.nix                          # Helm chart + policy compiler
+  ciliumnetworkpolicies.nix            # Auto-generated CRD fragment
+  ciliumclusterwidenetworkpolicies.nix # Auto-generated CRD fragment
+```
+
+The CRD fragments are generated from upstream Cilium CRD YAML using
+`bin/create-module-crds --fragment`:
+
+```sh
+curl -sL "https://raw.githubusercontent.com/cilium/cilium/v1.19.1/\
+pkg/k8s/apis/cilium.io/client/crds/v2/ciliumnetworkpolicies.yaml" \
+  -o crds/cilium/ciliumnetworkpolicies.yaml
+
+bin/create-module-crds --fragment cilium \
+  crds/cilium/ciliumnetworkpolicies.yaml \
+  > apps/cilium/ciliumnetworkpolicies.nix
+```
 
 ### k3s Integration
 
@@ -111,17 +140,6 @@ first boot, before ArgoCD or any app pods exist.
 | `ipam.mode` | `"kubernetes"` | Use k8s IPAM |
 | `bpf.masquerade` | `true` | BPF-based masquerading |
 
-### Default Stack
-
-Added to `modules/openkrill.nix` alongside the other default apps:
-
-```nix
-openkrill.apps.cilium.enable = lib.mkDefault true;
-```
-
-When cilium is enabled, the network-policies module is also enabled
-by default.
-
 ---
 
 ## Declaring Network Policy in an App Module
@@ -130,7 +148,7 @@ by default.
 
 A helper provides the `networkPolicy` option type, following the
 same pattern as `mkHTTPRoute` and `mkExtraManifestsOption`.  Defined
-in `modules/lib/` and imported by app modules.
+in `modules/lib/network-policy.nix` and imported by app modules.
 
 An app's network policy declaration has three parts:
 
@@ -142,7 +160,7 @@ An app's network policy declaration has three parts:
   Each rule has a `to` identifier and optional `ports`.
 
 ```nix
-# modules/lib/network-policy.nix (or added to helpers.nix)
+# modules/lib/network-policy.nix
 
 ingressRuleModule = types.submodule {
   options = {
@@ -199,12 +217,12 @@ in its `config` block.  The pattern mirrors how apps already declare
 { config, lib, ... }:
 let
   cfg = config.openkrill.apps.<name>;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
 in
 {
   options.openkrill.apps.<name> = {
     # ... existing options (enable, namespace, values, etc.) ...
-    networkPolicy = helpers.mkNetworkPolicyOption;
+    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
   };
 
   config = lib.mkIf cfg.enable {
@@ -249,42 +267,37 @@ openkrill.apps.<name>.networkPolicy = lib.mkForce null;
 
 ---
 
-## Network Policies Module
-
-### Purpose
-
-Reads all app `networkPolicy` declarations across the module system
-and generates CiliumNetworkPolicy resources.  Also applies baseline
-policies for infrastructure concerns that aren't tied to a specific
-app.
+## Policy Compilation
 
 ### How It Works
 
+The cilium module's `default.nix` reads all per-app `networkPolicy`
+declarations and compiles them into typed CiliumNetworkPolicy CRD
+instances via the auto-generated `ciliumnetworkpolicies` option.
+
 For each app where `networkPolicy != null`:
 
-1. Create a `CiliumNetworkPolicy` in the app's namespace
-2. Set `endpointSelector` from the app's `podSelector`
-3. Generate `ingress` rules by resolving each `from` identifier
-4. Generate `egress` rules by resolving each `to` identifier
-5. DNS egress (`to = "dns"`) is recommended for every app -- without
+1. Create a typed CiliumNetworkPolicy keyed by the app name
+2. Set `namespace` from the app's namespace
+3. Set `endpointSelector` from the app's `podSelector`
+4. Generate `ingress` rules by resolving each `from` identifier
+5. Generate `egress` rules by resolving each `to` identifier
+6. DNS egress (`to = "dns"`) is recommended for every app -- without
    it, pods cannot resolve service names
-
-The module collects all declarations by iterating
-`config.openkrill.apps` and checking for enabled apps with non-null
-`networkPolicy`.
 
 ### Generated Output
 
-Each declaration produces a single `CiliumNetworkPolicy` resource
-written to `openkrill.manifests.network-policies.content`.  All
-policies are bundled into one manifest file, deployed and managed by
-ArgoCD like any other app.
+Each declaration produces a typed CiliumNetworkPolicy entry in
+`openkrill.apps.cilium.ciliumnetworkpolicies.<name>`.  The CRD
+fragment converts these into Kubernetes resources written to
+`openkrill.manifests.cilium.content`.  All policies are bundled
+with the Cilium Helm chart output and deployed via ArgoCD.
 
 ---
 
 ## Baseline Policies
 
-The network-policies module generates these regardless of per-app
+The cilium module generates baseline policies regardless of per-app
 declarations.  They protect infrastructure that every cluster has.
 
 ### Secret Storage Isolation
@@ -292,18 +305,16 @@ declarations.  They protect infrastructure that every cluster has.
 The namespace holding source secrets should only be reachable by the
 secret distribution operator:
 
-```yaml
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: secret-store-isolation
-  namespace: secret-store
-spec:
-  endpointSelector: {}
-  ingress:
-    - fromEndpoints:
-        - matchLabels:
-            k8s:io.kubernetes.pod.namespace: external-secrets
+```nix
+# Written as: openkrill.apps.cilium.ciliumnetworkpolicies.secret-store-isolation
+{
+  namespace = "secret-store";
+  ingress = [{
+    fromEndpoints = [{
+      matchLabels."k8s:io.kubernetes.pod.namespace" = "external-secrets";
+    }];
+  }];
+}
 ```
 
 ### DNS Policy
@@ -312,34 +323,30 @@ DNS pods accept queries from all cluster pods, but only DNS pods
 have upstream (external) DNS egress.  This prevents DNS-based data
 exfiltration from compromised pods:
 
-```yaml
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: dns-policy
-  namespace: kube-system
-spec:
-  endpointSelector:
-    matchLabels:
-      k8s-app: kube-dns
-  ingress:
-    - fromEndpoints:
-        - {}
-      toPorts:
-        - ports:
-            - port: "53"
-              protocol: UDP
-            - port: "53"
-              protocol: TCP
-  egress:
-    - toEntities:
-        - world
-      toPorts:
-        - ports:
-            - port: "53"
-              protocol: UDP
-            - port: "53"
-              protocol: TCP
+```nix
+# Written as: openkrill.apps.cilium.ciliumnetworkpolicies.dns-policy
+{
+  namespace = "kube-system";
+  endpointSelector.matchLabels."k8s-app" = "kube-dns";
+  ingress = [{
+    fromEndpoints = [{}];
+    toPorts = [{
+      ports = [
+        { port = "53"; protocol = "UDP"; }
+        { port = "53"; protocol = "TCP"; }
+      ];
+    }];
+  }];
+  egress = [{
+    toEntities = [ "world" ];
+    toPorts = [{
+      ports = [
+        { port = "53"; protocol = "UDP"; }
+        { port = "53"; protocol = "TCP"; }
+      ];
+    }];
+  }];
+}
 ```
 
 ### Cilium Internal
@@ -347,25 +354,18 @@ spec:
 Cilium's own pods need inter-node communication and API server
 access for health checks, Hubble, and policy distribution:
 
-```yaml
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: cilium-internal
-  namespace: kube-system
-spec:
-  endpointSelector:
-    matchLabels:
-      k8s-app: cilium
-  ingress:
-    - fromEntities:
-        - remote-node
-        - health
-  egress:
-    - toEntities:
-        - remote-node
-        - health
-        - kube-apiserver
+```nix
+# Written as: openkrill.apps.cilium.ciliumnetworkpolicies.cilium-internal
+{
+  namespace = "kube-system";
+  endpointSelector.matchLabels."k8s-app" = "cilium";
+  ingress = [{
+    fromEntities = [ "remote-node" "health" ];
+  }];
+  egress = [{
+    toEntities = [ "remote-node" "health" "kube-apiserver" ];
+  }];
+}
 ```
 
 ### Host-Gateway
@@ -373,22 +373,18 @@ spec:
 If the core-dns module's host-gateway is enabled, its pods need
 cluster ingress and host egress:
 
-```yaml
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: host-gateway
-  namespace: kube-system
-spec:
-  endpointSelector:
-    matchLabels:
-      app: host-gateway
-  ingress:
-    - fromEntities:
-        - cluster
-  egress:
-    - toEntities:
-        - host
+```nix
+# Written as: openkrill.apps.cilium.ciliumnetworkpolicies.host-gateway
+{
+  namespace = "kube-system";
+  endpointSelector.matchLabels.app = "host-gateway";
+  ingress = [{
+    fromEntities = [ "cluster" ];
+  }];
+  egress = [{
+    toEntities = [ "host" ];
+  }];
+}
 ```
 
 ---
@@ -396,8 +392,8 @@ spec:
 ## Identifier Resolution
 
 The `from` and `to` strings in policy declarations are resolved to
-Cilium policy constructs by the network-policies module.  This is the
-mapping:
+Cilium policy constructs by the cilium module's policy compiler.
+This is the mapping:
 
 | Identifier | Type | Resolved To |
 |-----------|------|-------------|
@@ -425,8 +421,8 @@ fromEndpoints = [{
 
 This means app modules don't need to know each other's internal pod
 labels -- namespace-level selection is sufficient for most cases.  For
-finer-grained selection, use `extraPolicies` with raw
-CiliumNetworkPolicy resources.
+finer-grained selection, use `extraPolicies` with typed
+CiliumNetworkPolicy attributes.
 
 ---
 
@@ -578,18 +574,14 @@ childResources:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `openkrill.apps.cilium.enable` | bool | `true` (mkDefault) | Enable Cilium CNI |
+| `openkrill.apps.cilium.enable` | bool | `false` | Enable Cilium CNI and network policy generation |
 | `openkrill.apps.cilium.namespace` | str | `"kube-system"` | Namespace for Cilium |
 | `openkrill.apps.cilium.values` | attrs | `{}` | Helm value overrides |
-| `openkrill.apps.cilium.extraManifests` | list | `[]` | Additional manifests |
-
-### Network Policies Module
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `openkrill.apps.network-policies.enable` | bool | `true` (when cilium enabled) | Enable policy generation |
-| `openkrill.apps.network-policies.defaultDeny` | bool | `true` | Generate empty policy per app namespace to trigger Cilium's implicit deny |
-| `openkrill.apps.network-policies.extraPolicies` | list of attrs | `[]` | Raw CiliumNetworkPolicy resources |
+| `openkrill.apps.cilium.defaultDeny` | bool | `true` | Reserved for future use (empty policies per namespace) |
+| `openkrill.apps.cilium.extraPolicies` | attrsOf attrs | `{}` | Additional typed CiliumNetworkPolicy instances |
+| `openkrill.apps.cilium.extraManifests` | list | `[]` | Additional raw manifests |
+| `openkrill.apps.cilium.ciliumnetworkpolicies` | attrsOf submodule | `{}` | Typed CiliumNetworkPolicy CRD instances (populated by compiler) |
+| `openkrill.apps.cilium.ciliumclusterwidenetworkpolicies` | attrsOf submodule | `{}` | Typed CiliumClusterwideNetworkPolicy CRD instances |
 
 ### Per-App networkPolicy Option
 
@@ -611,38 +603,31 @@ childResources:
 ```nix
 {
   services.openkrill.enable = true;
-  # Cilium and network-policies are enabled by default.
+  openkrill.apps.cilium.enable = true;
   # Each app module provides sensible default policy declarations.
+  # The cilium module compiles them into CiliumNetworkPolicy resources.
 }
 ```
 
 ### Adding a custom app with network policy
 
 ```nix
-openkrill.apps.network-policies.extraPolicies = [
-  {
-    apiVersion = "cilium.io/v2";
-    kind = "CiliumNetworkPolicy";
-    metadata = {
-      name = "my-api";
-      namespace = "my-api";
-    };
-    spec = {
-      endpointSelector = {};
-      ingress = [{ fromEndpoints = [{
-        matchLabels."k8s:io.kubernetes.pod.namespace" = "kube-system";
-      }]; }];
-      egress = [{ toEndpoints = [{
-        matchLabels."k8s:io.kubernetes.pod.namespace" = "kube-system";
-      }]; toPorts = [{
-        ports = [
-          { port = "53"; protocol = "UDP"; }
-          { port = "53"; protocol = "TCP"; }
-        ];
-      }]; }];
-    };
-  }
-];
+openkrill.apps.cilium.extraPolicies = {
+  my-api = {
+    namespace = "my-api";
+    ingress = [{ fromEndpoints = [{
+      matchLabels."k8s:io.kubernetes.pod.namespace" = "kube-system";
+    }]; }];
+    egress = [{ toEndpoints = [{
+      matchLabels."k8s:io.kubernetes.pod.namespace" = "kube-system";
+    }]; toPorts = [{
+      ports = [
+        { port = "53"; protocol = "UDP"; }
+        { port = "53"; protocol = "TCP"; }
+      ];
+    }]; }];
+  };
+};
 ```
 
 ### Relaxing a default policy
@@ -658,12 +643,10 @@ openkrill.apps.<name>.networkPolicy.ingress = lib.mkForce [
 ### Disabling enforcement
 
 ```nix
-# Disable policy generation (Cilium still runs but no policies
-# are created -- with policyEnforcementMode=always this means
-# all traffic is denied for pods with any policy)
-openkrill.apps.network-policies.enable = false;
+# Disable Cilium entirely (no CNI replacement, no policies)
+openkrill.apps.cilium.enable = false;
 
-# To also switch to permissive mode:
+# Or keep Cilium but switch to permissive mode:
 openkrill.apps.cilium.values.policyEnforcementMode = "default";
 ```
 
@@ -671,30 +654,29 @@ openkrill.apps.cilium.values.policyEnforcementMode = "default";
 
 ## Implementation Checklist
 
-### Phase 1: Cilium CNI Module
+### Phase 1: Cilium CNI + Network Policy Module
 
-- [ ] Create `apps/cilium/default.nix` with options and Helm chart
-- [ ] Modify `modules/openkrill.nix` to set k3s flags when cilium
+- [x] Create `apps/cilium/default.nix` with Helm chart deployment
+- [x] Generate typed CRD fragments for CiliumNetworkPolicy and
+      CiliumClusterwideNetworkPolicy via `bin/create-module-crds`
+- [x] Implement identifier resolution (per-app policy compiler)
+- [x] Generate baseline policies (secret-store, DNS, cilium-internal,
+      host-gateway)
+- [x] Modify `modules/openkrill.nix` to set k3s flags when cilium
       is enabled
-- [ ] Add to default app stack
-- [ ] Ensure bootstrap via k3s auto-deploy
-- [ ] Add ArgoCD Application CR
+- [x] Add ArgoCD Application CR
 - [ ] Test: k3s boots with Cilium, pods get IPs, DNS works
 
 ### Phase 2: Shared Network Policy Option Type
 
-- [ ] Define option types in `modules/lib/`
-- [ ] Add `networkPolicy` option to each app module
-- [ ] Set default declarations per app
+- [x] Define option types in `modules/lib/network-policy.nix`
+- [x] Add `networkPolicy` option to each app module
+- [x] Set default declarations per app
 
-### Phase 3: Network Policies Module
+### Phase 3: Integration Testing
 
-- [ ] Create `apps/network-policies/default.nix`
-- [ ] Implement identifier resolution
-- [ ] Generate CiliumNetworkPolicy per app
-- [ ] Generate baseline policies
-- [ ] Add to default app stack (when cilium enabled)
 - [ ] Test: services communicate, unauthorized traffic blocked
+- [ ] Test: `extraPolicies` escape hatch works
 
 ### Phase 4: Operator Integration
 

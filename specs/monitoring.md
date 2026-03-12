@@ -86,13 +86,12 @@ This mirrors the network-policies pattern exactly:
 
 | Concern | Declares under | Assembled by |
 |---------|---------------|--------------|
-| Network policy | `openkrill.apps.<name>.networkPolicy` | `apps/network-policies/` |
+| Network policy | `openkrill.apps.<name>.networkPolicy` | `apps/cilium/` (policy compiler) |
 | Monitoring | `openkrill.apps.victoriametrics.vmservicescrapes.<name>` | `apps/victoriametrics/` (via fragments) |
 
-The key difference is that network-policies has a dedicated assembly
-module, while VictoriaMetrics fragments write directly into
-`openkrill.manifests.victoriametrics.content` — VMAgent's
-`selectAllByDefault = true` handles discovery at runtime.
+Both use a cross-cutting compilation approach: app modules declare
+their needs, and a central module assembles the results into typed
+CRD instances.
 
 ---
 
@@ -361,10 +360,10 @@ openkrill.apps.<name>.networkPolicy.ingress = [
 ];
 ```
 
-The `"victoriametrics"` identifier is resolved by the network-policies
-module to an endpoint selector matching the victoriametrics namespace
-(see [network-policies.md](./network-policies.md) for identifier
-resolution rules).
+The `"victoriametrics"` identifier is resolved by the cilium module's
+policy compiler to an endpoint selector matching the victoriametrics
+namespace (see [network-policies.md](./network-policies.md) for
+identifier resolution rules).
 
 ### Finding the Metrics Port
 
@@ -528,7 +527,7 @@ Apps **not** instrumented (and why):
 | forgejo-runner | No Prometheus metrics endpoint |
 | gateway-api | CRD-only module, no pods |
 | helm | CRD-only module, no pods |
-| network-policies | CRD-only module, no pods |
+| (network policies are part of the cilium module) | |
 | lago | No Prometheus metrics support |
 | lldap | No Prometheus metrics endpoint |
 | opencloud | No metrics port exposed in current manifests |

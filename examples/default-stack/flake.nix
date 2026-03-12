@@ -46,7 +46,7 @@
         openkrill.apps.gateway-api.enable      = true;
         openkrill.apps.helm.enable             = true;
         openkrill.apps.metacontroller.enable   = true;
-        openkrill.apps.network-policies.enable = true;
+
         openkrill.apps.openkrill-operator.enable = true;
         openkrill.apps.traefik.enable          = true;
         openkrill.apps.trust-manager.enable    = true;
