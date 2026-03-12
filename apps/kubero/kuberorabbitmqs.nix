@@ -15,6 +15,11 @@ let
           type = types.str;
           description = "Namespace for this KuberoRabbitMQ resource.";
         };
+        "spec" = mkOption {
+          type = types.attrsOf types.anything;
+          default = { };
+          description = "Spec defines the desired state of this resource. Freeform: the CRD uses x-kubernetes-preserve-unknown-fields.";
+        };
       };
     }
   );
@@ -25,8 +30,7 @@ let
       inherit name;
       namespace = res.namespace;
     };
-    spec = {
-    };
+    spec = res.spec;
   };
   allResources = (mapAttrsToList mkKuberoRabbitMQ cfg."kuberorabbitmqs");
 in

@@ -10,6 +10,30 @@ let
   networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
 in
 {
+  imports = [
+    ./kuberoaddonmemcacheds.nix
+    ./kuberoaddonmongodbs.nix
+    ./kuberoaddonmysqls.nix
+    ./kuberoaddonpostgres.nix
+    ./kuberoaddonrabbitmqs.nix
+    ./kuberoaddonredis.nix
+    ./kuberoapps.nix
+    ./kuberobuilds.nix
+    ./kuberocouchdbs.nix
+    ./kuberoelasticsearches.nix
+    ./kuberoes.nix
+    ./kuberokafkas.nix
+    ./kuberomails.nix
+    ./kuberomemcacheds.nix
+    ./kuberomongodbs.nix
+    ./kuberomysqls.nix
+    ./kuberopipelines.nix
+    ./kuberopostgresqls.nix
+    ./kuberoprometheuses.nix
+    ./kuberorabbitmqs.nix
+    ./kuberoredis.nix
+  ];
+
   options.openkrill.apps.kubero = {
     enable = mkEnableOption "Kubero PaaS";
 
@@ -58,7 +82,7 @@ in
       };
       syncPolicy = {
         automated = { prune = true; selfHeal = true; };
-        syncOptions = [ "CreateNamespace=true" ];
+        syncOptions = [ "CreateNamespace=true" "ServerSideApply=true" ];
       };
     };
 
