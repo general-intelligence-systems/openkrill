@@ -9,7 +9,6 @@ with lib;
 let
   cfg = config.openkrill.apps.argocd;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
   domain = config.openkrill.domain;
   trustCfg = config.openkrill.apps.trust-manager;
 
@@ -102,7 +101,6 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
@@ -111,18 +109,6 @@ in
     openkrill.apps.authelia.sharedClient.redirectUris =
       mkIf config.openkrill.apps.authelia.enable
         [ "https://${cfg.domain}/auth/callback" ];
-
-    openkrill.apps.argocd.networkPolicy = {
-      ingress = [
-        { from = "traefik"; ports = [{ port = 80; }]; }
-        { from = "victoriametrics"; ports = [{ port = 8082; } { port = 8083; } { port = 8084; }]; }
-      ];
-      egress = [
-        { to = "core-dns"; ports = [{ port = 9418; }]; }
-        { to = "kubernetes-api"; }
-        { to = "dns"; }
-      ];
-    };
 
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.argocd =

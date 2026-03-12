@@ -13,7 +13,7 @@ let
   cnpgCfg      = config.openkrill.apps.cloudnative-pg;
   domain       = config.openkrill.domain;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
+
 
   # CNPG shared cluster details
   cnpgAppSecret = "${cnpgCfg.clusterName}-app";
@@ -290,7 +290,6 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
@@ -306,18 +305,6 @@ in
         redirect_uris = cfg.sharedClient.redirectUris;
       }
     ];
-
-    openkrill.apps.authelia.networkPolicy = {
-      ingress = [
-        { from = "traefik"; ports = [{ port = 80; }]; }
-        { from = "victoriametrics"; ports = [{ port = 9959; }]; }
-      ];
-      egress = [
-        { to = "lldap"; ports = [{ port = 3890; }]; }
-        { to = "cloudnative-pg"; ports = [{ port = 5432; }]; }
-        { to = "dns"; }
-      ];
-    };
 
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.authelia =

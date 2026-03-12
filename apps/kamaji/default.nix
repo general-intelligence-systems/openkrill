@@ -5,8 +5,6 @@ with lib;
 let
   cfg = config.openkrill.apps.kamaji;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
-
   defaults = {
     # Enable telemetry for Prometheus metrics scraping
     telemetry.disabled = false;
@@ -27,21 +25,10 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.kamaji.networkPolicy = {
-      ingress = [
-        { from = "victoriametrics"; ports = [{ port = 8080; }]; }
-      ];
-      egress = [
-        { to = "kubernetes-api"; }
-        { to = "dns"; }
-      ];
-    };
-
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.kamaji =
       mkIf config.openkrill.apps.victoriametrics.enable {

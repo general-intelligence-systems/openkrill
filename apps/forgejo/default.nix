@@ -7,7 +7,6 @@ with lib;
 let
   cfg = config.openkrill.apps.forgejo;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
   domain = config.openkrill.domain;
 
   defaults = {
@@ -84,24 +83,10 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.forgejo.networkPolicy = {
-      ingress = [
-        { from = "traefik"; ports = [{ port = 3000; }]; }
-        { from = "forgejo-runner"; ports = [{ port = 3000; }]; }
-        { from = "victoriametrics"; ports = [{ port = 3000; }]; }
-      ];
-      egress = [
-        { to = "cloudnative-pg"; ports = [{ port = 5432; }]; }
-        { to = "world"; ports = [{ port = 443; } { port = 22; }]; }
-        { to = "dns"; }
-      ];
-    };
-
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.forgejo =
       mkIf config.openkrill.apps.victoriametrics.enable {

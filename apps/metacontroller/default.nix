@@ -5,8 +5,6 @@ with lib;
 let
   cfg = config.openkrill.apps.metacontroller;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
-
   version = "4.12.11";
 
   # Fetch upstream manifests directly from GitHub
@@ -45,22 +43,10 @@ in
       };
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.metacontroller.networkPolicy = {
-      ingress = [
-        { from = "victoriametrics"; ports = [{ port = 9999; }]; }
-      ];
-      egress = [
-        { to = "kubernetes-api"; }
-        { to = "cluster"; }
-        { to = "dns"; }
-      ];
-    };
-
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.metacontroller =
       mkIf config.openkrill.apps.victoriametrics.enable {

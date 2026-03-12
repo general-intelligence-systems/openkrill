@@ -14,8 +14,6 @@ with lib;
 let
   cfg = config.openkrill.apps.cert-manager;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
-
   defaults = {
     crds.enabled = true;
   };
@@ -109,22 +107,10 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.cert-manager.networkPolicy = {
-      ingress = [
-        { from = "victoriametrics"; ports = [{ port = 9402; }]; }
-      ];
-      egress = [
-        { to = "kubernetes-api"; }
-        { to = "world"; ports = [{ port = 443; }]; }
-        { to = "dns"; }
-      ];
-    };
-
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.cert-manager =
       mkIf config.openkrill.apps.victoriametrics.enable {

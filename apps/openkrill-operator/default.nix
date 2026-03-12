@@ -40,8 +40,6 @@ with lib;
 let
   cfg = config.openkrill.apps.openkrill-operator;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
-
   # ── CR helper ────────────────────────────────────────────────────────
   # Wraps user-provided spec attrs into a full custom resource, filling
   # in apiVersion, kind, and metadata so users only write spec fields.
@@ -171,20 +169,10 @@ in
       '';
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
-    # ── Default network policy ─────────────────────────────────────────
-    openkrill.apps.openkrill-operator.networkPolicy = {
-      egress = [
-        { to = "kubernetes-api"; }
-        { to = "dns"; }
-        { to = "cluster"; }
-      ];
-    };
-
     # ── ArgoCD Application ─────────────────────────────────────────────
     openkrill.apps.argocd.applications.openkrill-operator = {
       namespace = "argocd";

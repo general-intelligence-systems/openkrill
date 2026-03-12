@@ -12,8 +12,6 @@ with lib;
 let
   cfg = config.openkrill.apps.cloudnative-pg;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
-
   defaults = { };
 
   # ── ClusterSecretStore + RBAC for CNPG-generated secrets ──────────
@@ -87,7 +85,6 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
@@ -112,19 +109,6 @@ in
       };
     };
 
-    openkrill.apps.cloudnative-pg.networkPolicy = {
-      ingress = [
-        { from = "authelia"; ports = [{ port = 5432; }]; }
-        { from = "lldap"; ports = [{ port = 5432; }]; }
-        { from = "forgejo"; ports = [{ port = 5432; }]; }
-        { from = "opencloud"; ports = [{ port = 5432; }]; }
-        { from = "lago"; ports = [{ port = 5432; }]; }
-        { from = "victoriametrics"; ports = [{ port = 5432; }]; }
-      ];
-      egress = [
-        { to = "dns"; }
-      ];
-    };
     # ── Shared CNPG Cluster ───────────────────────────────────────────
     # Single PostgreSQL instance for the platform.  App modules add
     # Database CRDs that create additional databases inside this cluster.

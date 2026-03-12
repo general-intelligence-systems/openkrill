@@ -17,8 +17,6 @@ let
   cfg = config.openkrill.apps.trust-manager;
   certManagerCfg = config.openkrill.apps.cert-manager;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
-
   chart = kubelib.downloadHelmChart {
     repo = "https://charts.jetstack.io/";
     chart = "trust-manager";
@@ -122,21 +120,10 @@ in
       description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.trust-manager.networkPolicy = {
-      ingress = [
-        { from = "victoriametrics"; ports = [{ port = 9402; }]; }
-      ];
-      egress = [
-        { to = "kubernetes-api"; }
-        { to = "dns"; }
-      ];
-    };
-
     # ── VictoriaMetrics scrape ─────────────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.trust-manager =
       mkIf config.openkrill.apps.victoriametrics.enable {

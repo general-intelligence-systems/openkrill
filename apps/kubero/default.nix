@@ -7,7 +7,6 @@ with lib;
 let
   cfg = config.openkrill.apps.kubero;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
 in
 {
   imports = [
@@ -42,22 +41,10 @@ in
       default = "kubero";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.kubero.networkPolicy = {
-      ingress = [
-        { from = "traefik"; ports = [{ port = 2000; }]; }
-      ];
-      egress = [
-        { to = "kubernetes-api"; }
-        { to = "world"; ports = [{ port = 443; }]; }
-        { to = "dns"; }
-      ];
-    };
-
     # ── Route ──────────────────────────────────────────────────────
     openkrill.ingress.routes.kubero = {
       subdomain = "kubero";

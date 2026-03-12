@@ -6,7 +6,6 @@ with lib;
 let
   cfg = config.openkrill.apps.opencloud;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
   domain = config.openkrill.domain;
   authFilters = if config.openkrill.apps.authelia.enable && config.openkrill.apps.traefik.enable
     then [{ type = "ExtensionRef"; extensionRef = { group = "traefik.io"; kind = "Middleware"; name = "forwardauth-authelia"; }; }]
@@ -308,20 +307,10 @@ in
       tag = "1.36";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.opencloud.networkPolicy = {
-      ingress = [
-        { from = "traefik"; ports = [{ port = 9200; }]; }
-      ];
-      egress = [
-        { to = "cloudnative-pg"; ports = [{ port = 5432; }]; }
-        { to = "dns"; }
-      ];
-    };
     openkrill.ingress.routes.opencloud = {
       subdomain = "cloud";
       namespace = cfg.namespace;

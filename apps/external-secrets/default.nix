@@ -8,8 +8,6 @@ with lib;
 let
   cfg = config.openkrill.apps.external-secrets;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
-
   # ── Normalise a key entry: plain string -> mirrored {sourceKey, targetKey} ─
   normalizeKey = k:
     if builtins.isString k then { sourceKey = k; targetKey = k; } else k;
@@ -169,7 +167,6 @@ in
       description = "ExternalSecret definitions - each entry syncs a secret from the source namespace.";
     };
 
-    networkPolicy = networkPolicyLib.mkNetworkPolicyOption;
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
@@ -235,16 +232,6 @@ in
         }) sec.keys;
       }
     ) cfg.secrets;
-
-    openkrill.apps.external-secrets.networkPolicy = {
-      ingress = [
-        { from = "victoriametrics"; ports = [{ port = 8080; }]; }
-      ];
-      egress = [
-        { to = "kubernetes-api"; }
-        { to = "dns"; }
-      ];
-    };
 
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.external-secrets =
