@@ -105,7 +105,7 @@ in
 {
   config = lib.mkIf cfg.enable {
     openkrill.ingress.routes.my-app = {
-      subdomain = "app";          # → app.example.com
+      subdomain = "app";          # → app.<openkrill.domain>
       namespace = cfg.namespace;
       service   = "my-app";       # defaults to the route name
       port      = 8080;
@@ -126,9 +126,9 @@ when ingress is disabled.  The route definition is simply inert.
 
 The `subdomain` determines several derived names:
 
-| Derived from `subdomain` | Example (`subdomain = "git"`) |
-|---------------------------|-------------------------------|
-| FQDN hostname            | `git.example.com`             |
+| Derived from `subdomain` + `domain` | Example (`subdomain = "git"`, default domain) |
+|--------------------------------------|------------------------------------------------|
+| FQDN hostname                        | `git.example.com`                              |
 | HTTPS listener name      | `git-https`                   |
 | HTTP listener name        | `git-http`                    |
 | TLS Secret name           | `git-tls`                     |
@@ -365,7 +365,8 @@ from the rule entirely.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enable` | `bool` | `true` | Whether this route is active.  Set to `false` to disable without removing the declaration. |
-| `subdomain` | `str` | *(required)* | Subdomain prefix.  Full hostname: `<subdomain>.<openkrill.domain>`. |
+| `subdomain` | `str` | *(required)* | Subdomain prefix.  Full hostname: `<subdomain>.<domain>`. |
+| `domain` | `str` | `openkrill.domain` | Domain suffix.  Override for routes on external domains (e.g. `tradecrm.pro`). |
 | `namespace` | `str` | *(required)* | Kubernetes namespace where the backend Service lives. |
 | `service` | `str` | `<name>` | Backend Service name.  Defaults to the route's attrset key. |
 | `port` | `port` | *(required)* | Port on the backend Service. |
@@ -433,6 +434,28 @@ Routes are added by enabling app modules:
 
 This produces a Gateway with 12 listeners (6 routes x 2 listeners
 each), 6 Certificates, 6 app HTTPRoutes, and 6 redirect HTTPRoutes.
+
+### Route on an external domain
+
+When a route serves on a domain other than `openkrill.domain`, set the
+`domain` option:
+
+```nix
+{
+  openkrill.ingress.routes.my-app = {
+    subdomain = "staging";
+    domain    = "tradecrm.pro";   # → staging.tradecrm.pro
+    namespace = "staging";
+    service   = "web";
+    port      = 3000;
+  };
+}
+```
+
+The ingress module creates the same five resources (Gateway listener,
+TLS Certificate, app HTTPRoute, HTTP redirect) using the overridden
+domain.  All other routes that omit `domain` continue to use the
+default `openkrill.domain`.
 
 ---
 

@@ -24,15 +24,21 @@ let
   # Collect all enabled route definitions
   routes = filterAttrs (_: r: r.enable) cfg.routes;
 
-  # Build the HTTPS + HTTP listener pair for a single route
+  # Build the HTTPS + HTTP listener pair for a single route.
+  #
+  # Listener ports must match Traefik's *entrypoint* ports (8443/8000),
+  # not the conventional external ports (443/80).  Traefik's Gateway API
+  # provider matches Gateway listeners to entrypoints by container port
+  # number, not by Service port.  The k3s LoadBalancer Service handles
+  # the external 443→8443 and 80→8000 mapping separately.
   mkListeners = name: route:
     let
-      hostname = "${route.subdomain}.${domain}";
+      hostname = "${route.subdomain}.${route.domain}";
       secretName = "${route.subdomain}-tls";
     in [
       {
         name = "${route.subdomain}-https";
-        port = 443;
+        port = 8443;   # Traefik "websecure" entrypoint
         protocol = "HTTPS";
         inherit hostname;
         tls = {
@@ -46,7 +52,7 @@ let
       }
       {
         name = "${route.subdomain}-http";
-        port = 80;
+        port = 8000;   # Traefik "web" entrypoint
         protocol = "HTTP";
         inherit hostname;
         allowedRoutes.namespaces.from = "All";
@@ -63,7 +69,7 @@ let
     };
     spec = {
       secretName = "${route.subdomain}-tls";
-      dnsNames = [ "${route.subdomain}.${domain}" ];
+      dnsNames = [ "${route.subdomain}.${route.domain}" ];
       issuerRef = {
         name = "openkrill-signing-authority";
         kind = "ClusterIssuer";
@@ -76,7 +82,7 @@ let
     name = "${route.subdomain}-http-to-https";
     value = {
       namespace = "kube-system";
-      hostnames = [ "${route.subdomain}.${domain}" ];
+      hostnames = [ "${route.subdomain}.${route.domain}" ];
       parentRefs = [{
         name = "main";
         namespace = "kube-system";
@@ -99,7 +105,7 @@ let
     name = name;
     value = {
       namespace = route.namespace;
-      hostnames = [ "${route.subdomain}.${domain}" ];
+      hostnames = [ "${route.subdomain}.${route.domain}" ];
       parentRefs = [{
         name = "main";
         namespace = "kube-system";
@@ -142,7 +148,16 @@ let
         type = types.str;
         description = ''
           Subdomain prefix. The full hostname becomes
-          <subdomain>.<openkrill.domain>.
+          <subdomain>.<domain>.
+        '';
+      };
+
+      domain = mkOption {
+        type = types.str;
+        default = domain;
+        description = ''
+          Domain suffix. The full hostname becomes
+          <subdomain>.<domain>. Defaults to openkrill.domain.
         '';
       };
 

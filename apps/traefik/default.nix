@@ -589,6 +589,14 @@ in
     # Gateway API controller and register its GatewayClass.
     openkrill.apps.helm.chartConfigs.traefik = mkIf config.openkrill.apps."gateway-api".enable {
       valuesContent = ''
+        gatewayClass:
+          # Disable the Helm chart's built-in GatewayClass creation.
+          # We manage the GatewayClass declaratively via
+          # openkrill.apps."gateway-api".gatewayclasses.traefik (below),
+          # which is deployed by the gateway-api ArgoCD app.  If the Helm
+          # chart also tries to create it, the install fails because the
+          # existing resource lacks Helm ownership metadata.
+          enabled: false
         providers:
           kubernetesGateway:
             enabled: true

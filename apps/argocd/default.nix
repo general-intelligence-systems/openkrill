@@ -181,6 +181,8 @@ in
       namespace = cfg.namespace;
       remoteSecretName = "openkrill-argocd-oidc-secret";
       keys = [ "oidc.authelia.clientSecret" ];
+      # ArgoCD only resolves $secret:key refs from secrets with this label.
+      labels."app.kubernetes.io/part-of" = "argocd";
     };
 
     openkrill.ingress.routes.argocd = {
