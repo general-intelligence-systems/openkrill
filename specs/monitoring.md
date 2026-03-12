@@ -47,7 +47,7 @@ declarations:
   denied by Cilium's default-deny posture.
 
 The solution follows the same cross-module aggregation pattern used by
-`networkPolicy`, `argocd.applications`, `gateway-api.httproutes`,
+`networkPolicy`, `argocd.applications`, `ingress.routes`,
 `external-secrets.secrets`, and `cloudnative-pg.databases`: each app
 module declares what it needs under a shared option namespace, and a
 central module assembles the result.

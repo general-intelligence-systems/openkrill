@@ -270,6 +270,14 @@ in
       description = "Authelia claims policies for OIDC.";
     };
 
+    sharedClient = {
+      redirectUris = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        description = "Redirect URIs for the shared 'openkrill' OIDC client. App modules append to this list automatically.";
+      };
+    };
+
     oidcClients = mkOption {
       type = types.listOf oidcClientModule;
       default = [];
@@ -287,6 +295,18 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── Shared OIDC client ────────────────────────────────────────────
+    # App modules append redirect URIs to sharedClient.redirectUris.
+    # When any URIs are present, a single "openkrill" OIDC client is
+    # registered so all apps share one session — logging out of one
+    # logs out of all (wildcard cookie on .${domain}).
+    openkrill.apps.authelia.oidcClients = mkIf (cfg.sharedClient.redirectUris != []) [
+      {
+        name = "OpenKrill";
+        redirect_uris = cfg.sharedClient.redirectUris;
+      }
+    ];
+
     openkrill.apps.authelia.networkPolicy = {
       ingress = [
         { from = "traefik"; ports = [{ port = 80; }]; }
@@ -364,9 +384,10 @@ in
       keys = [
         "identity_providers.oidc.hmac_secret"
         "identity_providers.oidc.jwks.0.key"
-        "session.encryption_key"
-        "storage.encryption_key"
+        "session.encryption.key"
+        "storage.encryption.key"
         "authentication.ldap.password.txt"
+        "identity_validation.reset_password.jwt.hmac.key"
       ];
     };
 
@@ -386,23 +407,24 @@ in
         SESSION_KEY=$(openssl rand -hex 32)
         STORAGE_KEY=$(openssl rand -hex 32)
         OIDC_HMAC=$(openssl rand -hex 32)
+        JWT_HMAC=$(openssl rand -hex 32)
         JWKS_RSA=$(openssl genrsa 2048 2>/dev/null)
 
         create_secret openkrill-authelia \
           --from-literal=authentication.ldap.password.txt="''${LLDAP_PASS:-$(openssl rand -hex 16)}" \
-          --from-literal=session.encryption_key="$SESSION_KEY" \
-          --from-literal=storage.encryption_key="$STORAGE_KEY" \
+          --from-literal=session.encryption.key="$SESSION_KEY" \
+          --from-literal=storage.encryption.key="$STORAGE_KEY" \
           --from-literal=identity_providers.oidc.hmac_secret="$OIDC_HMAC" \
-          --from-literal=identity_providers.oidc.jwks.0.key="$JWKS_RSA"
+          --from-literal=identity_providers.oidc.jwks.0.key="$JWKS_RSA" \
+          --from-literal=identity_validation.reset_password.jwt.hmac.key="$JWT_HMAC"
       '';
     };
 
-    openkrill.apps."gateway-api".httproutes.authelia = helpers.mkHTTPRoute {
+    openkrill.ingress.routes.authelia = {
       subdomain = "auth";
       namespace = cfg.namespace;
       service = "authelia";
       port = 80;
-      inherit domain;
     };
 
     openkrill.apps.argocd.applications.authelia = {

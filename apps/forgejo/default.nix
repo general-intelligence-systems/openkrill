@@ -129,13 +129,12 @@ in
         }];
       };
 
-    # ── Gateway API HTTPRoute ───────────────────────────────────────
-    openkrill.apps."gateway-api".httproutes.forgejo = helpers.mkHTTPRoute {
+    # ── Route ───────────────────────────────────────────────────────
+    openkrill.ingress.routes.forgejo = {
       subdomain = "git";
       namespace = cfg.namespace;
       service = "forgejo-http";
       port = 3000;
-      inherit domain;
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────

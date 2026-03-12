@@ -32,45 +32,6 @@ rec {
       value = { inherit content; };
     }) extraManifests;
 
-  # Generates a standard Gateway API HTTPRoute attrset.
-  #
-  # Example:
-  #   mkHTTPRoute {
-  #     subdomain = "auth";
-  #     namespace = "authelia";
-  #     port = 80;
-  #     domain = config.openkrill.domain;
-  #   }
-  #
-  # All fields are overridable via normal Nix module merging since the
-  # result is assigned to openkrill.apps."gateway-api".httproutes.<name>.
-  mkHTTPRoute = {
-    subdomain,
-    port,
-    namespace,
-    domain,
-    service ? subdomain,
-    gateway ? "main",
-    gatewayNamespace ? "kube-system",
-    filters ? [],
-  }: {
-    inherit namespace;
-    hostnames = [ "${subdomain}.${domain}" ];
-    parentRefs = [{
-      name = gateway;
-      namespace = gatewayNamespace;
-      sectionName = "https";
-    }];
-    rules = [
-      ({
-        backendRefs = [{
-          inherit namespace port;
-          name = service;
-        }];
-      } // lib.optionalAttrs (filters != []) { inherit filters; })
-    ];
-  };
-
   # Generates a ServiceAccount + ClusterRole + ClusterRoleBinding triple.
   # Returns a list of three K8s resource attrsets.
   #

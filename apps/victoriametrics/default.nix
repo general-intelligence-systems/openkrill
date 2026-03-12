@@ -175,13 +175,12 @@ in
         { to = "dns"; }
       ];
     };
-    openkrill.apps."gateway-api".httproutes.grafana = helpers.mkHTTPRoute {
+    openkrill.ingress.routes.grafana = {
       subdomain = "grafana";
       namespace = cfg.namespace;
       service = "victoriametrics-grafana";
       port = 80;
       filters = authFilters;
-      inherit domain;
     };
 
     openkrill.apps.argocd.applications.victoriametrics = {

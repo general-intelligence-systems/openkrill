@@ -67,7 +67,7 @@ in
       };
       tag = lib.mkOption {
         type = lib.types.str;
-        default = "v0.6.2-rootless";
+        default = "latest-alpine-rootless";
         description = "LLDAP container image tag. Rootless variant recommended.";
       };
     };
@@ -152,13 +152,12 @@ in
       '';
     };
 
-    # ── Gateway API route for the web UI ─────────────────────────────
-    openkrill.apps."gateway-api".httproutes.lldap = helpers.mkHTTPRoute {
+    # ── Route for the web UI ─────────────────────────────────────────
+    openkrill.ingress.routes.lldap = {
       subdomain = "ldap";
       namespace = cfg.namespace;
       service = "lldap-http";
       port = 17170;
-      inherit domain;
     };
 
     # ── ArgoCD Application CR ────────────────────────────────────────

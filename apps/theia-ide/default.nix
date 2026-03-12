@@ -74,13 +74,12 @@ in
         { to = "dns"; }
       ];
     };
-    openkrill.apps."gateway-api".httproutes.theia-ide = helpers.mkHTTPRoute {
+    openkrill.ingress.routes.theia-ide = {
       subdomain = "theia";
       namespace = cfg.namespace;
       service = "theia-ide";
       port = 3000;
       filters = authFilters;
-      inherit domain;
     };
 
     openkrill.apps.argocd.applications.theia-ide = {
