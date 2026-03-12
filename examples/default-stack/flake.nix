@@ -69,7 +69,7 @@
           sessionCookies = [
             {
               domain = domain;
-              authelia_url = "https://auth.${domain}";
+              subdomain = "auth";
             }
           ];
           oidcClients = [

@@ -252,7 +252,7 @@ in
       default = [
         {
           domain = domain;
-          authelia_url = "https://auth.${domain}";
+          subdomain = "auth";
         }
       ];
       description = "Authelia session cookie configurations. Defaults to a single cookie using openkrill.domain.";

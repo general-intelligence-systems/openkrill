@@ -101,10 +101,15 @@ let
   };
 
   # Build the app-traffic HTTPRoute (HTTPS listener)
+  #
+  # All HTTPRoutes live in kube-system so they share the namespace with the
+  # forwardauth-authelia Middleware (Traefik resolves extensionRef relative
+  # to the HTTPRoute's own namespace).  Backend services are referenced
+  # cross-namespace via backendRefs.
   mkAppRoute = name: route: {
     name = name;
     value = {
-      namespace = route.namespace;
+      namespace = "kube-system";
       hostnames = [ "${route.subdomain}.${route.domain}" ];
       parentRefs = [{
         name = "main";
@@ -129,7 +134,7 @@ let
   mkHttpAppRoute = name: route: {
     name = "${route.subdomain}-http";
     value = {
-      namespace = route.namespace;
+      namespace = "kube-system";
       hostnames = [ "${route.subdomain}.${route.domain}" ];
       parentRefs = [{
         name = "main";
@@ -159,6 +164,26 @@ let
   # Aggregate app HTTPRoutes (one per listener per route)
   appRoutes     = listToAttrs (mapAttrsToList mkAppRoute routes);
   httpAppRoutes = listToAttrs (mapAttrsToList mkHttpAppRoute routes);
+
+  # Collect unique backend namespaces and build a ReferenceGrant in each,
+  # allowing HTTPRoutes in kube-system to reference Services there.
+  backendNamespaces = unique (mapAttrsToList (_: r: r.namespace) routes);
+
+  referenceGrants = listToAttrs (map (ns: {
+    name = "allow-kube-system-routes-${ns}";
+    value = {
+      namespace = ns;
+      from = [{
+        group = "gateway.networking.k8s.io";
+        kind  = "HTTPRoute";
+        namespace = "kube-system";
+      }];
+      to = [{
+        group = "";
+        kind  = "Service";
+      }];
+    };
+  }) backendNamespaces);
 
   # Per-route option submodule
   routeSubmodule = types.submodule ({ name, ... }: {
@@ -271,6 +296,9 @@ in
       appRoutes
       httpAppRoutes
     ];
+
+    # ── ReferenceGrants (allow kube-system HTTPRoutes → backend Services) ─
+    openkrill.apps."gateway-api".referencegrants = referenceGrants;
 
     # ── cert-manager Certificates ───────────────────────────────────
     openkrill.manifests.ingress.content = allCertificates;
