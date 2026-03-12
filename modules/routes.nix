@@ -7,10 +7,14 @@
 #
 # When openkrill.ingress.enable is true, this module:
 #   1. Creates Gateway/main in kube-system with per-route listeners
+#      (HTTPS with TLS termination + HTTP)
 #   2. Creates a cert-manager Certificate per route (signed by
 #      openkrill-signing-authority), with TLS Secrets in kube-system
-#   3. Creates an HTTPRoute per route for app traffic
-#   4. Creates an HTTPRoute per route for HTTP→HTTPS redirect
+#   3. Creates an HTTPRoute per listener per route for app traffic
+#
+# Both HTTP and HTTPS listeners forward to the backend — no redirects.
+# TLS between Traefik and backends is handled by the pods themselves;
+# Traefik trusts their certs via the trust-manager CA bundle.
 #
 # The Gateway uses gatewayClassName "traefik" — the GatewayClass
 # created by the traefik module.
@@ -77,30 +81,7 @@ let
     };
   };
 
-  # Build the per-route HTTP→HTTPS redirect HTTPRoute
-  mkRedirectRoute = name: route: {
-    name = "${route.subdomain}-http-to-https";
-    value = {
-      namespace = "kube-system";
-      hostnames = [ "${route.subdomain}.${route.domain}" ];
-      parentRefs = [{
-        name = "main";
-        namespace = "kube-system";
-        sectionName = "${route.subdomain}-http";
-      }];
-      rules = [{
-        filters = [{
-          type = "RequestRedirect";
-          requestRedirect = {
-            scheme = "https";
-            statusCode = 301;
-          };
-        }];
-      }];
-    };
-  };
-
-  # Build the app-traffic HTTPRoute
+  # Build the app-traffic HTTPRoute (HTTPS listener)
   mkAppRoute = name: route: {
     name = name;
     value = {
@@ -125,15 +106,40 @@ let
     };
   };
 
+  # Build the app-traffic HTTPRoute (HTTP listener)
+  mkHttpAppRoute = name: route: {
+    name = "${route.subdomain}-http";
+    value = {
+      namespace = route.namespace;
+      hostnames = [ "${route.subdomain}.${route.domain}" ];
+      parentRefs = [{
+        name = "main";
+        namespace = "kube-system";
+        sectionName = "${route.subdomain}-http";
+      }];
+      rules = [
+        ({
+          backendRefs = [{
+            namespace = route.namespace;
+            port = route.port;
+            name = route.service;
+          }];
+        } // optionalAttrs (route.filters != []) {
+          inherit (route) filters;
+        })
+      ];
+    };
+  };
+
   # Aggregate all listeners from all routes
   allListeners = concatLists (mapAttrsToList mkListeners routes);
 
   # Aggregate all certificates
   allCertificates = mapAttrsToList mkCertificate routes;
 
-  # Aggregate redirect and app HTTPRoutes
-  redirectRoutes = listToAttrs (mapAttrsToList mkRedirectRoute routes);
-  appRoutes      = listToAttrs (mapAttrsToList mkAppRoute routes);
+  # Aggregate app HTTPRoutes (one per listener per route)
+  appRoutes     = listToAttrs (mapAttrsToList mkAppRoute routes);
+  httpAppRoutes = listToAttrs (mapAttrsToList mkHttpAppRoute routes);
 
   # Per-route option submodule
   routeSubmodule = types.submodule ({ name, ... }: {
@@ -200,8 +206,7 @@ in
         Per-app route definitions. Each entry creates:
           - A listener pair (HTTPS + HTTP) on the default Gateway
           - A cert-manager Certificate for TLS termination
-          - An HTTPRoute for app traffic
-          - An HTTPRoute for HTTP→HTTPS redirect
+          - An HTTPRoute per listener for app traffic
       '';
     };
   };
@@ -230,10 +235,10 @@ in
       listeners = allListeners;
     };
 
-    # ── HTTPRoutes (app traffic + redirects) ────────────────────────
+    # ── HTTPRoutes (app traffic on both HTTPS and HTTP listeners) ───
     openkrill.apps."gateway-api".httproutes = mkMerge [
       appRoutes
-      redirectRoutes
+      httpAppRoutes
     ];
 
     # ── cert-manager Certificates ───────────────────────────────────

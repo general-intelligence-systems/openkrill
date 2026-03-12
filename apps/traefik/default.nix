@@ -587,7 +587,8 @@ in
 
     # When gateway-api is also enabled, configure Traefik as the
     # Gateway API controller and register its GatewayClass.
-    openkrill.apps.helm.chartConfigs.traefik = mkIf config.openkrill.apps."gateway-api".enable {
+    openkrill.apps.helm.chartConfigs.traefik = mkIf config.openkrill.apps."gateway-api".enable (
+      let trustCfg = config.openkrill.apps.trust-manager; in {
       valuesContent = ''
         gatewayClass:
           # Disable the Helm chart's built-in GatewayClass creation.
@@ -600,8 +601,22 @@ in
         providers:
           kubernetesGateway:
             enabled: true
+      '' + optionalString trustCfg.enable ''
+        # Mount the cluster CA trust bundle so Traefik can verify
+        # backend TLS certs signed by the internal CA.
+        volumes:
+          - name: trust-bundle
+            configMap:
+              name: ${trustCfg.bundleConfigMapName}
+              items:
+                - key: ${trustCfg.bundleKey}
+                  path: ca-certificates.crt
+        volumeMounts:
+          - name: trust-bundle
+            mountPath: /etc/ssl/certs
+            readOnly: true
       '';
-    };
+    });
 
     openkrill.apps."gateway-api".gatewayclasses.traefik = mkIf config.openkrill.apps."gateway-api".enable {
       namespace = "kube-system";

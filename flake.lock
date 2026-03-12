@@ -83,11 +83,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1772695970,
-        "narHash": "sha256-ZFGgq61WPHMZcF+LWULUTIdwc/sK3IKoc8vrXHNaxWQ=",
+        "lastModified": 1773283162,
+        "narHash": "sha256-S1MNWbtHMWRAwnN4JqLM5bO+gUQ9tCdXjbYKJK3I+yE=",
         "owner": "general-intelligence-systems",
         "repo": "nixhelm",
-        "rev": "b3a1a90a73b0c7b8ed7dc252a82532d84bfe96d0",
+        "rev": "12b3cdae1911c82b04c02bea88561b44670de845",
         "type": "github"
       },
       "original": {
@@ -98,11 +98,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1772598333,
-        "narHash": "sha256-YaHht/C35INEX3DeJQNWjNaTcPjYmBwwjFJ2jdtr+5U=",
+        "lastModified": 1773068389,
+        "narHash": "sha256-vMrm7Pk2hjBRPnCSjhq1pH0bg350Z+pXhqZ9ICiqqCs=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "fabb8c9deee281e50b1065002c9828f2cf7b2239",
+        "rev": "44bae273f9f82d480273bab26f5c50de3724f52f",
         "type": "github"
       },
       "original": {
