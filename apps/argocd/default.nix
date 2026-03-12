@@ -15,6 +15,20 @@ let
   defaults = {
     fullnameOverride = "argocd";
     controller.metrics.enabled = true;
+    server.certificate = {
+      enabled = true;
+      domain = cfg.domain;
+      additionalHosts = [
+        "argocd-server"
+        "argocd-server.${cfg.namespace}"
+        "argocd-server.${cfg.namespace}.svc"
+        "argocd-server.${cfg.namespace}.svc.cluster.local"
+      ];
+      issuer = {
+        kind = "ClusterIssuer";
+        name = "openkrill-signing-authority";
+      };
+    };
     server.metrics.enabled = true;
     repoServer.metrics.enabled = true;
     applicationSet.metrics.enabled = true;
