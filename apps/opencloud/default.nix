@@ -7,9 +7,6 @@ let
   cfg = config.openkrill.apps.opencloud;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
   domain = config.openkrill.domain;
-  authFilters = if config.openkrill.apps.authelia.enable && config.openkrill.apps.traefik.enable
-    then [{ type = "ExtensionRef"; extensionRef = { group = "traefik.io"; kind = "Middleware"; name = "forwardauth-authelia"; }; }]
-    else [];
 
   mkImageOption = { registry ? "docker.io", repository, tag }: {
     registry = lib.mkOption {
@@ -316,7 +313,6 @@ in
       namespace = cfg.namespace;
       service = "opencloud";
       port = 9200;
-      filters = authFilters;
     };
 
     openkrill.ingress.routes.collabora = {
@@ -324,7 +320,6 @@ in
       namespace = cfg.namespace;
       service = "opencloud-collabora";
       port = 9980;
-      filters = authFilters;
     };
 
     openkrill.apps.argocd.applications.opencloud = {

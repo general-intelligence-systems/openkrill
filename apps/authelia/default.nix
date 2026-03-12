@@ -412,6 +412,7 @@ in
       namespace = cfg.namespace;
       service = "authelia";
       port = 80;
+      auth = false;  # Authelia itself must not go through ForwardAuth
     };
 
     openkrill.apps.argocd.applications.authelia = {

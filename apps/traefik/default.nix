@@ -601,21 +601,22 @@ in
         providers:
           kubernetesGateway:
             enabled: true
-      '' + optionalString trustCfg.enable ''
-        # Mount the cluster CA trust bundle so Traefik can verify
-        # backend TLS certs signed by the internal CA.
-        volumes:
-          - name: trust-bundle
-            configMap:
-              name: ${trustCfg.bundleConfigMapName}
-              items:
-                - key: ${trustCfg.bundleKey}
-                  path: ca-certificates.crt
-        volumeMounts:
-          - name: trust-bundle
-            mountPath: /etc/ssl/certs
-            readOnly: true
-      '';
+  '' + optionalString trustCfg.enable ''
+    # Mount the cluster CA trust bundle so Traefik can verify
+    # backend TLS certs signed by the internal CA.
+    deployment:
+      additionalVolumes:
+        - name: trust-bundle
+          configMap:
+            name: ${trustCfg.bundleConfigMapName}
+            items:
+              - key: ${trustCfg.bundleKey}
+                path: ca-certificates.crt
+    additionalVolumeMounts:
+      - name: trust-bundle
+        mountPath: /etc/ssl/certs
+        readOnly: true
+  '';
     });
 
     openkrill.apps."gateway-api".gatewayclasses.traefik = mkIf config.openkrill.apps."gateway-api".enable {

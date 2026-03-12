@@ -12,9 +12,6 @@ let
   cfg = config.openkrill.apps.victoriametrics;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
   domain = config.openkrill.domain;
-  authFilters = if config.openkrill.apps.authelia.enable && config.openkrill.apps.traefik.enable
-    then [{ type = "ExtensionRef"; extensionRef = { group = "traefik.io"; kind = "Middleware"; name = "forwardauth-authelia"; }; }]
-    else [];
 
   defaults = {
     victoria-metrics-operator = {
@@ -169,7 +166,6 @@ in
       namespace = cfg.namespace;
       service = "victoriametrics-grafana";
       port = 80;
-      filters = authFilters;
     };
 
     openkrill.apps.argocd.applications.victoriametrics = {

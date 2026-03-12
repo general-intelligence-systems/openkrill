@@ -25,6 +25,25 @@ let
   cfg    = config.openkrill.ingress;
   domain = config.openkrill.domain;
 
+  # When both Authelia and Traefik are enabled, automatically protect
+  # routes with ForwardAuth unless the route opts out (auth = false).
+  autheliaEnabled = config.openkrill.apps.authelia.enable
+                 && config.openkrill.apps.traefik.enable;
+
+  authFilter = {
+    type = "ExtensionRef";
+    extensionRef = {
+      group = "traefik.io";
+      kind = "Middleware";
+      name = "forwardauth-authelia";
+    };
+  };
+
+  # Merge automatic auth filter with any user-specified filters
+  effectiveFilters = route:
+    (optionals (autheliaEnabled && route.auth) [ authFilter ])
+    ++ route.filters;
+
   # Collect all enabled route definitions
   routes = filterAttrs (_: r: r.enable) cfg.routes;
 
@@ -99,8 +118,8 @@ let
             port = route.port;
             name = route.service;
           }];
-        } // optionalAttrs (route.filters != []) {
-          inherit (route) filters;
+        } // optionalAttrs (effectiveFilters route != []) {
+          filters = effectiveFilters route;
         })
       ];
     };
@@ -124,8 +143,8 @@ let
             port = route.port;
             name = route.service;
           }];
-        } // optionalAttrs (route.filters != []) {
-          inherit (route) filters;
+        } // optionalAttrs (effectiveFilters route != []) {
+          filters = effectiveFilters route;
         })
       ];
     };
@@ -183,12 +202,24 @@ let
         description = "Port on the backend Service.";
       };
 
+      auth = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Whether to protect this route with Authelia ForwardAuth.
+          Only effective when both authelia and traefik are enabled.
+          Set to false for routes that handle their own auth (e.g. OIDC)
+          or must remain unprotected (e.g. Authelia itself).
+        '';
+      };
+
       filters = mkOption {
         type = with types; listOf attrs;
         default = [];
         description = ''
-          Gateway API HTTPRoute filters (e.g. forward-auth).
-          Passed directly into the HTTPRoute rule.
+          Additional Gateway API HTTPRoute filters.
+          Passed directly into the HTTPRoute rule alongside any
+          automatic auth filters.
         '';
       };
     };
