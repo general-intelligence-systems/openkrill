@@ -28,6 +28,7 @@ in
       template = {
         metadata = { inherit labels; };
         spec = {
+          enableServiceLinks = false;
           containers = [
             {
               name = "lldap";

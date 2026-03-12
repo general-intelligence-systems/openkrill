@@ -1,5 +1,9 @@
 # Gateway API module — composes per-CRD submodules and adds the
 # optional ValidatingAdmissionPolicy for safe upgrades.
+#
+# Gateway creation, TLS certificates, and HTTPRoute generation are
+# handled by modules/routes.nix via `openkrill.ingress`.  This module
+# provides the typed CRD option trees and the safe-upgrades VAP.
 { config, lib, ... }:
 with lib;
 let

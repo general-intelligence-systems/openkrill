@@ -322,22 +322,20 @@ in
         { to = "dns"; }
       ];
     };
-    openkrill.apps."gateway-api".httproutes.opencloud = helpers.mkHTTPRoute {
+    openkrill.ingress.routes.opencloud = {
       subdomain = "cloud";
       namespace = cfg.namespace;
       service = "opencloud";
       port = 9200;
       filters = authFilters;
-      inherit domain;
     };
 
-    openkrill.apps."gateway-api".httproutes.collabora = helpers.mkHTTPRoute {
+    openkrill.ingress.routes.collabora = {
       subdomain = "office";
       namespace = cfg.namespace;
       service = "opencloud-collabora";
       port = 9980;
       filters = authFilters;
-      inherit domain;
     };
 
     openkrill.apps.argocd.applications.opencloud = {

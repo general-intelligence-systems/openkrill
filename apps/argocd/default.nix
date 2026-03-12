@@ -51,7 +51,7 @@ let
       cm."oidc.config" = ''
         name: 'Authelia'
         issuer: '${cfg.oidc.issuer}'
-        clientID: 'argocd'
+        clientID: 'openkrill'
         clientSecret: '$argocd-oidc-secret:oidc.authelia.clientSecret'
         cliClientID: 'argocd-cli'
         requestedScopes:
@@ -107,6 +107,11 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── Register ArgoCD redirect URI on the shared OIDC client ──────
+    openkrill.apps.authelia.sharedClient.redirectUris =
+      mkIf config.openkrill.apps.authelia.enable
+        [ "https://${cfg.domain}/auth/callback" ];
+
     openkrill.apps.argocd.networkPolicy = {
       ingress = [
         { from = "traefik"; ports = [{ port = 80; }]; }
@@ -167,7 +172,7 @@ in
       packages = [];
       script = ''
         create_secret openkrill-argocd-oidc-secret \
-          --from-literal=oidc.authelia.clientSecret="argocd-oidc-client-secret-$DOMAIN"
+          --from-literal=oidc.authelia.clientSecret="openkrill-oidc-client-secret-$DOMAIN"
       '';
     };
 
@@ -178,12 +183,11 @@ in
       keys = [ "oidc.authelia.clientSecret" ];
     };
 
-    openkrill.apps."gateway-api".httproutes.argocd = helpers.mkHTTPRoute {
+    openkrill.ingress.routes.argocd = {
       subdomain = "argocd";
       namespace = cfg.namespace;
       service = "argocd-server";
       port = 443;
-      inherit domain;
     };
 
     openkrill.apps.argocd.applications.argocd = {

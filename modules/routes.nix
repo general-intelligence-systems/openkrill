@@ -1,0 +1,227 @@
+# modules/routes.nix
+#
+# Declarative ingress for openkrill services.
+#
+# Instead of each app module reaching into gateway-api internals,
+# apps declare `openkrill.ingress.routes.<name> = { subdomain; namespace; ... }`.
+#
+# When openkrill.ingress.enable is true, this module:
+#   1. Creates Gateway/main in kube-system with per-route listeners
+#   2. Creates a cert-manager Certificate per route (signed by
+#      openkrill-signing-authority), with TLS Secrets in kube-system
+#   3. Creates an HTTPRoute per route for app traffic
+#   4. Creates an HTTPRoute per route for HTTP→HTTPS redirect
+#
+# The Gateway uses gatewayClassName "traefik" — the GatewayClass
+# created by the traefik module.
+
+{ config, lib, ... }:
+with lib;
+let
+  cfg    = config.openkrill.ingress;
+  domain = config.openkrill.domain;
+
+  # Collect all enabled route definitions
+  routes = filterAttrs (_: r: r.enable) cfg.routes;
+
+  # Build the HTTPS + HTTP listener pair for a single route
+  mkListeners = name: route:
+    let
+      hostname = "${route.subdomain}.${domain}";
+      secretName = "${route.subdomain}-tls";
+    in [
+      {
+        name = "${route.subdomain}-https";
+        port = 443;
+        protocol = "HTTPS";
+        inherit hostname;
+        tls = {
+          mode = "Terminate";
+          certificateRefs = [{
+            kind = "Secret";
+            name = secretName;
+          }];
+        };
+        allowedRoutes.namespaces.from = "All";
+      }
+      {
+        name = "${route.subdomain}-http";
+        port = 80;
+        protocol = "HTTP";
+        inherit hostname;
+        allowedRoutes.namespaces.from = "All";
+      }
+    ];
+
+  # Build a cert-manager Certificate for a single route
+  mkCertificate = name: route: {
+    apiVersion = "cert-manager.io/v1";
+    kind = "Certificate";
+    metadata = {
+      name = "${route.subdomain}-tls";
+      namespace = "kube-system";
+    };
+    spec = {
+      secretName = "${route.subdomain}-tls";
+      dnsNames = [ "${route.subdomain}.${domain}" ];
+      issuerRef = {
+        name = "openkrill-signing-authority";
+        kind = "ClusterIssuer";
+      };
+    };
+  };
+
+  # Build the per-route HTTP→HTTPS redirect HTTPRoute
+  mkRedirectRoute = name: route: {
+    name = "${route.subdomain}-http-to-https";
+    value = {
+      namespace = "kube-system";
+      hostnames = [ "${route.subdomain}.${domain}" ];
+      parentRefs = [{
+        name = "main";
+        namespace = "kube-system";
+        sectionName = "${route.subdomain}-http";
+      }];
+      rules = [{
+        filters = [{
+          type = "RequestRedirect";
+          requestRedirect = {
+            scheme = "https";
+            statusCode = 301;
+          };
+        }];
+      }];
+    };
+  };
+
+  # Build the app-traffic HTTPRoute
+  mkAppRoute = name: route: {
+    name = name;
+    value = {
+      namespace = route.namespace;
+      hostnames = [ "${route.subdomain}.${domain}" ];
+      parentRefs = [{
+        name = "main";
+        namespace = "kube-system";
+        sectionName = "${route.subdomain}-https";
+      }];
+      rules = [
+        ({
+          backendRefs = [{
+            namespace = route.namespace;
+            port = route.port;
+            name = route.service;
+          }];
+        } // optionalAttrs (route.filters != []) {
+          inherit (route) filters;
+        })
+      ];
+    };
+  };
+
+  # Aggregate all listeners from all routes
+  allListeners = concatLists (mapAttrsToList mkListeners routes);
+
+  # Aggregate all certificates
+  allCertificates = mapAttrsToList mkCertificate routes;
+
+  # Aggregate redirect and app HTTPRoutes
+  redirectRoutes = listToAttrs (mapAttrsToList mkRedirectRoute routes);
+  appRoutes      = listToAttrs (mapAttrsToList mkAppRoute routes);
+
+  # Per-route option submodule
+  routeSubmodule = types.submodule ({ name, ... }: {
+    options = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Whether this route is active.";
+      };
+
+      subdomain = mkOption {
+        type = types.str;
+        description = ''
+          Subdomain prefix. The full hostname becomes
+          <subdomain>.<openkrill.domain>.
+        '';
+      };
+
+      namespace = mkOption {
+        type = types.str;
+        description = "Kubernetes namespace where the backend Service lives.";
+      };
+
+      service = mkOption {
+        type = types.str;
+        default = name;
+        description = "Name of the backend Service. Defaults to the route name.";
+      };
+
+      port = mkOption {
+        type = types.port;
+        description = "Port on the backend Service.";
+      };
+
+      filters = mkOption {
+        type = with types; listOf attrs;
+        default = [];
+        description = ''
+          Gateway API HTTPRoute filters (e.g. forward-auth).
+          Passed directly into the HTTPRoute rule.
+        '';
+      };
+    };
+  });
+
+in
+{
+  options.openkrill.ingress = {
+    enable = mkEnableOption "openkrill managed ingress and default gateway";
+
+    routes = mkOption {
+      type = types.attrsOf routeSubmodule;
+      default = {};
+      description = ''
+        Per-app route definitions. Each entry creates:
+          - A listener pair (HTTPS + HTTP) on the default Gateway
+          - A cert-manager Certificate for TLS termination
+          - An HTTPRoute for app traffic
+          - An HTTPRoute for HTTP→HTTPS redirect
+      '';
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # ── Assertions ──────────────────────────────────────────────────
+    assertions = [
+      {
+        assertion = config.openkrill.apps."gateway-api".enable;
+        message = "openkrill.ingress requires openkrill.apps.gateway-api.enable = true";
+      }
+      {
+        assertion = config.openkrill.apps.cert-manager.enable;
+        message = "openkrill.ingress requires openkrill.apps.cert-manager.enable = true";
+      }
+      {
+        assertion = config.openkrill.apps.cert-manager.selfSignedCA.enable;
+        message = "openkrill.ingress requires openkrill.apps.cert-manager.selfSignedCA.enable = true (provides ClusterIssuer/openkrill-signing-authority)";
+      }
+    ];
+
+    # ── Default Gateway ─────────────────────────────────────────────
+    openkrill.apps."gateway-api".gateways.main = mkDefault {
+      namespace = "kube-system";
+      gatewayClassName = "traefik";
+      listeners = allListeners;
+    };
+
+    # ── HTTPRoutes (app traffic + redirects) ────────────────────────
+    openkrill.apps."gateway-api".httproutes = mkMerge [
+      appRoutes
+      redirectRoutes
+    ];
+
+    # ── cert-manager Certificates ───────────────────────────────────
+    openkrill.manifests.ingress.content = allCertificates;
+  };
+}

@@ -42,13 +42,12 @@ in
         { to = "dns"; }
       ];
     };
-    openkrill.apps."gateway-api".httproutes.lago = helpers.mkHTTPRoute {
+    openkrill.ingress.routes.lago = {
       subdomain = "lago";
       namespace = cfg.namespace;
       service = "lago-front";
       port = 80;
       filters = authFilters;
-      inherit domain;
     };
 
     openkrill.apps.argocd.applications.lago = {
