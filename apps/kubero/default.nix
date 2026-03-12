@@ -8,7 +8,6 @@ let
   cfg = config.openkrill.apps.kubero;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
   networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
-  domain = config.openkrill.domain;
 in
 {
   options.openkrill.apps.kubero = {
@@ -35,13 +34,12 @@ in
       ];
     };
 
-    # ── Gateway API HTTPRoute ───────────────────────────────────────
-    openkrill.apps."gateway-api".httproutes.kubero = helpers.mkHTTPRoute {
+    # ── Route ──────────────────────────────────────────────────────
+    openkrill.ingress.routes.kubero = {
       subdomain = "kubero";
       namespace = cfg.namespace;
       service = "kubero";
       port = 2000;
-      inherit domain;
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────

@@ -8,7 +8,6 @@ let
   cfg = config.openkrill.apps.operaton;
   helpers          = import ../../modules/lib/helpers.nix { inherit lib; };
   networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
-  domain = config.openkrill.domain;
 
   defaults = {
     ingress.enabled = false;
@@ -45,13 +44,12 @@ in
       ];
     };
 
-    # ── Gateway API HTTPRoute ───────────────────────────────────────
-    openkrill.apps."gateway-api".httproutes.operaton = helpers.mkHTTPRoute {
+    # ── Route ──────────────────────────────────────────────────────
+    openkrill.ingress.routes.operaton = {
       subdomain = "operaton";
       namespace = cfg.namespace;
       service = "operaton";
       port = 8080;
-      inherit domain;
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────
