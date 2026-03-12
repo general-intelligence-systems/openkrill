@@ -945,7 +945,7 @@ from this table:
 | ArgoCD Application | `openkrill.apps.argocd.applications.<name>` | yes | [argocd.md](./argocd.md) |
 | Network Policy | `openkrill.apps.<name>.networkPolicy` | yes | [network-policies.md](./network-policies.md) |
 | Secrets | `openkrill.secrets.generators.<name>`, `openkrill.apps.external-secrets.secrets.<name>` | if needed | [secrets.md](./secrets.md) |
-| HTTP Routes | `openkrill.apps.gateway-api.httproutes.<name>` | if web UI | — |
+| Ingress Routes | `openkrill.ingress.routes.<name>` | if web UI | [ingress.md](./ingress.md) |
 | Monitoring | `openkrill.apps.victoriametrics.vmservicescrapes.<name>`, `.vmrules.<name>` | if metrics | [monitoring.md](./monitoring.md) |
 | Databases | `openkrill.apps.cloudnative-pg.databases.<name>` | if PostgreSQL | — |
 | OIDC Clients | `openkrill.apps.authelia.oidcClients.<name>` | if SSO | — |
@@ -976,6 +976,7 @@ Before submitting a new module:
 - [ ] `helm.nix` uses `lib.recursiveUpdate defaults cfg.values` for the `values` arg
 - [ ] `helm.nix` (or `resources.nix`) returns a list of K8s resource attrsets
 - [ ] ArgoCD Application CR declared via `openkrill.apps.argocd.applications.<name>` (see [argocd.md](./argocd.md))
+- [ ] Ingress route declared if app has a web UI (see [ingress.md](./ingress.md))
 - [ ] Monitoring declared if app exposes metrics (see [monitoring.md](./monitoring.md))
 - [ ] Config enabled in consumer's `configuration.nix`
 - [ ] Files staged: `git add apps/<name>/`

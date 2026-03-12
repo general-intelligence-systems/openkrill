@@ -147,7 +147,7 @@ first boot, before ArgoCD or any app pods exist.
 ### Shared Option Type
 
 A helper provides the `networkPolicy` option type, following the
-same pattern as `mkHTTPRoute` and `mkExtraManifestsOption`.  Defined
+same pattern as `mkExtraManifestsOption`.  Defined
 in `modules/lib/network-policy.nix` and imported by app modules.
 
 An app's network policy declaration has three parts:

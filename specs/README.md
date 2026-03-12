@@ -36,6 +36,7 @@ Design documentation for Openkrill.
 | [nix-module-crds.md](./nix-module-crds.md) | [apps/](../apps/) | 269 | How to hand-write a CRD-only module from a CRD specification |
 | [nix-module-app-generator.md](./nix-module-app-generator.md) | [lib/generate-module.nix](../lib/generate-module.nix) | 493 | How to auto-generate typed CRD fragments with `bin/create-module-crds` |
 | [argocd.md](./argocd.md) | [apps/argocd/](../apps/argocd/) | 191 | ArgoCD bootstrap via k3s and per-module Application CR pattern |
+| [ingress.md](./ingress.md) | [modules/routes.nix](../modules/routes.nix) | 228 | Declarative ingress: per-app route definitions that produce Gateway listeners, TLS certificates, and HTTPRoutes |
 | [core-dns.md](./core-dns.md) | [apps/core-dns/](../apps/core-dns/) | 506 | Host-gateway access and custom CoreDNS entries for reaching host services from pods |
 
 ## Security
