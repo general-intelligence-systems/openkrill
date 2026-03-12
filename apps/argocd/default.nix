@@ -67,6 +67,7 @@ let
         clientID: 'openkrill'
         clientSecret: '$argocd-oidc-secret:oidc.authelia.clientSecret'
         cliClientID: 'argocd-cli'
+        clientAuthMethod: client_secret_basic
         requestedScopes:
           - 'openid'
           - 'email'
@@ -190,6 +191,26 @@ in
       namespace = cfg.namespace;
       service = "argocd-server";
       port = 443;
+    };
+
+    # ── BackendTLSPolicy for ArgoCD server ───────────────────────────
+    # Traefik connects to argocd-server on port 443 (HTTPS).  Without
+    # this policy Traefik uses the pod IP for TLS verification, which
+    # fails because the cert has DNS SANs but no IP SANs.  The policy
+    # tells Traefik to use the service FQDN as the SNI hostname and to
+    # trust the system CAs (the openkrill trust bundle is already
+    # mounted at /etc/ssl/certs in the Traefik pod).
+    openkrill.apps."gateway-api".backendtlspolicies.argocd-server = {
+      namespace = cfg.namespace;
+      targetRefs = [{
+        group = "";
+        kind = "Service";
+        name = "argocd-server";
+      }];
+      validation = {
+        hostname = "argocd-server.${cfg.namespace}.svc";
+        wellKnownCACertificates = "System";
+      };
     };
 
     openkrill.apps.argocd.applications.argocd = {

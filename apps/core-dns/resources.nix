@@ -115,12 +115,14 @@ let
   hostsLines = lib.concatStringsSep "\n"
     (lib.mapAttrsToList (hostname: ip: "${ip} ${hostname}") cfg.customHosts);
 
-  coreDnsServerBlock = ''
-    k3s.internal {
-      hosts {
-        ${hostsLines}
-        fallthrough
-      }
+  # Use an *.override file so the hosts entries are injected into the
+  # main .:53 server block.  This makes them resolve from any pod for
+  # any domain — not scoped to a single zone.  k3s's embedded CoreDNS
+  # auto-imports *.override files inside its catch-all server block.
+  coreDnsOverrideBlock = ''
+    hosts {
+      ${hostsLines}
+      fallthrough
     }
   '';
 
@@ -133,7 +135,7 @@ let
         namespace = "kube-system";
       };
       data = {
-        "hosts.server" = coreDnsServerBlock;
+        "hosts.override" = coreDnsOverrideBlock;
       };
     }
   ];
