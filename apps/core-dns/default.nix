@@ -101,6 +101,31 @@ in
       '';
     };
 
+    ingressHosts = mkOption {
+      type = types.listOf types.str;
+      default = [];
+      example = [ "auth.portal.net" "argocd.portal.net" "git.portal.net" ];
+      description = ''
+        FQDNs that should resolve to the Traefik ingress service
+        from within the cluster.  Populated automatically by the
+        ingress routes module (modules/routes.nix).
+
+        Each hostname gets a CoreDNS template rule that synthesises
+        a CNAME pointing to the Traefik service, so pods can reach
+        ingress-exposed services by their external hostname without
+        public DNS or hardcoded IPs.
+      '';
+    };
+
+    traefikService = mkOption {
+      type = types.str;
+      default = "traefik.kube-system.svc.cluster.local";
+      description = ''
+        Cluster-internal DNS name of the Traefik Service.  Used as
+        the CNAME target for ingressHosts template rules.
+      '';
+    };
+
     extraManifests = helpers.mkExtraManifestsOption;
   };
 

@@ -284,6 +284,15 @@ in
       }
     ];
 
+    # ── CoreDNS ingress host resolution ──────────────────────────────
+    # Every route hostname must be resolvable from within the cluster.
+    # Since the domain is typically private (no public DNS), we tell
+    # CoreDNS to synthesise CNAME records pointing each hostname to
+    # the Traefik service.  Pods then reach Traefik's ClusterIP, which
+    # matches the Gateway listener and routes to the backend.
+    openkrill.apps.core-dns.ingressHosts = mkIf config.openkrill.apps.core-dns.enable
+      (mapAttrsToList (_: r: "${r.subdomain}.${r.domain}") routes);
+
     # ── Default Gateway ─────────────────────────────────────────────
     openkrill.apps."gateway-api".gateways.main = mkDefault {
       namespace = "kube-system";

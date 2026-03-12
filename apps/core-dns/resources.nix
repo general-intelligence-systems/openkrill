@@ -119,14 +119,56 @@ let
   # main .:53 server block.  This makes them resolve from any pod for
   # any domain — not scoped to a single zone.  k3s's embedded CoreDNS
   # auto-imports *.override files inside its catch-all server block.
-  coreDnsOverrideBlock = ''
+  hostsOverride = lib.optionalString (cfg.customHosts != {}) ''
     hosts {
       ${hostsLines}
       fallthrough
     }
   '';
 
-  customHostsResources = lib.optionals (cfg.customHosts != {}) [
+  # -- CoreDNS template rules for ingress hostnames ---------------------
+  #
+  # For each hostname in ingressHosts, generate a CoreDNS `template`
+  # block that synthesises a CNAME pointing to the Traefik service.
+  # CoreDNS resolves the CNAME internally, so pods reach Traefik's
+  # ClusterIP without hardcoded addresses.
+  #
+  # Example output for auth.portal.net:
+  #
+  #   template IN A auth.portal.net {
+  #     match "^auth\.portal\.net\.$"
+  #     answer "auth.portal.net. 60 IN CNAME traefik.kube-system.svc.cluster.local."
+  #     fallthrough
+  #   }
+  #
+  # The *.override key ensures these inject into the main .:53 server
+  # block alongside the hosts plugin (if any).
+
+  # Escape dots for regex matching
+  escapeRegex = s: builtins.replaceStrings ["."] [''\.'' ] s;
+
+  mkTemplateBlock = hostname: ''
+    template IN A ${hostname} {
+      match "^${escapeRegex hostname}\.$"
+      answer "${hostname}. 60 IN CNAME ${cfg.traefikService}."
+      fallthrough
+    }
+  '';
+
+  templateOverride = lib.optionalString (cfg.ingressHosts != [])
+    (lib.concatMapStringsSep "\n" mkTemplateBlock cfg.ingressHosts);
+
+  # Merge hosts and template overrides into a single ConfigMap.
+  # Both use *.override so they inject into the main .:53 server block.
+  overrideData =
+    lib.optionalAttrs (cfg.customHosts != {}) {
+      "hosts.override" = hostsOverride;
+    }
+    // lib.optionalAttrs (cfg.ingressHosts != []) {
+      "ingress.override" = templateOverride;
+    };
+
+  customDnsResources = lib.optionals (overrideData != {}) [
     {
       apiVersion = "v1";
       kind = "ConfigMap";
@@ -134,11 +176,9 @@ let
         name = "coredns-custom";
         namespace = "kube-system";
       };
-      data = {
-        "hosts.override" = coreDnsOverrideBlock;
-      };
+      data = overrideData;
     }
   ];
 
 in
-  hostGatewayResources ++ customHostsResources
+  hostGatewayResources ++ customDnsResources

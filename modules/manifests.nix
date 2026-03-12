@@ -44,7 +44,7 @@ let
   # Build script that copies each manifest into the work tree
   copyCommands = concatStringsSep "\n" (mapAttrsToList (name: manifest:
     let file = mkManifestFile name manifest;
-    in "cp ${file} \"$work/${name}.yaml\""
+    in "mkdir -p \"$work/$(dirname '${name}')\" && cp ${file} \"$work/${name}.yaml\""
   ) cfg.manifests);
 
   useGitDaemon = gitopsCfg.enable && gitopsCfg.method == "gitDaemon";

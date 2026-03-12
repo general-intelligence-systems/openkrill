@@ -8,6 +8,11 @@ let
   defaults = {
     # Enable telemetry for Prometheus metrics scraping
     telemetry.disabled = false;
+    # Disable the Helm hook-based DataStore creation; we manage it as a
+    # standalone manifest so ArgoCD treats it as a regular resource rather
+    # than a transient pre-install hook.
+    datastore.enabled = false;
+    datastore.nameOverride = "default";
   };
 in
 {
@@ -63,7 +68,7 @@ in
         repoURL = config.openkrill.gitops.repoURL;
         targetRevision = "rendered-manifests";
         path = ".";
-        directory.include = "kamaji.yaml";
+        directory.include = "{kamaji.yaml,kamaji/*.yaml}";
       };
       destination = {
         server = "https://kubernetes.default.svc";
@@ -80,6 +85,58 @@ in
       chart = charts.clastix.kamaji;
       namespace = cfg.namespace;
       values = recursiveUpdate defaults cfg.values;
+    };
+
+    # ── DataStore CR ──────────────────────────────────────────────────
+    # The upstream Helm chart creates this as a pre-install hook, which
+    # is not reliably applied when rendering through kubelib.fromHelm +
+    # ArgoCD.  We declare it as a regular manifest instead.
+    openkrill.manifests."kamaji/datastore".content = {
+      apiVersion = "kamaji.clastix.io/v1alpha1";
+      kind = "DataStore";
+      metadata = {
+        name = "default";
+        namespace = cfg.namespace;
+        labels = {
+          "kamaji.clastix.io/datastore" = "etcd";
+          "app.kubernetes.io/name" = "kamaji";
+          "app.kubernetes.io/instance" = "kamaji";
+        };
+      };
+      spec = {
+        driver = "etcd";
+        endpoints = [
+          "etcd-0.etcd.${cfg.namespace}.svc.cluster.local:2379"
+          "etcd-1.etcd.${cfg.namespace}.svc.cluster.local:2379"
+          "etcd-2.etcd.${cfg.namespace}.svc.cluster.local:2379"
+        ];
+        tlsConfig = {
+          certificateAuthority = {
+            certificate.secretReference = {
+              name = "etcd-certs";
+              namespace = cfg.namespace;
+              keyPath = "ca.crt";
+            };
+            privateKey.secretReference = {
+              name = "etcd-certs";
+              namespace = cfg.namespace;
+              keyPath = "ca.key";
+            };
+          };
+          clientCertificate = {
+            certificate.secretReference = {
+              name = "root-client-certs";
+              namespace = cfg.namespace;
+              keyPath = "tls.crt";
+            };
+            privateKey.secretReference = {
+              name = "root-client-certs";
+              namespace = cfg.namespace;
+              keyPath = "tls.key";
+            };
+          };
+        };
+      };
     };
   };
 }

@@ -44,7 +44,7 @@ let
 
       client_secret = mkOption {
         type = types.str;
-        default = "$plaintext$${config.client_id}-oidc-client-secret-${domain}";
+        default = "$plaintext$" + config.client_id + "-oidc-client-secret-" + domain;
         description = "Client secret. Defaults to a deterministic plaintext secret.";
       };
 
