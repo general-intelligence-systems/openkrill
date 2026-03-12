@@ -19,9 +19,7 @@ let
     k8sServicePort = 6443;
 
     # -- CNI --
-    kubeProxyReplacement = true;
     ipam.mode = "kubernetes";
-    bpf.masquerade = true;
 
     # -- Policy enforcement --
     policyEnforcementMode = "never";
