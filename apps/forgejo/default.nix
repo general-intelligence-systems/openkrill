@@ -159,18 +159,13 @@ in
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests = mkMerge [
-      {
-        forgejo.content =
-          [ (k8s.mkNamespace cfg.namespace) ]
-          ++ kubelib.fromHelm {
-            name = "forgejo";
-            chart = charts.forgejo-helm.forgejo;
-            namespace = cfg.namespace;
-            values = recursiveUpdate defaults cfg.values;
-          };
-      }
-      (helpers.mkExtraManifestsConfig "forgejo" cfg.extraManifests)
-    ];
+    openkrill.manifests.forgejo.content =
+      [ (k8s.mkNamespace cfg.namespace) ]
+      ++ kubelib.fromHelm {
+        name = "forgejo";
+        chart = charts.forgejo-helm.forgejo;
+        namespace = cfg.namespace;
+        values = recursiveUpdate defaults cfg.values;
+      };
   };
 }

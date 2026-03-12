@@ -424,18 +424,13 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        authelia.content =
-          kubelib.fromHelm {
-            name = "authelia";
-            chart = charts.authelia.authelia;
-            namespace = cfg.namespace;
-            extraOpts = [ "--skip-schema-validation" ];
-            values = recursiveUpdate defaults cfg.values;
-          };
-      }
-      (helpers.mkExtraManifestsConfig "authelia" cfg.extraManifests)
-    ];
+    openkrill.manifests.authelia.content =
+      kubelib.fromHelm {
+        name = "authelia";
+        chart = charts.authelia.authelia;
+        namespace = cfg.namespace;
+        extraOpts = [ "--skip-schema-validation" ];
+        values = recursiveUpdate defaults cfg.values;
+      };
   };
 }

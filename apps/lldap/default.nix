@@ -182,13 +182,8 @@ in
     };
 
     # ── Manifests ────────────────────────────────────────────────────
-    openkrill.manifests = lib.mkMerge [
-      {
-        lldap.content = import ./resources.nix {
-          inherit cfg domain dbSecretName;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "lldap" cfg.extraManifests)
-    ];
+    openkrill.manifests.lldap.content = import ./resources.nix {
+      inherit cfg domain dbSecretName;
+    };
   };
 }

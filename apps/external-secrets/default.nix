@@ -292,19 +292,14 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        external-secrets.content =
-          (kubelib.fromHelm {
-            name = "external-secrets";
-            chart = charts.external-secrets.external-secrets;
-            namespace = cfg.namespace;
-            values = cfg.values;
-          })
-          ++ [ sourceNamespace ]
-          ++ rbacResources;
-      }
-      (helpers.mkExtraManifestsConfig "external-secrets" cfg.extraManifests)
-    ];
+    openkrill.manifests.external-secrets.content =
+      (kubelib.fromHelm {
+        name = "external-secrets";
+        chart = charts.external-secrets.external-secrets;
+        namespace = cfg.namespace;
+        values = cfg.values;
+      })
+      ++ [ sourceNamespace ]
+      ++ rbacResources;
   };
 }

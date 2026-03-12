@@ -190,9 +190,6 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      { forgejo-runner.content = allResources; }
-      (helpers.mkExtraManifestsConfig "forgejo-runner" cfg.extraManifests)
-    ];
+    openkrill.manifests.forgejo-runner.content = allResources;
   };
 }

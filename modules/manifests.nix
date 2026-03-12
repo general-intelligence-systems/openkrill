@@ -9,6 +9,11 @@
 # This module collects them all, serializes to YAML, and
 # commits into a bare git repo suitable for git-daemon.
 #
+# extraManifests fan-out is handled centrally: for every
+# openkrill.apps.<app> that has an extraManifests attrset,
+# this module fans them into openkrill.manifests."<app>/<key>"
+# so individual app modules don't need to.
+#
 # openkrill.gitops controls how the repo is served. When
 # method is "gitDaemon", services.gitDaemon is force-enabled
 # and the repo is symlinked into its base path.
@@ -16,6 +21,8 @@
 { config, lib, pkgs, ... }:
 with lib;
 let
+  helpers = import ./lib/helpers.nix { inherit lib; };
+
   cfg = config.openkrill;
   gitopsCfg = cfg.gitops;
 
@@ -34,15 +41,26 @@ let
     in
     manifestFormat.generate "${name}.yaml" content;
 
-  enabledManifests = filterAttrs (_: m: m.enable) cfg.manifests;
-
   # Build script that copies each manifest into the work tree
   copyCommands = concatStringsSep "\n" (mapAttrsToList (name: manifest:
     let file = mkManifestFile name manifest;
     in "cp ${file} \"$work/${name}.yaml\""
-  ) enabledManifests);
+  ) cfg.manifests);
 
   useGitDaemon = gitopsCfg.enable && gitopsCfg.method == "gitDaemon";
+
+  # Centralized extraManifests fan-out: for every app that declares
+  # extraManifests and is enabled, fan them into openkrill.manifests.
+  appsWithExtra = filterAttrs (_: appCfg:
+    appCfg ? extraManifests
+    && appCfg ? enable
+    && appCfg.enable
+    && appCfg.extraManifests != { }
+  ) (cfg.apps or { });
+
+  extraManifestConfigs = mapAttrsToList (appName: appCfg:
+    helpers.mkExtraManifestsConfig appName appCfg.extraManifests
+  ) appsWithExtra;
 in
 {
   options.openkrill = {
@@ -50,10 +68,6 @@ in
       default = { };
       type = types.attrsOf (types.submodule ({ name, ... }: {
         options = {
-          enable = mkOption {
-            type = types.bool;
-            default = true;
-          };
           content = mkOption {
             type = with types; either attrs (listOf attrs);
             description = ''
@@ -126,6 +140,9 @@ in
   };
 
   config = {
+    # Fan out extraManifests from all apps into openkrill.manifests
+    openkrill.manifests = mkMerge extraManifestConfigs;
+
     openkrill.renderedManifestRepo = pkgs.runCommand "openkrill-manifests.git" {
       nativeBuildInputs = [ pkgs.git ];
       # Fixed identity and timestamps for reproducibility
@@ -177,6 +194,6 @@ in
     # self-management (same pattern ArgoCD itself uses).
     services.k3s.manifests = mapAttrs' (name: manifest:
       nameValuePair "openkrill-${name}" { content = manifest.content; }
-    ) enabledManifests;
+    ) cfg.manifests;
   };
 }

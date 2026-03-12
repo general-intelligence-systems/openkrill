@@ -359,13 +359,8 @@ in
       };
     };
 
-    openkrill.manifests = mkMerge [
-      {
-        opencloud.content = import ./resources.nix {
-          inherit lib k8s cfg;
-        };
-      }
-      (helpers.mkExtraManifestsConfig "opencloud" cfg.extraManifests)
-    ];
+    openkrill.manifests.opencloud.content = import ./resources.nix {
+      inherit lib k8s cfg;
+    };
   };
 }
