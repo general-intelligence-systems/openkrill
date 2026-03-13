@@ -24,10 +24,11 @@ App modules call `kubelib.fromHelm` at nix evaluation time. `helm template` runs
 
 ## Module arguments
 
-The flake's `nixosModules.default` injects two `_module.args`:
+The flake's `nixosModules.default` injects three `_module.args`:
 
-- **`charts`** — `nixhelm.chartsDerivations.${system}`. Attrset of chart derivations keyed by `repo.chart`.
-- **`kubelib`** — `nix-kube-generators.lib { inherit pkgs; }`. Provides `fromHelm`, `buildHelmChart`, `toYAMLFile`, etc.
+- **`charts`** — `nixhelm.charts.${system}`. Attrset of chart derivations keyed by `repo.chart`. Each chart has `.latest` and `.versions."X.Y.Z"` attributes.
+- **`kubelib`** — `import ./lib/helm.nix { inherit pkgs; }`. Provides `fromHelm`, `buildHelmChart`, `fromYAML`, and `downloadHelmChart`.
+- **`k8s`** — `import ./lib/k8s.nix { inherit pkgs; }`. Helper constructors for common K8s resources (`mkNamespace`, `mkSecret`).
 
 Consumers never set `specialArgs` — the flake handles it.
 

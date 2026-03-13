@@ -282,7 +282,7 @@ in
     openkrill.manifests.external-secrets.content =
       (kubelib.fromHelm {
         name = "external-secrets";
-        chart = charts.external-secrets.external-secrets;
+        chart = charts.external-secrets.external-secrets.latest;
         namespace = cfg.namespace;
         values = cfg.values;
       })

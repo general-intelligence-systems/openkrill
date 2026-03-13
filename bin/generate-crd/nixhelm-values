@@ -39,12 +39,10 @@ class HelmChart
   define_model_callbacks :initialize, only: :after
   after_initialize :normalize_repo
 
-  attribute :name,      :string
-  attribute :repo,      :string
-  attribute :chart,     :string
-  attribute :chartHash, :string
-  attribute :version,   :string
-  attribute :bogusVersion, :string
+  attribute :name,    :string
+  attribute :repo,    :string
+  attribute :chart,   :string
+  attribute :version, :string
 
   def initialize(*)
     super
@@ -62,44 +60,45 @@ raw_data = `nix eval "path:.#chartsMeta" --json`
 
 JSON.parse(raw_data).then do |json|
 
-  json.each do |entry|
-    org_name = entry[0]
-    repo_name = entry[1].keys.first
-    chart_data = entry[1].values.first
+  # nixhelm2 metadata shape:
+  #   { "org": { "chart-name": { "repo": "...", "chart": "...", "latest": "X.Y.Z", "versions": { "X.Y.Z": "sha256-...", ... } } } }
+  json.each do |org_name, charts|
+    charts.each do |chart_name, chart_data|
+      display_name = org_name == "1password" ? org_name : chart_name
 
-    if org_name == "1password"
-      chart_data["name"] = org_name
-    else
-      chart_data["name"] = repo_name
-    end
-
-    HelmChart.new(chart_data).then do |chart|
-      if chart.repo.start_with?("oci://")
-        crds = `helm show crds #{chart.repo}/#{chart.chart} --version #{chart.version}`
-      else
-        crds = `helm show crds #{chart.chart} --repo #{chart.repo} --version #{chart.version}`
-      end
-
-      # Fallback: some charts ship CRDs as templates (gated behind values like crds.install)
-      # which helm show crds won't pick up. Use helm template and filter for CRDs instead.
-      if crds.strip.empty?
+      HelmChart.new(
+        name:    display_name,
+        repo:    chart_data["repo"],
+        chart:   chart_data["chart"],
+        version: chart_data["latest"]
+      ).then do |chart|
         if chart.repo.start_with?("oci://")
-          rendered = `helm template release #{chart.repo}/#{chart.chart} --version #{chart.version} --include-crds 2>/dev/null`
+          crds = `helm show crds #{chart.repo}/#{chart.chart} --version #{chart.version}`
         else
-          rendered = `helm template release #{chart.chart} --repo #{chart.repo} --version #{chart.version} --include-crds 2>/dev/null`
+          crds = `helm show crds #{chart.chart} --repo #{chart.repo} --version #{chart.version}`
         end
-        crds = extract_crds(rendered)
-      end
 
-      if crds.strip.length > 0
-        if valid_yaml?(crds)
-          FileUtils.mkdir_p('crds')
-          File.write("crds/#{chart.name}.yaml", crds)
-        else
-          puts 'invalid yaml'
+        # Fallback: some charts ship CRDs as templates (gated behind values like crds.install)
+        # which helm show crds won't pick up. Use helm template and filter for CRDs instead.
+        if crds.strip.empty?
+          if chart.repo.start_with?("oci://")
+            rendered = `helm template release #{chart.repo}/#{chart.chart} --version #{chart.version} --include-crds 2>/dev/null`
+          else
+            rendered = `helm template release #{chart.chart} --repo #{chart.repo} --version #{chart.version} --include-crds 2>/dev/null`
+          end
+          crds = extract_crds(rendered)
         end
-      else
-        puts "No CRDs for #{chart.name} \t\t#{chart.repo}/#{chart.chart}"
+
+        if crds.strip.length > 0
+          if valid_yaml?(crds)
+            FileUtils.mkdir_p('crds')
+            File.write("crds/#{chart.name}.yaml", crds)
+          else
+            puts 'invalid yaml'
+          end
+        else
+          puts "No CRDs for #{chart.name} \t\t#{chart.repo}/#{chart.chart}"
+        end
       end
     end
   end

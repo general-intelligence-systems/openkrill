@@ -221,7 +221,7 @@ let
 in
 kubelib.fromHelm {
   name = "my-app";
-  chart = charts.<repo>.<chart>;
+  chart = charts.<repo>.<chart>.latest;
   namespace = cfg.namespace;
   values = lib.recursiveUpdate defaults cfg.values;
 }
@@ -251,7 +251,7 @@ let
 
   rawHelm = kubelib.fromHelm {
     name = "my-app";
-    chart = charts.<repo>.<chart>;
+    chart = charts.<repo>.<chart>.latest;
     namespace = cfg.namespace;
     values = lib.recursiveUpdate defaults cfg.values;
   };
@@ -528,24 +528,23 @@ let
 in
 kubelib.fromHelm {
   name = "my-app";
-  chart = charts.<repo>.<chart>;
+  chart = charts.<repo>.<chart>.latest;
   namespace = cfg.namespace;
   values = lib.recursiveUpdate defaults cfg.values;
 }
 ```
 
-For charts not in nixhelm, you can fetch manually:
+For charts not in nixhelm, use `kubelib.downloadHelmChart`:
 
 ```nix
-{ lib, charts, kubelib, cfg, pkgs }:
+{ lib, charts, kubelib, cfg }:
 let
-  chart = pkgs.runCommand "my-chart" {} ''
-    mkdir -p $out
-    tar xzf ${pkgs.fetchurl {
-      url = "https://example.com/charts/my-chart-1.0.0.tgz";
-      hash = "sha256-AAAA...";
-    }} -C $out --strip-components=1
-  '';
+  chart = kubelib.downloadHelmChart {
+    repo = "https://example.com/charts";
+    chart = "my-chart";
+    version = "1.0.0";
+    chartHash = "sha256-AAAA...";
+  };
 in
 kubelib.fromHelm {
   name = "my-app";
@@ -641,7 +640,7 @@ bin/test
 
 ### What to hardcode
 
-- **Helm chart references** (`charts.<repo>.<chart>`) — these change
+- **Helm chart references** (`charts.<repo>.<chart>.latest`) — these change
   via nixhelm flake input, not per-deployment
 - **Container images** from the chart (the chart controls these)
 - **Internal wiring** (service names like
@@ -874,11 +873,13 @@ These are injected into every module via `_module.args` in `flake.nix`:
 
 ### `kubelib`
 
-From the `nix-kube-generators` flake input. Key function:
+From `lib/helm.nix` (inlined from `nix-kube-generators`). Key functions:
 
 | Function | Returns | Use |
 |----------|---------|-----|
 | `kubelib.fromHelm { name, chart, namespace, values, extraOpts? }` | `listOf attrs` | Render a Helm chart to a list of K8s resource attrsets |
+| `kubelib.downloadHelmChart { repo, chart, version, chartHash }` | `derivation` | Download and extract a chart not tracked in nixhelm |
+| `kubelib.fromYAML yamlString` | `listOf attrs` | Parse a multi-document YAML string into Nix attrsets |
 
 `kubelib.fromHelm` accepts an optional `extraOpts` parameter (list of
 strings) for additional Helm flags, e.g.
@@ -886,13 +887,17 @@ strings) for additional Helm flags, e.g.
 
 ### `charts`
 
-From the `nixhelm` flake input (`nixhelm.chartsDerivations.${pkgs.system}`).
-An attrset of all Helm charts keyed by `<repo>.<chart>`:
+From the `nixhelm2` flake input (`nixhelm.charts.${pkgs.system}`).
+An attrset of all Helm charts keyed by `<repo>.<chart>`. Each chart has
+`.latest` and `.versions."X.Y.Z"` attributes:
 
 ```nix
-charts.jetstack.cert-manager
-charts.argoproj.argo-cd
-charts.cloudnative-pg.cloudnative-pg
+charts.jetstack.cert-manager.latest
+charts.argoproj.argo-cd.latest
+charts.cloudnative-pg.cloudnative-pg.latest
+
+# Pin a specific version:
+charts.jetstack.cert-manager.versions."1.17.2"
 ```
 
 ### `k8s`

@@ -198,7 +198,7 @@ in
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ kubelib.fromHelm {
         name = "agent-controller";
-        chart = charts.openkrill.agent-controller;
+        chart = charts.openkrill.agent-controller.latest;
         namespace = cfg.namespace;
         values = cfg.values;
       }

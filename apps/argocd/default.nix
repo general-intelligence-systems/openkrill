@@ -236,7 +236,7 @@ in
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ kubelib.fromHelm {
         name = "argo-cd";
-        chart = charts.argoproj.argo-cd;
+        chart = charts.argoproj.argo-cd.latest;
         namespace = cfg.namespace;
         values = recursiveUpdate defaults cfg.values;
       };

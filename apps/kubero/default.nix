@@ -78,7 +78,7 @@ in
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ kubelib.fromHelm {
         name = "kubero";
-        chart = charts.general-intelligence-systems.kubero;
+        chart = charts.general-intelligence-systems.kubero.latest;
         namespace = cfg.namespace;
         values = {};
       };

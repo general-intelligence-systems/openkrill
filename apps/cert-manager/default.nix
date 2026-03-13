@@ -20,7 +20,7 @@ let
 
   helmResources = kubelib.fromHelm {
     name = "cert-manager";
-    chart = charts.jetstack.cert-manager;
+    chart = charts.jetstack.cert-manager.latest;
     namespace = cfg.namespace;
     values = recursiveUpdate defaults cfg.values;
   };

@@ -1,5 +1,5 @@
 # lib/k8s.nix — Kubernetes resource helpers
-{ pkgs, ... }:
+{ pkgs }:
 rec {
   # ── mkNamespace ────────────────────────────────────────────────────────
   mkNamespace = name: {

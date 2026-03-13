@@ -55,7 +55,7 @@ in
     openkrill.manifests."my-app".content =
       kubelib.fromHelm {
         name = "my-app";
-        chart = charts.my-repo.my-chart;
+        chart = charts.my-repo.my-chart.latest;
         namespace = "my-app";
         values = cfg.values;
       };
@@ -88,16 +88,19 @@ Every module **must** have:
 
 ## Chart references
 
-Charts come from nixhelm via the `charts` module argument. The path matches the nixhelm repository structure:
+Charts come from nixhelm2 via the `charts` module argument. Each chart has `.latest` (the latest stable version) and `.versions."X.Y.Z"` attributes:
 
 ```
-charts.prometheus-community.kube-prometheus-stack
-charts.jetstack.cert-manager
-charts.ingress-nginx.ingress-nginx
-charts.cloudnative-pg.cloudnative-pg
+charts.prometheus-community.kube-prometheus-stack.latest
+charts.jetstack.cert-manager.latest
+charts.ingress-nginx.ingress-nginx.latest
+charts.cloudnative-pg.cloudnative-pg.latest
+
+# Or pin a specific version:
+charts.jetstack.cert-manager.versions."1.17.2"
 ```
 
-Find available charts at https://github.com/farcaller/nixhelm.
+Find available charts at https://github.com/general-intelligence-systems/nixhelm2.
 
 ## kubelib.fromHelm
 
@@ -105,10 +108,10 @@ Runs `helm template` at build time. Returns a list of parsed k8s resource attrse
 
 ```nix
 kubelib.fromHelm {
-  name = "release-name";       # helm release name
-  chart = charts.repo.chart;   # chart derivation
-  namespace = "target-ns";     # --namespace flag
-  values = { ... };            # values.yaml equivalent
+  name = "release-name";              # helm release name
+  chart = charts.repo.chart.latest;   # chart derivation
+  namespace = "target-ns";            # --namespace flag
+  values = { ... };                   # values.yaml equivalent
 }
 ```
 

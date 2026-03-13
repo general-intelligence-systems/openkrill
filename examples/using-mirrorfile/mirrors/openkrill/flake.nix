@@ -1,14 +1,13 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
-    nix-kube-generators.url = "github:farcaller/nix-kube-generators";
     nixhelm = {
-      url = "github:general-intelligence-systems/nixhelm";
+      url = "github:general-intelligence-systems/nixhelm2";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, nix-kube-generators, nixhelm, ... }:
+  outputs = { self, nixpkgs, nixhelm, ... }:
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems f;
@@ -26,9 +25,9 @@
       # See examples/ for complete usage patterns.
       nixosModules.default = { pkgs, ... }:
         let
-          charts = nixhelm.chartsDerivations.${pkgs.system};
-          kubelib = nix-kube-generators.lib { inherit pkgs; };
-          k8s = import ./lib/k8s.nix { inherit pkgs kubelib charts; };
+          charts = nixhelm.charts.${pkgs.system};
+          kubelib = import ./lib/helm.nix { inherit pkgs; };
+          k8s = import ./lib/k8s.nix { inherit pkgs; };
         in
         {
           _module.args = { inherit charts kubelib k8s; };

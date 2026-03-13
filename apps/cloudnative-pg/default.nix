@@ -184,7 +184,7 @@ in
     openkrill.manifests.cloudnative-pg.content =
       (kubelib.fromHelm {
         name = "cloudnative-pg";
-        chart = charts.cloudnative-pg.cloudnative-pg;
+        chart = charts.cloudnative-pg.cloudnative-pg.latest;
         namespace = cfg.namespace;
         values = recursiveUpdate defaults cfg.values;
       })
