@@ -147,7 +147,7 @@ in
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ kubelib.fromHelm {
         name = "forgejo";
-        chart = charts.forgejo-helm.forgejo.latest;
+        chart = charts.forgejo.forgejo.latest;
         namespace = cfg.namespace;
         values = recursiveUpdate defaults cfg.values;
       };

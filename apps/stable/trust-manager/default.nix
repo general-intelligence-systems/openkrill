@@ -11,7 +11,7 @@
 #   - Users can set caCertFile to embed an external CA cert inline.
 #
 # Apps mount the resulting ConfigMap instead of managing per-app CA trust.
-{ config, lib, kubelib, k8s, ... }:
+{ config, lib, charts, kubelib, k8s, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.trust-manager;

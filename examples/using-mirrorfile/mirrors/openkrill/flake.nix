@@ -26,7 +26,7 @@
       nixosModules.default = { pkgs, ... }:
         let
           charts = nixhelm.charts.${pkgs.system};
-          kubelib = import ./lib/helm.nix { inherit pkgs; };
+          kubelib = nixhelm.lib { inherit pkgs; };
           k8s = import ./lib/k8s.nix { inherit pkgs; };
         in
         {

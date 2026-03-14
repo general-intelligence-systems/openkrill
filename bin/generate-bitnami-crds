@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Fetches CRD YAML files from a GitHub directory, strips Helm template
+# directives, and generates a typed crds.nix fragment.
+#
+# Usage: bin/generate-bitnami-crds <module-name> <github-tree-url>
+#
+# Example:
+#   bin/generate-bitnami-crds sealed-secrets https://github.com/bitnami/charts/tree/main/bitnami/sealed-secrets/crds
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [[ $# -lt 2 ]]; then
+  echo "Usage: bin/generate-bitnami-crds <module-name> <github-tree-url>" >&2
+  exit 1
+fi
+
+MODULE_NAME="$1"
+TREE_URL="$2"
+MODULE_DIR="${SCRIPT_DIR}/apps/unstable/${MODULE_NAME}"
+
+if [[ ! -d "$MODULE_DIR" ]]; then
+  echo "FAIL: ${MODULE_DIR} does not exist (run generate-bitnami-module first)" >&2
+  exit 1
+fi
+
+# ── Parse GitHub tree URL ──────────────────────────────────────────
+# https://github.com/<owner>/<repo>/tree/<ref>/<path>
+read -r OWNER REPO REF DIR_PATH <<< "$(echo "$TREE_URL" | ruby -e '
+  m = STDIN.read.strip.match(%r{github\.com/([^/]+)/([^/]+)/tree/([^/]+)/(.+)})
+  abort "Cannot parse URL" unless m
+  puts "#{m[1]} #{m[2]} #{m[3]} #{m[4]}"
+')"
+
+# ── List YAML files via GitHub API ─────────────────────────────────
+FILES=$(curl -sf "https://api.github.com/repos/${OWNER}/${REPO}/contents/${DIR_PATH}?ref=${REF}" \
+  | ruby -rjson -e '
+    JSON.parse(STDIN.read)
+      .select { |f| f["name"].end_with?(".yaml", ".yml") && f["type"] == "file" }
+      .each { |f| puts f["download_url"] }
+  ' 2>/dev/null) || FILES=""
+
+if [[ -z "$FILES" ]]; then
+  echo "SKIP: ${MODULE_NAME} CRDs (no YAML files at ${DIR_PATH})"
+  exit 0
+fi
+
+# ── Download and de-helm each file ─────────────────────────────────
+TMPDIR=$(mktemp -d)
+trap "rm -rf '$TMPDIR'" EXIT
+
+COMBINED="${TMPDIR}/crds.yaml"
+first=true
+for url in $FILES; do
+  $first || echo "---" >> "$COMBINED"
+  curl -sf "$url" | ruby -e '
+    STDIN.each_line do |line|
+      next if line.strip =~ /^\{\{-?\s*(if|else|end|range|with|define|template|block|include)/
+      puts line.gsub(/\{\{.*?\}\}/, "")
+    end
+  ' >> "$COMBINED"
+  first=false
+done
+
+# ── Generate CRD fragment ─────────────────────────────────────────
+CRDS_OUT="${TMPDIR}/crds.nix"
+if "${SCRIPT_DIR}/bin/create-module-crds" --fragment "$MODULE_NAME" "$COMBINED" \
+    > "$CRDS_OUT" 2>/dev/null; then
+  mv "$CRDS_OUT" "${MODULE_DIR}/crds.nix"
+else
+  echo "FAIL: ${MODULE_NAME} CRDs (create-module-crds failed, stub preserved)"
+  exit 1
+fi
+
+nixfmt "${MODULE_DIR}/crds.nix" 2>/dev/null || true
+git -C "$SCRIPT_DIR" add -f "${MODULE_DIR}/crds.nix" 2>/dev/null || true
+
+file_count=$(echo "$FILES" | wc -l)
+echo "OK: ${MODULE_NAME} CRDs (${file_count} files)"

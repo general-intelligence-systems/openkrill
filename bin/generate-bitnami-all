@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# ── Non-deployable charts ─────────────────────────────────────────
+EXCLUDED=(common dataplatform-bp2)
+
+# ── Charts that have CRDs ─────────────────────────────────────────
+CRD_ENABLED=(
+  cloudnative-pg
+  cert-manager
+  argo-cd
+  argo-workflows
+  clickhouse-operator
+  envoy-gateway
+  flux
+  grafana-operator
+  kube-prometheus
+  sealed-secrets
+)
+
+# ── CRD directory URLs ────────────────────────────────────────────
+CLOUDNATIVE_PG=https://github.com/bitnami/charts/tree/main/bitnami/cloudnative-pg/crds
+CERT_MANAGER=https://github.com/bitnami/charts/tree/main/bitnami/cert-manager/templates/crds
+ARGO_CD=https://github.com/bitnami/charts/tree/main/bitnami/argo-cd/crds
+ARGO_WORKFLOWS=https://github.com/bitnami/charts/tree/main/bitnami/argo-workflows/crds
+CLICKHOUSE_OPERATOR=https://github.com/bitnami/charts/tree/main/bitnami/clickhouse-operator/crds
+ENVOY_GATEWAY=https://github.com/bitnami/charts/tree/main/bitnami/envoy-gateway/crds
+FLUX=https://github.com/bitnami/charts/tree/main/bitnami/flux/templates/crds
+GRAFANA_OPERATOR=https://github.com/bitnami/charts/tree/main/bitnami/grafana-operator/crds
+KUBE_PROMETHEUS=https://github.com/bitnami/charts/tree/main/bitnami/kube-prometheus/charts/kube-prometheus-crds/crds
+SEALED_SECRETS=https://github.com/bitnami/charts/tree/main/bitnami/sealed-secrets/crds
+
+# ── Helpers ────────────────────────────────────────────────────────
+is_excluded() {
+  for ex in "${EXCLUDED[@]}"; do [[ "$1" == "$ex" ]] && return 0; done
+  return 1
+}
+
+is_crd_enabled() {
+  for c in "${CRD_ENABLED[@]}"; do [[ "$1" == "$c" ]] && return 0; done
+  return 1
+}
+
+# ── Fetch chart names ──────────────────────────────────────────────
+echo "Fetching chart names from nixhelm2..."
+CHARTS=($(nix eval .#bitnamiChartNames --json | ruby -rjson -e 'puts JSON.parse(STDIN.read).join("\n")'))
+echo "Found ${#CHARTS[@]} charts"
+echo ""
+
+# ── Generate modules ──────────────────────────────────────────────
+for chart in "${CHARTS[@]}"; do
+  is_excluded "$chart" && continue
+
+  if is_crd_enabled "$chart"; then
+    "$SCRIPT_DIR/generate-bitnami-module" "$chart" bitnami "$chart" --force --generate-crd
+  else
+    "$SCRIPT_DIR/generate-bitnami-module" "$chart" bitnami "$chart" --force
+  fi
+done
+
+echo ""
+
+# ── Generate CRD fragments ───────────────────────────────────────
+"$SCRIPT_DIR/generate-bitnami-crds" cloudnative-pg       "$CLOUDNATIVE_PG"
+"$SCRIPT_DIR/generate-bitnami-crds" cert-manager         "$CERT_MANAGER"
+"$SCRIPT_DIR/generate-bitnami-crds" argo-cd              "$ARGO_CD"
+"$SCRIPT_DIR/generate-bitnami-crds" argo-workflows       "$ARGO_WORKFLOWS"
+"$SCRIPT_DIR/generate-bitnami-crds" clickhouse-operator  "$CLICKHOUSE_OPERATOR"
+"$SCRIPT_DIR/generate-bitnami-crds" envoy-gateway        "$ENVOY_GATEWAY"
+"$SCRIPT_DIR/generate-bitnami-crds" flux                 "$FLUX"
+"$SCRIPT_DIR/generate-bitnami-crds" grafana-operator     "$GRAFANA_OPERATOR"
+"$SCRIPT_DIR/generate-bitnami-crds" kube-prometheus      "$KUBE_PROMETHEUS"
+"$SCRIPT_DIR/generate-bitnami-crds" sealed-secrets       "$SEALED_SECRETS"
+
+echo ""
+echo "Done."

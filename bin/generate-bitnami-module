@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+APPS_DIR="${SCRIPT_DIR}/apps/unstable"
+SCHEMA_BASE_URL="https://raw.githubusercontent.com/bitnami/charts/main/bitnami"
+
+usage() {
+  echo "Usage: bin/generate-bitnami-module <module-name> <chart-repo> <chart-name> [bitnami-chart-name]"
+  echo ""
+  echo "Generates a single openkrill Helm module with typed values from Bitnami's values.schema.json."
+  echo "Output goes to apps/unstable/<module-name>/."
+  echo ""
+  echo "Arguments:"
+  echo "  module-name         Name for the module (used in openkrill.apps.<name>)"
+  echo "  chart-repo          Nixhelm repo key (e.g. bitnami)"
+  echo "  chart-name          Nixhelm chart key (e.g. redis)"
+  echo "  bitnami-chart-name  Chart name on GitHub if different from chart-name (optional)"
+  echo ""
+  echo "Options:"
+  echo "  --force             Overwrite existing module directory"
+  echo "  --generate-crd      Pre-wire the module for CRDs (imports blank crds.nix)"
+  echo ""
+  echo "Example:"
+  echo "  bin/generate-bitnami-module redis bitnami redis"
+  echo "  bin/generate-bitnami-module kube-prometheus bitnami kube-prometheus --generate-crd"
+  exit 1
+}
+
+FORCE=false
+GENERATE_CRD=false
+
+# ── Parse flags (from any position) ─────────────────────────────────
+POSITIONAL=()
+for arg in "$@"; do
+  case "$arg" in
+    --force)        FORCE=true ;;
+    --generate-crd) GENERATE_CRD=true ;;
+    --help)         usage ;;
+    --*)            echo "Unknown option: $arg" >&2; usage ;;
+    *)              POSITIONAL+=("$arg") ;;
+  esac
+done
+set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
+
+[[ $# -lt 3 ]] && usage
+
+MODULE_NAME="$1"; shift
+CHART_REPO="$1"; shift
+CHART_NAME="$1"; shift
+BITNAMI_NAME="${1:-$CHART_NAME}"
+
+MODULE_DIR="${APPS_DIR}/${MODULE_NAME}"
+
+if [[ -d "$MODULE_DIR" ]] && ! $FORCE; then
+  echo "SKIP: ${MODULE_DIR} exists (use --force to overwrite)" >&2
+  exit 1
+fi
+
+# ── 1. Fetch values.schema.json ────────────────────────────────────
+schema_url="${SCHEMA_BASE_URL}/${BITNAMI_NAME}/values.schema.json"
+has_schema=true
+schema_json=$(curl -sf "$schema_url" 2>/dev/null) || has_schema=false
+
+# ── 2. Create module directory ─────────────────────────────────────
+mkdir -p "$MODULE_DIR"
+
+# ── 3. Generate crds.nix (blank stub, if --generate-crd) ───────────
+if $GENERATE_CRD; then
+  cat > "${MODULE_DIR}/crds.nix" <<'NIXEOF'
+# CRD fragment stub — populate with:
+#   bin/create-module-crds --fragment <module-name> <crds.yaml> > apps/unstable/<module-name>/crds.nix
+{ }
+NIXEOF
+else
+  rm -f "${MODULE_DIR}/crds.nix"
+fi
+
+# ── 4. Generate values.nix ────────────────────────────────────────
+if $has_schema; then
+  tmpfile=$(mktemp)
+  echo "$schema_json" > "$tmpfile"
+
+  nix-instantiate --eval --strict --json -E "
+    let
+      pkgs = import <nixpkgs> {};
+      generator = import ${SCRIPT_DIR}/lib/generate-helm-module.nix { inherit (pkgs) lib; };
+      schema = builtins.fromJSON (builtins.readFile ${tmpfile});
+    in
+    generator.generateValuesModule { inherit schema; }
+  " 2>/dev/null | ruby -rjson -e 'puts JSON.parse(STDIN.read)' > "${MODULE_DIR}/values.nix"
+
+  rm -f "$tmpfile"
+else
+  cat > "${MODULE_DIR}/values.nix" <<'NIXEOF'
+# No values.schema.json available for this chart.
+# All values are passed through without type checking.
+{ lib, ... }:
+{
+  freeformType = lib.types.attrsOf lib.types.anything;
+}
+NIXEOF
+fi
+
+# ── 5. Generate default.nix ───────────────────────────────────────
+imports_line=""
+sync_options='[ "CreateNamespace=true" ]'
+
+if $GENERATE_CRD; then
+  imports_line=$'\n  imports = [ ./crds.nix ];\n'
+  sync_options='[ "CreateNamespace=true" "ServerSideApply=true" ]'
+fi
+
+cat > "${MODULE_DIR}/default.nix" <<NIXEOF
+# apps/unstable/${MODULE_NAME} — Bitnami ${MODULE_NAME}
+{ config, lib, charts, kubelib, k8s, ... }:
+with lib;
+let
+  cfg = config.openkrill.apps.${MODULE_NAME};
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
+in
+{${imports_line}
+  options.openkrill.apps.${MODULE_NAME} = {
+    enable = mkEnableOption "Bitnami ${MODULE_NAME}";
+
+    namespace = mkOption {
+      type = types.str;
+      default = "${MODULE_NAME}";
+    };
+
+    values = mkOption {
+      type = types.submodule (import ./values.nix);
+      default = {};
+      description = "Helm chart values. Schema-derived defaults are set automatically.";
+    };
+
+    extraManifests = helpers.mkExtraManifestsOption;
+  };
+
+  config = mkIf cfg.enable {
+    # ── Route ──────────────────────────────────────────────────────
+    # openkrill.ingress.routes.${MODULE_NAME} = {
+    #   subdomain = "${MODULE_NAME}";
+    #   namespace = cfg.namespace;
+    #   service = "${MODULE_NAME}";
+    #   port = 8080;
+    # };
+
+    # ── ArgoCD Application ──────────────────────────────────────────
+    openkrill.apps.argocd.applications.${MODULE_NAME} = {
+      namespace = "argocd";
+      project = "default";
+      source = {
+        repoURL = config.openkrill.gitops.repoURL;
+        targetRevision = "rendered-manifests";
+        path = ".";
+        directory.include = "${MODULE_NAME}.yaml";
+      };
+      destination = {
+        server = "https://kubernetes.default.svc";
+        namespace = cfg.namespace;
+      };
+      syncPolicy = {
+        automated = { prune = true; selfHeal = true; };
+        syncOptions = ${sync_options};
+      };
+    };
+
+    # ── Manifests ───────────────────────────────────────────────────
+    openkrill.manifests.${MODULE_NAME}.content =
+      [ (k8s.mkNamespace cfg.namespace) ]
+      ++ kubelib.fromHelm {
+        name = "${MODULE_NAME}";
+        chart = charts.${CHART_REPO}.${CHART_NAME}.latest;
+        namespace = cfg.namespace;
+        values = cfg.values;
+      };
+  };
+}
+NIXEOF
+
+# ── 6. Clean up leftovers from previous runs ───────────────────────
+rm -f "${MODULE_DIR}/helm.nix"
+
+# ── 7. Format ─────────────────────────────────────────────────────
+files_to_fmt=("${MODULE_DIR}/default.nix" "${MODULE_DIR}/values.nix")
+$GENERATE_CRD && [[ -f "${MODULE_DIR}/crds.nix" ]] && files_to_fmt+=("${MODULE_DIR}/crds.nix")
+
+if command -v nixfmt &>/dev/null; then
+  nixfmt "${files_to_fmt[@]}" 2>/dev/null || true
+fi
+
+# ── 8. Git add ────────────────────────────────────────────────────
+git -C "$SCRIPT_DIR" add -f "${MODULE_DIR}/" 2>/dev/null || true
+
+# ── Status output ─────────────────────────────────────────────────
+schema_tag="freeform"
+$has_schema && schema_tag="schema"
+crd_tag=""
+$GENERATE_CRD && crd_tag=" + crds stub"
+
+echo "OK: ${MODULE_NAME} (${schema_tag}${crd_tag})"

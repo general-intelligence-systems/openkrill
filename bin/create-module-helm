@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+APPS_DIR="${SCRIPT_DIR}/apps/unstable"
+
+usage() {
+  echo "Usage: bin/create-module-helm <module-name> <chart-repo> <chart-name> [options]"
+  echo ""
+  echo "Generates a Helm-based openkrill app module under apps/unstable/<module-name>/."
+  echo "Creates default.nix and helm.nix, formats with nixfmt, and git-adds."
+  echo ""
+  echo "Arguments:"
+  echo "  module-name   Name for the module (used in openkrill.apps.<name>)"
+  echo "  chart-repo    Nixhelm repo key (e.g. jetstack, argoproj)"
+  echo "  chart-name    Nixhelm chart key (e.g. cert-manager, argo-cd)"
+  echo ""
+  echo "Options:"
+  echo "  --namespace <ns>        Default namespace (default: module-name)"
+  echo "  --description <desc>    Human-readable description for mkEnableOption"
+  echo "  --port <port>           Port for the commented-out ingress route (default: 8080)"
+  echo "  --subdomain <sub>       Subdomain for ingress route (default: module-name)"
+  echo "  --service <svc>         Service name for ingress route (default: module-name)"
+  echo "  --server-side-apply     Add ServerSideApply=true to ArgoCD syncOptions"
+  echo ""
+  echo "Example:"
+  echo "  bin/create-module-helm my-app jetstack cert-manager"
+  echo "  bin/create-module-helm my-app jetstack cert-manager --namespace my-ns --port 9090"
+  exit 1
+}
+
+[[ $# -lt 3 ]] && usage
+
+MODULE_NAME="$1"; shift
+CHART_REPO="$1"; shift
+CHART_NAME="$1"; shift
+
+# Defaults
+NAMESPACE="$MODULE_NAME"
+DESCRIPTION="$MODULE_NAME"
+PORT="8080"
+SUBDOMAIN="$MODULE_NAME"
+SERVICE="$MODULE_NAME"
+SERVER_SIDE_APPLY=false
+
+# Parse optional flags
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --namespace)    NAMESPACE="$2"; shift 2 ;;
+    --description)  DESCRIPTION="$2"; shift 2 ;;
+    --port)         PORT="$2"; shift 2 ;;
+    --subdomain)    SUBDOMAIN="$2"; shift 2 ;;
+    --service)      SERVICE="$2"; shift 2 ;;
+    --server-side-apply) SERVER_SIDE_APPLY=true; shift ;;
+    *) echo "Unknown option: $1" >&2; usage ;;
+  esac
+done
+
+MODULE_DIR="${APPS_DIR}/${MODULE_NAME}"
+
+if [[ -d "$MODULE_DIR" ]]; then
+  echo "Error: ${MODULE_DIR} already exists" >&2
+  exit 1
+fi
+
+# Build syncOptions line
+if $SERVER_SIDE_APPLY; then
+  SYNC_OPTIONS='[ "CreateNamespace=true" "ServerSideApply=true" ]'
+else
+  SYNC_OPTIONS='[ "CreateNamespace=true" ]'
+fi
+
+mkdir -p "$MODULE_DIR"
+
+# ── Generate default.nix ────────────────────────────────────────────
+cat > "${MODULE_DIR}/default.nix" <<NIXEOF
+# apps/unstable/${MODULE_NAME} — ${DESCRIPTION}
+{ config, lib, charts, kubelib, k8s, ... }:
+with lib;
+let
+  cfg = config.openkrill.apps.${MODULE_NAME};
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
+in
+{
+  options.openkrill.apps.${MODULE_NAME} = {
+    enable = mkEnableOption "${DESCRIPTION}";
+
+    namespace = mkOption {
+      type = types.str;
+      default = "${NAMESPACE}";
+    };
+
+    values = mkOption {
+      type = types.attrs;
+      default = {};
+      description = "Helm chart value overrides, deep-merged with module defaults.";
+    };
+
+    extraManifests = helpers.mkExtraManifestsOption;
+  };
+
+  config = mkIf cfg.enable {
+    # ── Route ──────────────────────────────────────────────────────
+    # openkrill.ingress.routes.${MODULE_NAME} = {
+    #   subdomain = "${SUBDOMAIN}";
+    #   namespace = cfg.namespace;
+    #   service = "${SERVICE}";
+    #   port = ${PORT};
+    # };
+
+    # ── ArgoCD Application ──────────────────────────────────────────
+    openkrill.apps.argocd.applications.${MODULE_NAME} = {
+      namespace = "argocd";
+      project = "default";
+      source = {
+        repoURL = config.openkrill.gitops.repoURL;
+        targetRevision = "rendered-manifests";
+        path = ".";
+        directory.include = "${MODULE_NAME}.yaml";
+      };
+      destination = {
+        server = "https://kubernetes.default.svc";
+        namespace = cfg.namespace;
+      };
+      syncPolicy = {
+        automated = { prune = true; selfHeal = true; };
+        syncOptions = ${SYNC_OPTIONS};
+      };
+    };
+
+    # ── Manifests ───────────────────────────────────────────────────
+    openkrill.manifests.${MODULE_NAME}.content =
+      [ (k8s.mkNamespace cfg.namespace) ]
+      ++ (import ./helm.nix { inherit lib charts kubelib cfg; });
+  };
+}
+NIXEOF
+
+# ── Generate helm.nix ──────────────────────────────────────────────
+cat > "${MODULE_DIR}/helm.nix" <<NIXEOF
+{ lib, charts, kubelib, cfg }:
+let
+  defaults = {
+    ingress.enabled = false;
+  };
+in
+kubelib.fromHelm {
+  name = "${MODULE_NAME}";
+  chart = charts.${CHART_REPO}.${CHART_NAME}.latest;
+  namespace = cfg.namespace;
+  values = lib.recursiveUpdate defaults cfg.values;
+}
+NIXEOF
+
+# ── Format ──────────────────────────────────────────────────────────
+if command -v nixfmt &>/dev/null; then
+  nixfmt "${MODULE_DIR}/default.nix" "${MODULE_DIR}/helm.nix" 2>/dev/null || true
+elif nix run nixpkgs#nixfmt -- --version &>/dev/null 2>&1; then
+  nix run nixpkgs#nixfmt -- "${MODULE_DIR}/default.nix" "${MODULE_DIR}/helm.nix" 2>/dev/null || true
+fi
+
+# ── Git add ─────────────────────────────────────────────────────────
+# Force-add because mirrors/ may be gitignored at the deploy repo level
+git -C "$SCRIPT_DIR" add -f "${MODULE_DIR}/"
+
+echo ""
+echo "Created module: apps/unstable/${MODULE_NAME}/"
+echo "  default.nix  — module options + config"
+echo "  helm.nix     — helm chart rendering"
+echo ""
+echo "Chart: charts.${CHART_REPO}.${CHART_NAME}.latest"
+echo "Namespace: ${NAMESPACE}"
+echo ""
+echo "Next steps:"
+echo "  1. Edit helm.nix defaults to match your chart's values"
+echo "  2. Uncomment the ingress route in default.nix if needed"
+echo "  3. Enable in configuration.nix:"
+echo "       openkrill.apps.${MODULE_NAME}.enable = true;"
+echo "  4. Run: bin/test"

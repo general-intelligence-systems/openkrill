@@ -1,0 +1,65 @@
+# apps/unstable/kubeapps — Bitnami kubeapps
+{ config, lib, charts, kubelib, k8s, ... }:
+with lib;
+let
+  cfg = config.openkrill.apps.kubeapps;
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
+in
+{
+  options.openkrill.apps.kubeapps = {
+    enable = mkEnableOption "Bitnami kubeapps";
+
+    namespace = mkOption {
+      type = types.str;
+      default = "kubeapps";
+    };
+
+    values = mkOption {
+      type = types.submodule (import ./values.nix);
+      default = {};
+      description = "Helm chart values. Schema-derived defaults are set automatically.";
+    };
+
+    extraManifests = helpers.mkExtraManifestsOption;
+  };
+
+  config = mkIf cfg.enable {
+    # ── Route ──────────────────────────────────────────────────────
+    # openkrill.ingress.routes.kubeapps = {
+    #   subdomain = "kubeapps";
+    #   namespace = cfg.namespace;
+    #   service = "kubeapps";
+    #   port = 8080;
+    # };
+
+    # ── ArgoCD Application ──────────────────────────────────────────
+    openkrill.apps.argocd.applications.kubeapps = {
+      namespace = "argocd";
+      project = "default";
+      source = {
+        repoURL = config.openkrill.gitops.repoURL;
+        targetRevision = "rendered-manifests";
+        path = ".";
+        directory.include = "kubeapps.yaml";
+      };
+      destination = {
+        server = "https://kubernetes.default.svc";
+        namespace = cfg.namespace;
+      };
+      syncPolicy = {
+        automated = { prune = true; selfHeal = true; };
+        syncOptions = [ "CreateNamespace=true" ];
+      };
+    };
+
+    # ── Manifests ───────────────────────────────────────────────────
+    openkrill.manifests.kubeapps.content =
+      [ (k8s.mkNamespace cfg.namespace) ]
+      ++ kubelib.fromHelm {
+        name = "kubeapps";
+        chart = charts.bitnami.kubeapps.latest;
+        namespace = cfg.namespace;
+        values = cfg.values;
+      };
+  };
+}

@@ -23,6 +23,15 @@
       #
       chartsMeta = nixhelm.meta;
 
+      # ── Bitnami chart names ──────────────────────────────────────
+      #
+      # List of all available Bitnami chart attribute names from nixhelm.
+      #
+      #   nix eval .#bitnamiChartNames --json
+      #
+      bitnamiChartNames =
+        builtins.attrNames (nixhelm.meta.bitnami or {});
+
       # ── Reusable NixOS module ──────────────────────────────────
       #
       # Includes the k3s service module and the app module framework
@@ -39,7 +48,7 @@
       nixosModules.default = { pkgs, ... }:
         let
           charts = nixhelm.charts.${pkgs.system};
-          kubelib = import ./lib/helm.nix { inherit pkgs; };
+          kubelib = nixhelm.lib { inherit pkgs; };
           k8s = import ./lib/k8s.nix { inherit pkgs; };
         in
         {

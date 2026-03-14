@@ -1,18 +1,13 @@
 # apps/theia-ide — Theia IDE
 # Deploys Eclipse Theia IDE from GHCR via bjw-s app-template.
-{ config, lib, kubelib, ... }:
+{ config, lib, charts, kubelib, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.theia-ide;
   helpers          = import ../../../modules/lib/helpers.nix { inherit lib; };
   appTemplate      = import ../../../modules/lib/app-template.nix { inherit lib; };
 
-  chart = kubelib.downloadHelmChart {
-    repo = "https://bjw-s-labs.github.io/helm-charts/";
-    chart = "app-template";
-    version = "4.6.2";
-    chartHash = "sha256-+ClIestqvDytE459npFyVU4ET2Rsy1CC3XgKY/vnRrs=";
-  };
+  chart = charts.bjw-s.app-template.latest;
 
   defaults = {
     controllers.main = {
