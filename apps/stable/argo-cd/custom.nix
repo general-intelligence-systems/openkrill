@@ -92,15 +92,17 @@ in
         };
       }
       # When trust-manager is enabled, mount the cluster trust bundle into
-      # every ArgoCD component (server, repo-server, controller, dex).
-      # This is required because trust-manager outputs a single ConfigMap
-      # with concatenated CAs, which is structurally incompatible with
-      # ArgoCD's native argocd-tls-certs-cm (hostname-keyed).  Volume
-      # mounts to /etc/ssl/certs cover all outbound TLS: OIDC, git over
-      # HTTPS, webhooks, etc.
+      # every ArgoCD component (server, repo-server, controller).
+      # The Bitnami chart has per-component extraVolumes/extraVolumeMounts
+      # (no global.extraVolumes).  Mounts to /etc/ssl/certs cover all
+      # outbound TLS: OIDC, git over HTTPS, webhooks, etc.
       (mkIf trustCfg.enable {
-        global.extraVolumes = [ trustBundle ];
-        global.extraVolumeMounts = [ trustMount ];
+        server.extraVolumes = [ trustBundle ];
+        server.extraVolumeMounts = [ trustMount ];
+        controller.extraVolumes = [ trustBundle ];
+        controller.extraVolumeMounts = [ trustMount ];
+        repoServer.extraVolumes = [ trustBundle ];
+        repoServer.extraVolumeMounts = [ trustMount ];
       })
     ];
 

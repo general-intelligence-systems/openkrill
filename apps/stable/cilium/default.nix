@@ -28,6 +28,10 @@ let
     hubble = {
       enabled = true;
       relay.enabled = true;
+      tls.auto = {
+        enabled = true;
+        method = "cronJob";
+      };
     };
 
     # -- Metrics --
