@@ -1,11 +1,20 @@
 # apps/unstable/spring-cloud-dataflow — Bitnami spring-cloud-dataflow
-{ config, lib, charts, kubelib, k8s, ... }:
+{
+  config,
+  lib,
+  charts,
+  kubelib,
+  k8s,
+  ...
+}:
 with lib;
 let
   cfg = config.openkrill.apps.spring-cloud-dataflow;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
+  imports = [ ./custom.nix ];
+
   options.openkrill.apps.spring-cloud-dataflow = {
     enable = mkEnableOption "Bitnami spring-cloud-dataflow";
 
@@ -16,7 +25,7 @@ in
 
     values = mkOption {
       type = types.submodule (import ./values.nix);
-      default = {};
+      default = { };
       description = "Helm chart values. Schema-derived defaults are set automatically.";
     };
 
@@ -33,7 +42,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.spring-cloud-dataflow = {
+    openkrill.apps.argo-cd.applications.spring-cloud-dataflow = {
       namespace = "argocd";
       project = "default";
       source = {
@@ -47,19 +56,23 @@ in
         namespace = cfg.namespace;
       };
       syncPolicy = {
-        automated = { prune = true; selfHeal = true; };
+        automated = {
+          prune = true;
+          selfHeal = true;
+        };
         syncOptions = [ "CreateNamespace=true" ];
       };
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests.spring-cloud-dataflow.content =
-      [ (k8s.mkNamespace cfg.namespace) ]
-      ++ kubelib.fromHelm {
-        name = "spring-cloud-dataflow";
-        chart = charts.bitnami.spring-cloud-dataflow.latest;
-        namespace = cfg.namespace;
-        values = cfg.values;
-      };
+    openkrill.manifests.spring-cloud-dataflow.content = [
+      (k8s.mkNamespace cfg.namespace)
+    ]
+    ++ kubelib.fromHelm {
+      name = "spring-cloud-dataflow";
+      chart = charts.bitnami.spring-cloud-dataflow.latest;
+      namespace = cfg.namespace;
+      values = cfg.values;
+    };
   };
 }

@@ -1,11 +1,20 @@
 # apps/unstable/nats — Bitnami nats
-{ config, lib, charts, kubelib, k8s, ... }:
+{
+  config,
+  lib,
+  charts,
+  kubelib,
+  k8s,
+  ...
+}:
 with lib;
 let
   cfg = config.openkrill.apps.nats;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
+  imports = [ ./custom.nix ];
+
   options.openkrill.apps.nats = {
     enable = mkEnableOption "Bitnami nats";
 
@@ -16,7 +25,7 @@ in
 
     values = mkOption {
       type = types.submodule (import ./values.nix);
-      default = {};
+      default = { };
       description = "Helm chart values. Schema-derived defaults are set automatically.";
     };
 
@@ -33,7 +42,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.nats = {
+    openkrill.apps.argo-cd.applications.nats = {
       namespace = "argocd";
       project = "default";
       source = {
@@ -47,19 +56,23 @@ in
         namespace = cfg.namespace;
       };
       syncPolicy = {
-        automated = { prune = true; selfHeal = true; };
+        automated = {
+          prune = true;
+          selfHeal = true;
+        };
         syncOptions = [ "CreateNamespace=true" ];
       };
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests.nats.content =
-      [ (k8s.mkNamespace cfg.namespace) ]
-      ++ kubelib.fromHelm {
-        name = "nats";
-        chart = charts.bitnami.nats.latest;
-        namespace = cfg.namespace;
-        values = cfg.values;
-      };
+    openkrill.manifests.nats.content = [
+      (k8s.mkNamespace cfg.namespace)
+    ]
+    ++ kubelib.fromHelm {
+      name = "nats";
+      chart = charts.bitnami.nats.latest;
+      namespace = cfg.namespace;
+      values = cfg.values;
+    };
   };
 }

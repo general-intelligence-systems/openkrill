@@ -39,7 +39,7 @@ in
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.operaton = {
+    openkrill.apps.argo-cd.applications.operaton = {
       namespace = "argocd";
       project = "default";
       source = {

@@ -117,7 +117,7 @@ in
         }];
       };
 
-    openkrill.apps.argocd.applications.cilium = {
+    openkrill.apps.argo-cd.applications.cilium = {
       namespace = "argocd";
       project = "default";
       source = {

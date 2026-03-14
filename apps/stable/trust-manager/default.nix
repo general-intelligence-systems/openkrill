@@ -133,7 +133,7 @@ in
         endpoints = [{ port = "http-metrics"; }];
       };
 
-    openkrill.apps.argocd.applications.trust-manager = {
+    openkrill.apps.argo-cd.applications.trust-manager = {
       namespace = "argocd";
       project = "default";
       source = {

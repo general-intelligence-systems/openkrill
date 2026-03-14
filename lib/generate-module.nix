@@ -240,7 +240,7 @@ let
       versions = crd.spec.versions;
       storedVersion = findFirst (v: v.storage or false) (head versions) versions;
       version = storedVersion.name;
-      specSchema = storedVersion.schema.openAPIV3Schema.properties.spec;
+      specSchema = storedVersion.schema.openAPIV3Schema.properties.spec or null;
     in {
       apiVersion = if group == "" then version else "${group}/${version}";
       kind = names.kind;
@@ -257,16 +257,18 @@ let
         let
           info = extractCrdInfo crd;
           specSchema = info.specSchema;
-          required = specSchema.required or [];
-          walked = walkFields {
-            properties = specSchema.properties or {};
-            inherit required;
-            path = [];
-          };
           topModName = pathToModName [ info.plural ];
           topBuilderFn = pathToBuilderName [ info.kind ];
+          freeform = specSchema == null;
+          required = if freeform then [] else (specSchema.required or []);
+          walked = if freeform then { defs = []; optionLines = []; builderLines = []; }
+                   else walkFields {
+                     properties = specSchema.properties or {};
+                     inherit required;
+                     path = [];
+                   };
         in {
-          inherit info walked topModName topBuilderFn;
+          inherit info walked topModName topBuilderFn freeform;
         }
       ) crds;
 
@@ -278,32 +280,59 @@ let
       letDefs = concatStrings (attrValues (listToAttrs allDefs));
 
       # Top-level submodule per CRD kind
-      topSubmodules = concatStrings (map (d: ''
-        ${d.topModName} = types.submodule ({ name, ... }: {
-          options = {
-            "namespace" = mkOption {
-              type = types.str;
-              description = "Namespace for this ${d.info.kind} resource.";
+      topSubmodules = concatStrings (map (d:
+        if d.freeform then ''
+          ${d.topModName} = types.submodule ({ name, ... }: {
+            freeformType = types.attrsOf types.anything;
+            options = {
+              "namespace" = mkOption {
+                type = types.str;
+                description = "Namespace for this ${d.info.kind} resource.";
+              };
+              "spec" = mkOption {
+                type = types.attrsOf types.anything;
+                default = {};
+                description = "${d.info.kind} spec (freeform).";
+              };
             };
-            ${concatStringsSep "\n" d.walked.optionLines}
-          };
-        });
-      '') perCrd);
+          });
+        '' else ''
+          ${d.topModName} = types.submodule ({ name, ... }: {
+            options = {
+              "namespace" = mkOption {
+                type = types.str;
+                description = "Namespace for this ${d.info.kind} resource.";
+              };
+              ${concatStringsSep "\n" d.walked.optionLines}
+            };
+          });
+        '') perCrd);
 
       # Top-level builder per CRD kind
-      topBuilders = concatStrings (map (d: ''
-        ${d.topBuilderFn} = name: res: {
-          apiVersion = "${d.info.apiVersion}";
-          kind = "${d.info.kind}";
-          metadata = {
-            inherit name;
-            namespace = res.namespace;
+      topBuilders = concatStrings (map (d:
+        if d.freeform then ''
+          ${d.topBuilderFn} = name: res: {
+            apiVersion = "${d.info.apiVersion}";
+            kind = "${d.info.kind}";
+            metadata = {
+              inherit name;
+              namespace = res.namespace;
+            };
+            inherit (res) spec;
           };
-          spec = {
-            ${concatStringsSep "\n" d.walked.builderLines}
+        '' else ''
+          ${d.topBuilderFn} = name: res: {
+            apiVersion = "${d.info.apiVersion}";
+            kind = "${d.info.kind}";
+            metadata = {
+              inherit name;
+              namespace = res.namespace;
+            };
+            spec = {
+              ${concatStringsSep "\n" d.walked.builderLines}
+            };
           };
-        };
-      '') perCrd);
+        '') perCrd);
 
       # Option declarations
       optionDecls = concatStrings (map (d: ''

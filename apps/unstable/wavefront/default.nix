@@ -1,11 +1,20 @@
 # apps/unstable/wavefront — Bitnami wavefront
-{ config, lib, charts, kubelib, k8s, ... }:
+{
+  config,
+  lib,
+  charts,
+  kubelib,
+  k8s,
+  ...
+}:
 with lib;
 let
   cfg = config.openkrill.apps.wavefront;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
+  imports = [ ./custom.nix ];
+
   options.openkrill.apps.wavefront = {
     enable = mkEnableOption "Bitnami wavefront";
 
@@ -16,7 +25,7 @@ in
 
     values = mkOption {
       type = types.submodule (import ./values.nix);
-      default = {};
+      default = { };
       description = "Helm chart values. Schema-derived defaults are set automatically.";
     };
 
@@ -33,7 +42,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.wavefront = {
+    openkrill.apps.argo-cd.applications.wavefront = {
       namespace = "argocd";
       project = "default";
       source = {
@@ -47,19 +56,23 @@ in
         namespace = cfg.namespace;
       };
       syncPolicy = {
-        automated = { prune = true; selfHeal = true; };
+        automated = {
+          prune = true;
+          selfHeal = true;
+        };
         syncOptions = [ "CreateNamespace=true" ];
       };
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests.wavefront.content =
-      [ (k8s.mkNamespace cfg.namespace) ]
-      ++ kubelib.fromHelm {
-        name = "wavefront";
-        chart = charts.bitnami.wavefront.latest;
-        namespace = cfg.namespace;
-        values = cfg.values;
-      };
+    openkrill.manifests.wavefront.content = [
+      (k8s.mkNamespace cfg.namespace)
+    ]
+    ++ kubelib.fromHelm {
+      name = "wavefront";
+      chart = charts.bitnami.wavefront.latest;
+      namespace = cfg.namespace;
+      values = cfg.values;
+    };
   };
 }

@@ -54,7 +54,7 @@ in
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.kubero = {
+    openkrill.apps.argo-cd.applications.kubero = {
       namespace = "argocd";
       project = "default";
       source = {

@@ -1,12 +1,22 @@
 # apps/unstable/flux — Bitnami flux
-{ config, lib, charts, kubelib, k8s, ... }:
+{
+  config,
+  lib,
+  charts,
+  kubelib,
+  k8s,
+  ...
+}:
 with lib;
 let
   cfg = config.openkrill.apps.flux;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
-  imports = [ ./crds.nix ];
+  imports = [
+    ./crds.nix
+    ./custom.nix
+  ];
 
   options.openkrill.apps.flux = {
     enable = mkEnableOption "Bitnami flux";
@@ -18,7 +28,7 @@ in
 
     values = mkOption {
       type = types.submodule (import ./values.nix);
-      default = {};
+      default = { };
       description = "Helm chart values. Schema-derived defaults are set automatically.";
     };
 
@@ -35,7 +45,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.flux = {
+    openkrill.apps.argo-cd.applications.flux = {
       namespace = "argocd";
       project = "default";
       source = {
@@ -49,19 +59,26 @@ in
         namespace = cfg.namespace;
       };
       syncPolicy = {
-        automated = { prune = true; selfHeal = true; };
-        syncOptions = [ "CreateNamespace=true" "ServerSideApply=true" ];
+        automated = {
+          prune = true;
+          selfHeal = true;
+        };
+        syncOptions = [
+          "CreateNamespace=true"
+          "ServerSideApply=true"
+        ];
       };
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests.flux.content =
-      [ (k8s.mkNamespace cfg.namespace) ]
-      ++ kubelib.fromHelm {
-        name = "flux";
-        chart = charts.bitnami.flux.latest;
-        namespace = cfg.namespace;
-        values = cfg.values;
-      };
+    openkrill.manifests.flux.content = [
+      (k8s.mkNamespace cfg.namespace)
+    ]
+    ++ kubelib.fromHelm {
+      name = "flux";
+      chart = charts.bitnami.flux.latest;
+      namespace = cfg.namespace;
+      values = cfg.values;
+    };
   };
 }

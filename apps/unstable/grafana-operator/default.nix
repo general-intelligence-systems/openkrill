@@ -1,12 +1,22 @@
 # apps/unstable/grafana-operator — Bitnami grafana-operator
-{ config, lib, charts, kubelib, k8s, ... }:
+{
+  config,
+  lib,
+  charts,
+  kubelib,
+  k8s,
+  ...
+}:
 with lib;
 let
   cfg = config.openkrill.apps.grafana-operator;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
-  imports = [ ./crds.nix ];
+  imports = [
+    ./crds.nix
+    ./custom.nix
+  ];
 
   options.openkrill.apps.grafana-operator = {
     enable = mkEnableOption "Bitnami grafana-operator";
@@ -18,7 +28,7 @@ in
 
     values = mkOption {
       type = types.submodule (import ./values.nix);
-      default = {};
+      default = { };
       description = "Helm chart values. Schema-derived defaults are set automatically.";
     };
 
@@ -35,7 +45,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.grafana-operator = {
+    openkrill.apps.argo-cd.applications.grafana-operator = {
       namespace = "argocd";
       project = "default";
       source = {
@@ -49,19 +59,26 @@ in
         namespace = cfg.namespace;
       };
       syncPolicy = {
-        automated = { prune = true; selfHeal = true; };
-        syncOptions = [ "CreateNamespace=true" "ServerSideApply=true" ];
+        automated = {
+          prune = true;
+          selfHeal = true;
+        };
+        syncOptions = [
+          "CreateNamespace=true"
+          "ServerSideApply=true"
+        ];
       };
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests.grafana-operator.content =
-      [ (k8s.mkNamespace cfg.namespace) ]
-      ++ kubelib.fromHelm {
-        name = "grafana-operator";
-        chart = charts.bitnami.grafana-operator.latest;
-        namespace = cfg.namespace;
-        values = cfg.values;
-      };
+    openkrill.manifests.grafana-operator.content = [
+      (k8s.mkNamespace cfg.namespace)
+    ]
+    ++ kubelib.fromHelm {
+      name = "grafana-operator";
+      chart = charts.bitnami.grafana-operator.latest;
+      namespace = cfg.namespace;
+      values = cfg.values;
+    };
   };
 }

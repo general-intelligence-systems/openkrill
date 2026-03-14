@@ -260,7 +260,7 @@ in
         }];
       };
 
-    openkrill.apps.argocd.applications.external-secrets = {
+    openkrill.apps.argo-cd.applications.external-secrets = {
       namespace = "argocd";
       project = "default";
       source = {

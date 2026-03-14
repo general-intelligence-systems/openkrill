@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# Default to unstable; --stable overrides after flag parsing.
 APPS_DIR="${SCRIPT_DIR}/apps/unstable"
 SCHEMA_BASE_URL="https://raw.githubusercontent.com/bitnami/charts/main/bitnami"
 
@@ -9,7 +10,7 @@ usage() {
   echo "Usage: bin/generate-bitnami-module <module-name> <chart-repo> <chart-name> [bitnami-chart-name]"
   echo ""
   echo "Generates a single openkrill Helm module with typed values from Bitnami's values.schema.json."
-  echo "Output goes to apps/unstable/<module-name>/."
+  echo "Output goes to apps/unstable/<module-name>/ (or apps/stable/ with --stable)."
   echo ""
   echo "Arguments:"
   echo "  module-name         Name for the module (used in openkrill.apps.<name>)"
@@ -20,6 +21,7 @@ usage() {
   echo "Options:"
   echo "  --force             Overwrite existing module directory"
   echo "  --generate-crd      Pre-wire the module for CRDs (imports blank crds.nix)"
+  echo "  --stable            Generate into apps/stable/ instead of apps/unstable/"
   echo ""
   echo "Example:"
   echo "  bin/generate-bitnami-module redis bitnami redis"
@@ -29,6 +31,7 @@ usage() {
 
 FORCE=false
 GENERATE_CRD=false
+STABLE=false
 
 # ── Parse flags (from any position) ─────────────────────────────────
 POSITIONAL=()
@@ -36,6 +39,7 @@ for arg in "$@"; do
   case "$arg" in
     --force)        FORCE=true ;;
     --generate-crd) GENERATE_CRD=true ;;
+    --stable)       STABLE=true ;;
     --help)         usage ;;
     --*)            echo "Unknown option: $arg" >&2; usage ;;
     *)              POSITIONAL+=("$arg") ;;
@@ -44,6 +48,9 @@ done
 set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
 
 [[ $# -lt 3 ]] && usage
+
+$STABLE && APPS_DIR="${SCRIPT_DIR}/apps/stable"
+APPS_PREFIX=$($STABLE && echo "stable" || echo "unstable")
 
 MODULE_NAME="$1"; shift
 CHART_REPO="$1"; shift
@@ -122,7 +129,7 @@ else
 fi
 
 cat > "${MODULE_DIR}/default.nix" <<NIXEOF
-# apps/unstable/${MODULE_NAME} — Bitnami ${MODULE_NAME}
+# apps/${APPS_PREFIX}/${MODULE_NAME} — Bitnami ${MODULE_NAME}
 { config, lib, charts, kubelib, k8s, ... }:
 with lib;
 let
@@ -196,9 +203,7 @@ rm -f "${MODULE_DIR}/helm.nix"
 files_to_fmt=("${MODULE_DIR}/default.nix" "${MODULE_DIR}/values.nix" "${MODULE_DIR}/custom.nix")
 $GENERATE_CRD && [[ -f "${MODULE_DIR}/crds.nix" ]] && files_to_fmt+=("${MODULE_DIR}/crds.nix")
 
-if command -v nixfmt &>/dev/null; then
-  nixfmt "${files_to_fmt[@]}" 2>/dev/null || true
-fi
+nix run nixpkgs#nixfmt -- "${files_to_fmt[@]}" 2>/dev/null || true
 
 # ── 8. Git add ────────────────────────────────────────────────────
 git -C "$SCRIPT_DIR" add -f "${MODULE_DIR}/" 2>/dev/null || true

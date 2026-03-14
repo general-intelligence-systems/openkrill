@@ -161,7 +161,7 @@ in
       }
     ) cfg.runners);
 
-    openkrill.apps.argocd.applications.forgejo-runner = {
+    openkrill.apps.argo-cd.applications.forgejo-runner = {
       namespace = "argocd";
       project = "default";
       source = {

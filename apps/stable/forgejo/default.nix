@@ -123,7 +123,7 @@ in
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.forgejo = {
+    openkrill.apps.argo-cd.applications.forgejo = {
       namespace = "argocd";
       project = "default";
       source = {

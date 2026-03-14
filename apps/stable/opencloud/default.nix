@@ -322,7 +322,7 @@ in
       port = 9980;
     };
 
-    openkrill.apps.argocd.applications.opencloud = {
+    openkrill.apps.argo-cd.applications.opencloud = {
       namespace = "argocd";
       project = "default";
       source = {

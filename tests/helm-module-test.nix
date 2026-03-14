@@ -17,7 +17,7 @@ let
     options.openkrill.gitops = {
       repoURL = lib.mkOption { type = lib.types.str; default = "git://stub/repo.git"; };
     };
-    options.openkrill.apps.argocd.applications = lib.mkOption {
+    options.openkrill.apps.argo-cd.applications = lib.mkOption {
       type = lib.types.attrs;
       default = {};
     };

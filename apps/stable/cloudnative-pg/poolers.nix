@@ -109,7 +109,7 @@ let
   MonitoringPodMonitorMetricRelabelingModule = types.submodule {
     options = {
       "action" = mkOption {
-        description = "action to perform based on the regex matching.\n\n`Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0.\n`DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.\n\nDefault: \"Replace\"";
+        description = "Action to perform based on the regex matching.\n\n`Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0.\n`DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.\n\nDefault: \"Replace\"";
         type = (
           types.nullOr (
             types.enum [
@@ -141,32 +141,32 @@ let
         default = "replace";
       };
       "modulus" = mkOption {
-        description = "modulus to take of the hash of the source label values.\n\nOnly applicable when the action is `HashMod`.";
+        description = "Modulus to take of the hash of the source label values.\n\nOnly applicable when the action is `HashMod`.";
         type = (types.nullOr types.int);
         default = null;
       };
       "regex" = mkOption {
-        description = "regex defines the regular expression against which the extracted value is matched.";
+        description = "Regular expression against which the extracted value is matched.";
         type = (types.nullOr types.str);
         default = null;
       };
       "replacement" = mkOption {
-        description = "replacement value against which a Replace action is performed if the\nregular expression matches.\n\nRegex capture groups are available.";
+        description = "Replacement value against which a Replace action is performed if the\nregular expression matches.\n\nRegex capture groups are available.";
         type = (types.nullOr types.str);
         default = null;
       };
       "separator" = mkOption {
-        description = "separator defines the string between concatenated SourceLabels.";
+        description = "Separator is the string between concatenated SourceLabels.";
         type = (types.nullOr types.str);
         default = null;
       };
       "sourceLabels" = mkOption {
-        description = "sourceLabels defines the source labels select values from existing labels. Their content is\nconcatenated using the configured Separator and matched against the\nconfigured regular expression.";
+        description = "The source labels select values from existing labels. Their content is\nconcatenated using the configured Separator and matched against the\nconfigured regular expression.";
         type = (types.listOf types.str);
         default = [ ];
       };
       "targetLabel" = mkOption {
-        description = "targetLabel defines the label to which the resulting string is written in a replacement.\n\nIt is mandatory for `Replace`, `HashMod`, `Lowercase`, `Uppercase`,\n`KeepEqual` and `DropEqual` actions.\n\nRegex capture groups are available.";
+        description = "Label to which the resulting string is written in a replacement.\n\nIt is mandatory for `Replace`, `HashMod`, `Lowercase`, `Uppercase`,\n`KeepEqual` and `DropEqual` actions.\n\nRegex capture groups are available.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -200,7 +200,7 @@ let
   MonitoringPodMonitorRelabelingModule = types.submodule {
     options = {
       "action" = mkOption {
-        description = "action to perform based on the regex matching.\n\n`Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0.\n`DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.\n\nDefault: \"Replace\"";
+        description = "Action to perform based on the regex matching.\n\n`Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0.\n`DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.\n\nDefault: \"Replace\"";
         type = (
           types.nullOr (
             types.enum [
@@ -232,32 +232,32 @@ let
         default = "replace";
       };
       "modulus" = mkOption {
-        description = "modulus to take of the hash of the source label values.\n\nOnly applicable when the action is `HashMod`.";
+        description = "Modulus to take of the hash of the source label values.\n\nOnly applicable when the action is `HashMod`.";
         type = (types.nullOr types.int);
         default = null;
       };
       "regex" = mkOption {
-        description = "regex defines the regular expression against which the extracted value is matched.";
+        description = "Regular expression against which the extracted value is matched.";
         type = (types.nullOr types.str);
         default = null;
       };
       "replacement" = mkOption {
-        description = "replacement value against which a Replace action is performed if the\nregular expression matches.\n\nRegex capture groups are available.";
+        description = "Replacement value against which a Replace action is performed if the\nregular expression matches.\n\nRegex capture groups are available.";
         type = (types.nullOr types.str);
         default = null;
       };
       "separator" = mkOption {
-        description = "separator defines the string between concatenated SourceLabels.";
+        description = "Separator is the string between concatenated SourceLabels.";
         type = (types.nullOr types.str);
         default = null;
       };
       "sourceLabels" = mkOption {
-        description = "sourceLabels defines the source labels select values from existing labels. Their content is\nconcatenated using the configured Separator and matched against the\nconfigured regular expression.";
+        description = "The source labels select values from existing labels. Their content is\nconcatenated using the configured Separator and matched against the\nconfigured regular expression.";
         type = (types.listOf types.str);
         default = [ ];
       };
       "targetLabel" = mkOption {
-        description = "targetLabel defines the label to which the resulting string is written in a replacement.\n\nIt is mandatory for `Replace`, `HashMod`, `Lowercase`, `Uppercase`,\n`KeepEqual` and `DropEqual` actions.\n\nRegex capture groups are available.";
+        description = "Label to which the resulting string is written in a replacement.\n\nIt is mandatory for `Replace`, `HashMod`, `Lowercase`, `Uppercase`,\n`KeepEqual` and `DropEqual` actions.\n\nRegex capture groups are available.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -299,28 +299,6 @@ let
   mkPgbouncerAuthQuerySecret = res: {
     inherit (res) "name";
   };
-  PgbouncerClientCASecretModule = types.submodule {
-    options = {
-      "name" = mkOption {
-        description = "Name of the referent.";
-        type = types.str;
-      };
-    };
-  };
-  mkPgbouncerClientCASecret = res: {
-    inherit (res) "name";
-  };
-  PgbouncerClientTLSSecretModule = types.submodule {
-    options = {
-      "name" = mkOption {
-        description = "Name of the referent.";
-        type = types.str;
-      };
-    };
-  };
-  mkPgbouncerClientTLSSecret = res: {
-    inherit (res) "name";
-  };
   PgbouncerModule = types.submodule {
     options = {
       "authQuery" = mkOption {
@@ -329,18 +307,8 @@ let
         default = null;
       };
       "authQuerySecret" = mkOption {
-        description = "The credentials of the user that need to be used for the authentication\nquery. In case it is specified, also an AuthQuery\n(e.g. \"SELECT usename, passwd FROM pg_catalog.pg_shadow WHERE usename=$1\")\nhas to be specified and no automatic CNPG Cluster integration will be triggered.\n\nDeprecated.";
+        description = "The credentials of the user that need to be used for the authentication\nquery. In case it is specified, also an AuthQuery\n(e.g. \"SELECT usename, passwd FROM pg_catalog.pg_shadow WHERE usename=$1\")\nhas to be specified and no automatic CNPG Cluster integration will be triggered.";
         type = (types.nullOr PgbouncerAuthQuerySecretModule);
-        default = null;
-      };
-      "clientCASecret" = mkOption {
-        description = "ClientCASecret provides PgBouncer’s client_tls_ca_file, the root\nCA for validating client certificates";
-        type = (types.nullOr PgbouncerClientCASecretModule);
-        default = null;
-      };
-      "clientTLSSecret" = mkOption {
-        description = "ClientTLSSecret provides PgBouncer’s client_tls_key_file (private key)\nand client_tls_cert_file (certificate) used to accept client connections";
-        type = (types.nullOr PgbouncerClientTLSSecretModule);
         default = null;
       };
       "parameters" = mkOption {
@@ -370,16 +338,6 @@ let
         );
         default = "session";
       };
-      "serverCASecret" = mkOption {
-        description = "ServerCASecret provides PgBouncer’s server_tls_ca_file, the root\nCA for validating PostgreSQL certificates";
-        type = (types.nullOr PgbouncerServerCASecretModule);
-        default = null;
-      };
-      "serverTLSSecret" = mkOption {
-        description = "ServerTLSSecret, when pointing to a TLS secret, provides pgbouncer's\n`server_tls_key_file` and `server_tls_cert_file`, used when\nauthenticating against PostgreSQL.";
-        type = (types.nullOr PgbouncerServerTLSSecretModule);
-        default = null;
-      };
     };
   };
   mkPgbouncer =
@@ -394,16 +352,6 @@ let
     }
     // {
     }
-    // optionalAttrs (res."clientCASecret" != null) {
-      "clientCASecret" = mkPgbouncerClientCASecret res."clientCASecret";
-    }
-    // {
-    }
-    // optionalAttrs (res."clientTLSSecret" != null) {
-      "clientTLSSecret" = mkPgbouncerClientTLSSecret res."clientTLSSecret";
-    }
-    // {
-    }
     // optionalAttrs (res."parameters" != { }) { inherit (res) "parameters"; }
     // {
     }
@@ -415,39 +363,7 @@ let
     }
     // optionalAttrs (res."poolMode" != null) { inherit (res) "poolMode"; }
     // {
-    }
-    // optionalAttrs (res."serverCASecret" != null) {
-      "serverCASecret" = mkPgbouncerServerCASecret res."serverCASecret";
-    }
-    // {
-    }
-    // optionalAttrs (res."serverTLSSecret" != null) {
-      "serverTLSSecret" = mkPgbouncerServerTLSSecret res."serverTLSSecret";
-    }
-    // {
     };
-  PgbouncerServerCASecretModule = types.submodule {
-    options = {
-      "name" = mkOption {
-        description = "Name of the referent.";
-        type = types.str;
-      };
-    };
-  };
-  mkPgbouncerServerCASecret = res: {
-    inherit (res) "name";
-  };
-  PgbouncerServerTLSSecretModule = types.submodule {
-    options = {
-      "name" = mkOption {
-        description = "Name of the referent.";
-        type = types.str;
-      };
-    };
-  };
-  mkPgbouncerServerTLSSecret = res: {
-    inherit (res) "name";
-  };
   ServiceTemplateMetadataModule = types.submodule {
     options = {
       "annotations" = mkOption {
@@ -1563,7 +1479,7 @@ let
   TemplateSpecAffinityPodAntiAffinityModule = types.submodule {
     options = {
       "preferredDuringSchedulingIgnoredDuringExecution" = mkOption {
-        description = "The scheduler will prefer to schedule pods to nodes that satisfy\nthe anti-affinity expressions specified by this field, but it may choose\na node that violates one or more of the expressions. The node that is\nmost preferred is the one with the greatest sum of weights, i.e.\nfor each node that meets all of the scheduling requirements (resource\nrequest, requiredDuringScheduling anti-affinity expressions, etc.),\ncompute a sum by iterating through the elements of this field and subtracting\n\"weight\" from the sum if the node has pods which matches the corresponding podAffinityTerm; the\nnode(s) with the highest sum are the most preferred.";
+        description = "The scheduler will prefer to schedule pods to nodes that satisfy\nthe anti-affinity expressions specified by this field, but it may choose\na node that violates one or more of the expressions. The node that is\nmost preferred is the one with the greatest sum of weights, i.e.\nfor each node that meets all of the scheduling requirements (resource\nrequest, requiredDuringScheduling anti-affinity expressions, etc.),\ncompute a sum by iterating through the elements of this field and adding\n\"weight\" to the sum if the node has pods which matches the corresponding podAffinityTerm; the\nnode(s) with the highest sum are the most preferred.";
         type = (
           types.listOf TemplateSpecAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecutionModule
         );
@@ -2027,7 +1943,7 @@ let
         default = null;
       };
       "prefix" = mkOption {
-        description = "Optional text to prepend to the name of each environment variable.\nMay consist of any printable ASCII characters except '='.";
+        description = "Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -2082,7 +1998,7 @@ let
   TemplateSpecContainerEnvModule = types.submodule {
     options = {
       "name" = mkOption {
-        description = "Name of the environment variable.\nMay consist of any printable ASCII characters except '='.";
+        description = "Name of the environment variable. Must be a C_IDENTIFIER.";
         type = types.str;
       };
       "value" = mkOption {
@@ -2160,37 +2076,6 @@ let
     // {
       inherit (res) "fieldPath";
     };
-  TemplateSpecContainerEnvValueFromFileKeyRefModule = types.submodule {
-    options = {
-      "key" = mkOption {
-        description = "The key within the env file. An invalid key will prevent the pod from starting.\nThe keys defined within a source may consist of any printable ASCII characters except '='.\nDuring Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.";
-        type = types.str;
-      };
-      "optional" = mkOption {
-        description = "Specify whether the file or its key must be defined. If the file or key\ndoes not exist, then the env var is not published.\nIf optional is set to true and the specified key does not exist,\nthe environment variable will not be set in the Pod's containers.\n\nIf optional is set to false and the specified key does not exist,\nan error will be returned during Pod creation.";
-        type = types.bool;
-        default = false;
-      };
-      "path" = mkOption {
-        description = "The path within the volume from which to select the file.\nMust be relative and may not contain the '..' path or start with '..'.";
-        type = types.str;
-      };
-      "volumeName" = mkOption {
-        description = "The name of the volume mount containing the env file.";
-        type = types.str;
-      };
-    };
-  };
-  mkTemplateSpecContainerEnvValueFromFileKeyRef =
-    res:
-    {
-      inherit (res) "key";
-    }
-    // optionalAttrs res."optional" { inherit (res) "optional"; }
-    // {
-      inherit (res) "path";
-      inherit (res) "volumeName";
-    };
   TemplateSpecContainerEnvValueFromModule = types.submodule {
     options = {
       "configMapKeyRef" = mkOption {
@@ -2201,11 +2086,6 @@ let
       "fieldRef" = mkOption {
         description = "Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,\nspec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.";
         type = (types.nullOr TemplateSpecContainerEnvValueFromFieldRefModule);
-        default = null;
-      };
-      "fileKeyRef" = mkOption {
-        description = "FileKeyRef selects a key of the env file.\nRequires the EnvFiles feature gate to be enabled.";
-        type = (types.nullOr TemplateSpecContainerEnvValueFromFileKeyRefModule);
         default = null;
       };
       "resourceFieldRef" = mkOption {
@@ -2231,11 +2111,6 @@ let
     }
     // optionalAttrs (res."fieldRef" != null) {
       "fieldRef" = mkTemplateSpecContainerEnvValueFromFieldRef res."fieldRef";
-    }
-    // {
-    }
-    // optionalAttrs (res."fileKeyRef" != null) {
-      "fileKeyRef" = mkTemplateSpecContainerEnvValueFromFileKeyRef res."fileKeyRef";
     }
     // {
     }
@@ -2898,7 +2773,7 @@ let
         default = [ ];
       };
       "envFrom" = mkOption {
-        description = "List of sources to populate environment variables in the container.\nThe keys defined within a source may consist of any printable ASCII characters except '='.\nWhen a key exists in multiple\nsources, the value associated with the last source will take precedence.\nValues defined by an Env with a duplicate key will take precedence.\nCannot be updated.";
+        description = "List of sources to populate environment variables in the container.\nThe keys defined within a source must be a C_IDENTIFIER. All invalid keys\nwill be reported as an event when the container is starting. When a key exists in multiple\nsources, the value associated with the last source will take precedence.\nValues defined by an Env with a duplicate key will take precedence.\nCannot be updated.";
         type = (types.listOf TemplateSpecContainerEnvFromModule);
         default = [ ];
       };
@@ -2937,7 +2812,7 @@ let
         default = null;
       };
       "resizePolicy" = mkOption {
-        description = "Resources resize policy for the container.\nThis field cannot be set on ephemeral containers.";
+        description = "Resources resize policy for the container.";
         type = (types.listOf TemplateSpecContainerResizePolicyModule);
         default = [ ];
       };
@@ -2947,14 +2822,9 @@ let
         default = null;
       };
       "restartPolicy" = mkOption {
-        description = "RestartPolicy defines the restart behavior of individual containers in a pod.\nThis overrides the pod-level restart policy. When this field is not specified,\nthe restart behavior is defined by the Pod's restart policy and the container type.\nAdditionally, setting the RestartPolicy as \"Always\" for the init container will\nhave the following effect:\nthis init container will be continually restarted on\nexit until all regular containers have terminated. Once all regular\ncontainers have completed, all init containers with restartPolicy \"Always\"\nwill be shut down. This lifecycle differs from normal init containers and\nis often referred to as a \"sidecar\" container. Although this init\ncontainer still starts in the init container sequence, it does not wait\nfor the container to complete before proceeding to the next init\ncontainer. Instead, the next init container starts immediately after this\ninit container is started, or after any startupProbe has successfully\ncompleted.";
+        description = "RestartPolicy defines the restart behavior of individual containers in a pod.\nThis field may only be set for init containers, and the only allowed value is \"Always\".\nFor non-init containers or when this field is not specified,\nthe restart behavior is defined by the Pod's restart policy and the container type.\nSetting the RestartPolicy as \"Always\" for the init container will have the following effect:\nthis init container will be continually restarted on\nexit until all regular containers have terminated. Once all regular\ncontainers have completed, all init containers with restartPolicy \"Always\"\nwill be shut down. This lifecycle differs from normal init containers and\nis often referred to as a \"sidecar\" container. Although this init\ncontainer still starts in the init container sequence, it does not wait\nfor the container to complete before proceeding to the next init\ncontainer. Instead, the next init container starts immediately after this\ninit container is started, or after any startupProbe has successfully\ncompleted.";
         type = (types.nullOr types.str);
         default = null;
-      };
-      "restartPolicyRules" = mkOption {
-        description = "Represents a list of rules to be checked to determine if the\ncontainer should be restarted on exit. The rules are evaluated in\norder. Once a rule matches a container exit condition, the remaining\nrules are ignored. If no rule matches the container exit condition,\nthe Container-level restart policy determines the whether the container\nis restarted or not. Constraints on the rules:\n- At most 20 rules are allowed.\n- Rules can have the same action.\n- Identical rules are not forbidden in validations.\nWhen rules are specified, container MUST set RestartPolicy explicitly\neven it if matches the Pod's RestartPolicy.";
-        type = (types.listOf TemplateSpecContainerRestartPolicyRuleModule);
-        default = [ ];
       };
       "securityContext" = mkOption {
         description = "SecurityContext defines the security options the container should be run with.\nIf set, the fields of SecurityContext override the equivalent fields of PodSecurityContext.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/";
@@ -3062,11 +2932,6 @@ let
     // {
     }
     // optionalAttrs (res."restartPolicy" != null) { inherit (res) "restartPolicy"; }
-    // {
-    }
-    // optionalAttrs (res."restartPolicyRules" != [ ]) {
-      "restartPolicyRules" = map mkTemplateSpecContainerRestartPolicyRule res."restartPolicyRules";
-    }
     // {
     }
     // optionalAttrs (res."securityContext" != null) {
@@ -3413,7 +3278,7 @@ let
   TemplateSpecContainerResourcesModule = types.submodule {
     options = {
       "claims" = mkOption {
-        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis field depends on the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
+        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
         type = (types.listOf TemplateSpecContainerResourcesClaimModule);
         default = [ ];
       };
@@ -3442,50 +3307,6 @@ let
     // {
     }
     // optionalAttrs (res."requests" != { }) { inherit (res) "requests"; }
-    // {
-    };
-  TemplateSpecContainerRestartPolicyRuleExitCodesModule = types.submodule {
-    options = {
-      "operator" = mkOption {
-        description = "Represents the relationship between the container exit code(s) and the\nspecified values. Possible values are:\n- In: the requirement is satisfied if the container exit code is in the\n  set of specified values.\n- NotIn: the requirement is satisfied if the container exit code is\n  not in the set of specified values.";
-        type = types.str;
-      };
-      "values" = mkOption {
-        description = "Specifies the set of values to check for container exit codes.\nAt most 255 elements are allowed.";
-        type = (types.listOf types.int);
-        default = [ ];
-      };
-    };
-  };
-  mkTemplateSpecContainerRestartPolicyRuleExitCodes =
-    res:
-    {
-      inherit (res) "operator";
-    }
-    // optionalAttrs (res."values" != [ ]) { inherit (res) "values"; }
-    // {
-    };
-  TemplateSpecContainerRestartPolicyRuleModule = types.submodule {
-    options = {
-      "action" = mkOption {
-        description = "Specifies the action taken on a container exit if the requirements\nare satisfied. The only possible value is \"Restart\" to restart the\ncontainer.";
-        type = types.str;
-      };
-      "exitCodes" = mkOption {
-        description = "Represents the exit codes to check on container exits.";
-        type = (types.nullOr TemplateSpecContainerRestartPolicyRuleExitCodesModule);
-        default = null;
-      };
-    };
-  };
-  mkTemplateSpecContainerRestartPolicyRule =
-    res:
-    {
-      inherit (res) "action";
-    }
-    // optionalAttrs (res."exitCodes" != null) {
-      "exitCodes" = mkTemplateSpecContainerRestartPolicyRuleExitCodes res."exitCodes";
-    }
     // {
     };
   TemplateSpecContainerSecurityContextAppArmorProfileModule = types.submodule {
@@ -4131,7 +3952,7 @@ let
         default = null;
       };
       "prefix" = mkOption {
-        description = "Optional text to prepend to the name of each environment variable.\nMay consist of any printable ASCII characters except '='.";
+        description = "Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -4186,7 +4007,7 @@ let
   TemplateSpecEphemeralContainerEnvModule = types.submodule {
     options = {
       "name" = mkOption {
-        description = "Name of the environment variable.\nMay consist of any printable ASCII characters except '='.";
+        description = "Name of the environment variable. Must be a C_IDENTIFIER.";
         type = types.str;
       };
       "value" = mkOption {
@@ -4264,37 +4085,6 @@ let
     // {
       inherit (res) "fieldPath";
     };
-  TemplateSpecEphemeralContainerEnvValueFromFileKeyRefModule = types.submodule {
-    options = {
-      "key" = mkOption {
-        description = "The key within the env file. An invalid key will prevent the pod from starting.\nThe keys defined within a source may consist of any printable ASCII characters except '='.\nDuring Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.";
-        type = types.str;
-      };
-      "optional" = mkOption {
-        description = "Specify whether the file or its key must be defined. If the file or key\ndoes not exist, then the env var is not published.\nIf optional is set to true and the specified key does not exist,\nthe environment variable will not be set in the Pod's containers.\n\nIf optional is set to false and the specified key does not exist,\nan error will be returned during Pod creation.";
-        type = types.bool;
-        default = false;
-      };
-      "path" = mkOption {
-        description = "The path within the volume from which to select the file.\nMust be relative and may not contain the '..' path or start with '..'.";
-        type = types.str;
-      };
-      "volumeName" = mkOption {
-        description = "The name of the volume mount containing the env file.";
-        type = types.str;
-      };
-    };
-  };
-  mkTemplateSpecEphemeralContainerEnvValueFromFileKeyRef =
-    res:
-    {
-      inherit (res) "key";
-    }
-    // optionalAttrs res."optional" { inherit (res) "optional"; }
-    // {
-      inherit (res) "path";
-      inherit (res) "volumeName";
-    };
   TemplateSpecEphemeralContainerEnvValueFromModule = types.submodule {
     options = {
       "configMapKeyRef" = mkOption {
@@ -4305,11 +4095,6 @@ let
       "fieldRef" = mkOption {
         description = "Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,\nspec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.";
         type = (types.nullOr TemplateSpecEphemeralContainerEnvValueFromFieldRefModule);
-        default = null;
-      };
-      "fileKeyRef" = mkOption {
-        description = "FileKeyRef selects a key of the env file.\nRequires the EnvFiles feature gate to be enabled.";
-        type = (types.nullOr TemplateSpecEphemeralContainerEnvValueFromFileKeyRefModule);
         default = null;
       };
       "resourceFieldRef" = mkOption {
@@ -4337,11 +4122,6 @@ let
     }
     // optionalAttrs (res."fieldRef" != null) {
       "fieldRef" = mkTemplateSpecEphemeralContainerEnvValueFromFieldRef res."fieldRef";
-    }
-    // {
-    }
-    // optionalAttrs (res."fileKeyRef" != null) {
-      "fileKeyRef" = mkTemplateSpecEphemeralContainerEnvValueFromFileKeyRef res."fileKeyRef";
     }
     // {
     }
@@ -5012,7 +4792,7 @@ let
         default = [ ];
       };
       "envFrom" = mkOption {
-        description = "List of sources to populate environment variables in the container.\nThe keys defined within a source may consist of any printable ASCII characters except '='.\nWhen a key exists in multiple\nsources, the value associated with the last source will take precedence.\nValues defined by an Env with a duplicate key will take precedence.\nCannot be updated.";
+        description = "List of sources to populate environment variables in the container.\nThe keys defined within a source must be a C_IDENTIFIER. All invalid keys\nwill be reported as an event when the container is starting. When a key exists in multiple\nsources, the value associated with the last source will take precedence.\nValues defined by an Env with a duplicate key will take precedence.\nCannot be updated.";
         type = (types.listOf TemplateSpecEphemeralContainerEnvFromModule);
         default = [ ];
       };
@@ -5061,14 +4841,9 @@ let
         default = null;
       };
       "restartPolicy" = mkOption {
-        description = "Restart policy for the container to manage the restart behavior of each\ncontainer within a pod.\nYou cannot set this field on ephemeral containers.";
+        description = "Restart policy for the container to manage the restart behavior of each\ncontainer within a pod.\nThis may only be set for init containers. You cannot set this field on\nephemeral containers.";
         type = (types.nullOr types.str);
         default = null;
-      };
-      "restartPolicyRules" = mkOption {
-        description = "Represents a list of rules to be checked to determine if the\ncontainer should be restarted on exit. You cannot set this field on\nephemeral containers.";
-        type = (types.listOf TemplateSpecEphemeralContainerRestartPolicyRuleModule);
-        default = [ ];
       };
       "securityContext" = mkOption {
         description = "Optional: SecurityContext defines the security options the ephemeral container should be run with.\nIf set, the fields of SecurityContext override the equivalent fields of PodSecurityContext.";
@@ -5183,13 +4958,6 @@ let
     // {
     }
     // optionalAttrs (res."restartPolicy" != null) { inherit (res) "restartPolicy"; }
-    // {
-    }
-    // optionalAttrs (res."restartPolicyRules" != [ ]) {
-      "restartPolicyRules" =
-        map mkTemplateSpecEphemeralContainerRestartPolicyRule
-          res."restartPolicyRules";
-    }
     // {
     }
     // optionalAttrs (res."securityContext" != null) {
@@ -5541,7 +5309,7 @@ let
   TemplateSpecEphemeralContainerResourcesModule = types.submodule {
     options = {
       "claims" = mkOption {
-        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis field depends on the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
+        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
         type = (types.listOf TemplateSpecEphemeralContainerResourcesClaimModule);
         default = [ ];
       };
@@ -5570,50 +5338,6 @@ let
     // {
     }
     // optionalAttrs (res."requests" != { }) { inherit (res) "requests"; }
-    // {
-    };
-  TemplateSpecEphemeralContainerRestartPolicyRuleExitCodesModule = types.submodule {
-    options = {
-      "operator" = mkOption {
-        description = "Represents the relationship between the container exit code(s) and the\nspecified values. Possible values are:\n- In: the requirement is satisfied if the container exit code is in the\n  set of specified values.\n- NotIn: the requirement is satisfied if the container exit code is\n  not in the set of specified values.";
-        type = types.str;
-      };
-      "values" = mkOption {
-        description = "Specifies the set of values to check for container exit codes.\nAt most 255 elements are allowed.";
-        type = (types.listOf types.int);
-        default = [ ];
-      };
-    };
-  };
-  mkTemplateSpecEphemeralContainerRestartPolicyRuleExitCodes =
-    res:
-    {
-      inherit (res) "operator";
-    }
-    // optionalAttrs (res."values" != [ ]) { inherit (res) "values"; }
-    // {
-    };
-  TemplateSpecEphemeralContainerRestartPolicyRuleModule = types.submodule {
-    options = {
-      "action" = mkOption {
-        description = "Specifies the action taken on a container exit if the requirements\nare satisfied. The only possible value is \"Restart\" to restart the\ncontainer.";
-        type = types.str;
-      };
-      "exitCodes" = mkOption {
-        description = "Represents the exit codes to check on container exits.";
-        type = (types.nullOr TemplateSpecEphemeralContainerRestartPolicyRuleExitCodesModule);
-        default = null;
-      };
-    };
-  };
-  mkTemplateSpecEphemeralContainerRestartPolicyRule =
-    res:
-    {
-      inherit (res) "action";
-    }
-    // optionalAttrs (res."exitCodes" != null) {
-      "exitCodes" = mkTemplateSpecEphemeralContainerRestartPolicyRuleExitCodes res."exitCodes";
-    }
     // {
     };
   TemplateSpecEphemeralContainerSecurityContextAppArmorProfileModule = types.submodule {
@@ -6246,7 +5970,7 @@ let
         default = null;
       };
       "prefix" = mkOption {
-        description = "Optional text to prepend to the name of each environment variable.\nMay consist of any printable ASCII characters except '='.";
+        description = "Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -6301,7 +6025,7 @@ let
   TemplateSpecInitContainerEnvModule = types.submodule {
     options = {
       "name" = mkOption {
-        description = "Name of the environment variable.\nMay consist of any printable ASCII characters except '='.";
+        description = "Name of the environment variable. Must be a C_IDENTIFIER.";
         type = types.str;
       };
       "value" = mkOption {
@@ -6379,37 +6103,6 @@ let
     // {
       inherit (res) "fieldPath";
     };
-  TemplateSpecInitContainerEnvValueFromFileKeyRefModule = types.submodule {
-    options = {
-      "key" = mkOption {
-        description = "The key within the env file. An invalid key will prevent the pod from starting.\nThe keys defined within a source may consist of any printable ASCII characters except '='.\nDuring Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.";
-        type = types.str;
-      };
-      "optional" = mkOption {
-        description = "Specify whether the file or its key must be defined. If the file or key\ndoes not exist, then the env var is not published.\nIf optional is set to true and the specified key does not exist,\nthe environment variable will not be set in the Pod's containers.\n\nIf optional is set to false and the specified key does not exist,\nan error will be returned during Pod creation.";
-        type = types.bool;
-        default = false;
-      };
-      "path" = mkOption {
-        description = "The path within the volume from which to select the file.\nMust be relative and may not contain the '..' path or start with '..'.";
-        type = types.str;
-      };
-      "volumeName" = mkOption {
-        description = "The name of the volume mount containing the env file.";
-        type = types.str;
-      };
-    };
-  };
-  mkTemplateSpecInitContainerEnvValueFromFileKeyRef =
-    res:
-    {
-      inherit (res) "key";
-    }
-    // optionalAttrs res."optional" { inherit (res) "optional"; }
-    // {
-      inherit (res) "path";
-      inherit (res) "volumeName";
-    };
   TemplateSpecInitContainerEnvValueFromModule = types.submodule {
     options = {
       "configMapKeyRef" = mkOption {
@@ -6420,11 +6113,6 @@ let
       "fieldRef" = mkOption {
         description = "Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,\nspec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.";
         type = (types.nullOr TemplateSpecInitContainerEnvValueFromFieldRefModule);
-        default = null;
-      };
-      "fileKeyRef" = mkOption {
-        description = "FileKeyRef selects a key of the env file.\nRequires the EnvFiles feature gate to be enabled.";
-        type = (types.nullOr TemplateSpecInitContainerEnvValueFromFileKeyRefModule);
         default = null;
       };
       "resourceFieldRef" = mkOption {
@@ -6450,11 +6138,6 @@ let
     }
     // optionalAttrs (res."fieldRef" != null) {
       "fieldRef" = mkTemplateSpecInitContainerEnvValueFromFieldRef res."fieldRef";
-    }
-    // {
-    }
-    // optionalAttrs (res."fileKeyRef" != null) {
-      "fileKeyRef" = mkTemplateSpecInitContainerEnvValueFromFileKeyRef res."fileKeyRef";
     }
     // {
     }
@@ -7119,7 +6802,7 @@ let
         default = [ ];
       };
       "envFrom" = mkOption {
-        description = "List of sources to populate environment variables in the container.\nThe keys defined within a source may consist of any printable ASCII characters except '='.\nWhen a key exists in multiple\nsources, the value associated with the last source will take precedence.\nValues defined by an Env with a duplicate key will take precedence.\nCannot be updated.";
+        description = "List of sources to populate environment variables in the container.\nThe keys defined within a source must be a C_IDENTIFIER. All invalid keys\nwill be reported as an event when the container is starting. When a key exists in multiple\nsources, the value associated with the last source will take precedence.\nValues defined by an Env with a duplicate key will take precedence.\nCannot be updated.";
         type = (types.listOf TemplateSpecInitContainerEnvFromModule);
         default = [ ];
       };
@@ -7158,7 +6841,7 @@ let
         default = null;
       };
       "resizePolicy" = mkOption {
-        description = "Resources resize policy for the container.\nThis field cannot be set on ephemeral containers.";
+        description = "Resources resize policy for the container.";
         type = (types.listOf TemplateSpecInitContainerResizePolicyModule);
         default = [ ];
       };
@@ -7168,14 +6851,9 @@ let
         default = null;
       };
       "restartPolicy" = mkOption {
-        description = "RestartPolicy defines the restart behavior of individual containers in a pod.\nThis overrides the pod-level restart policy. When this field is not specified,\nthe restart behavior is defined by the Pod's restart policy and the container type.\nAdditionally, setting the RestartPolicy as \"Always\" for the init container will\nhave the following effect:\nthis init container will be continually restarted on\nexit until all regular containers have terminated. Once all regular\ncontainers have completed, all init containers with restartPolicy \"Always\"\nwill be shut down. This lifecycle differs from normal init containers and\nis often referred to as a \"sidecar\" container. Although this init\ncontainer still starts in the init container sequence, it does not wait\nfor the container to complete before proceeding to the next init\ncontainer. Instead, the next init container starts immediately after this\ninit container is started, or after any startupProbe has successfully\ncompleted.";
+        description = "RestartPolicy defines the restart behavior of individual containers in a pod.\nThis field may only be set for init containers, and the only allowed value is \"Always\".\nFor non-init containers or when this field is not specified,\nthe restart behavior is defined by the Pod's restart policy and the container type.\nSetting the RestartPolicy as \"Always\" for the init container will have the following effect:\nthis init container will be continually restarted on\nexit until all regular containers have terminated. Once all regular\ncontainers have completed, all init containers with restartPolicy \"Always\"\nwill be shut down. This lifecycle differs from normal init containers and\nis often referred to as a \"sidecar\" container. Although this init\ncontainer still starts in the init container sequence, it does not wait\nfor the container to complete before proceeding to the next init\ncontainer. Instead, the next init container starts immediately after this\ninit container is started, or after any startupProbe has successfully\ncompleted.";
         type = (types.nullOr types.str);
         default = null;
-      };
-      "restartPolicyRules" = mkOption {
-        description = "Represents a list of rules to be checked to determine if the\ncontainer should be restarted on exit. The rules are evaluated in\norder. Once a rule matches a container exit condition, the remaining\nrules are ignored. If no rule matches the container exit condition,\nthe Container-level restart policy determines the whether the container\nis restarted or not. Constraints on the rules:\n- At most 20 rules are allowed.\n- Rules can have the same action.\n- Identical rules are not forbidden in validations.\nWhen rules are specified, container MUST set RestartPolicy explicitly\neven it if matches the Pod's RestartPolicy.";
-        type = (types.listOf TemplateSpecInitContainerRestartPolicyRuleModule);
-        default = [ ];
       };
       "securityContext" = mkOption {
         description = "SecurityContext defines the security options the container should be run with.\nIf set, the fields of SecurityContext override the equivalent fields of PodSecurityContext.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/";
@@ -7283,11 +6961,6 @@ let
     // {
     }
     // optionalAttrs (res."restartPolicy" != null) { inherit (res) "restartPolicy"; }
-    // {
-    }
-    // optionalAttrs (res."restartPolicyRules" != [ ]) {
-      "restartPolicyRules" = map mkTemplateSpecInitContainerRestartPolicyRule res."restartPolicyRules";
-    }
     // {
     }
     // optionalAttrs (res."securityContext" != null) {
@@ -7634,7 +7307,7 @@ let
   TemplateSpecInitContainerResourcesModule = types.submodule {
     options = {
       "claims" = mkOption {
-        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis field depends on the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
+        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
         type = (types.listOf TemplateSpecInitContainerResourcesClaimModule);
         default = [ ];
       };
@@ -7663,50 +7336,6 @@ let
     // {
     }
     // optionalAttrs (res."requests" != { }) { inherit (res) "requests"; }
-    // {
-    };
-  TemplateSpecInitContainerRestartPolicyRuleExitCodesModule = types.submodule {
-    options = {
-      "operator" = mkOption {
-        description = "Represents the relationship between the container exit code(s) and the\nspecified values. Possible values are:\n- In: the requirement is satisfied if the container exit code is in the\n  set of specified values.\n- NotIn: the requirement is satisfied if the container exit code is\n  not in the set of specified values.";
-        type = types.str;
-      };
-      "values" = mkOption {
-        description = "Specifies the set of values to check for container exit codes.\nAt most 255 elements are allowed.";
-        type = (types.listOf types.int);
-        default = [ ];
-      };
-    };
-  };
-  mkTemplateSpecInitContainerRestartPolicyRuleExitCodes =
-    res:
-    {
-      inherit (res) "operator";
-    }
-    // optionalAttrs (res."values" != [ ]) { inherit (res) "values"; }
-    // {
-    };
-  TemplateSpecInitContainerRestartPolicyRuleModule = types.submodule {
-    options = {
-      "action" = mkOption {
-        description = "Specifies the action taken on a container exit if the requirements\nare satisfied. The only possible value is \"Restart\" to restart the\ncontainer.";
-        type = types.str;
-      };
-      "exitCodes" = mkOption {
-        description = "Represents the exit codes to check on container exits.";
-        type = (types.nullOr TemplateSpecInitContainerRestartPolicyRuleExitCodesModule);
-        default = null;
-      };
-    };
-  };
-  mkTemplateSpecInitContainerRestartPolicyRule =
-    res:
-    {
-      inherit (res) "action";
-    }
-    // optionalAttrs (res."exitCodes" != null) {
-      "exitCodes" = mkTemplateSpecInitContainerRestartPolicyRuleExitCodes res."exitCodes";
-    }
     // {
     };
   TemplateSpecInitContainerSecurityContextAppArmorProfileModule = types.submodule {
@@ -8314,7 +7943,7 @@ let
         default = false;
       };
       "hostNetwork" = mkOption {
-        description = "Host networking requested for this pod. Use the host's network namespace.\nWhen using HostNetwork you should specify ports so the scheduler is aware.\nWhen `hostNetwork` is true, specified `hostPort` fields in port definitions must match `containerPort`,\nand unspecified `hostPort` fields in port definitions are defaulted to match `containerPort`.\nDefault to false.";
+        description = "Host networking requested for this pod. Use the host's network namespace.\nIf this option is set, the ports that will be used must be specified.\nDefault to false.";
         type = types.bool;
         default = false;
       };
@@ -8330,11 +7959,6 @@ let
       };
       "hostname" = mkOption {
         description = "Specifies the hostname of the Pod\nIf not specified, the pod's hostname will be set to a system-defined value.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "hostnameOverride" = mkOption {
-        description = "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod.\nThis field only specifies the pod's hostname and does not affect its DNS records.\nWhen this field is set to a non-empty string:\n- It takes precedence over the values set in `hostname` and `subdomain`.\n- The Pod's hostname will be set to this value.\n- `setHostnameAsFQDN` must be nil or set to false.\n- `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.\nRequires the HostnameOverride feature gate to be enabled.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -8359,7 +7983,7 @@ let
         default = { };
       };
       "os" = mkOption {
-        description = "Specifies the OS of the containers in the pod.\nSome pod and container fields are restricted if this is set.\n\nIf the OS field is set to linux, the following fields must be unset:\n-securityContext.windowsOptions\n\nIf the OS field is set to windows, following fields must be unset:\n- spec.hostPID\n- spec.hostIPC\n- spec.hostUsers\n- spec.resources\n- spec.securityContext.appArmorProfile\n- spec.securityContext.seLinuxOptions\n- spec.securityContext.seccompProfile\n- spec.securityContext.fsGroup\n- spec.securityContext.fsGroupChangePolicy\n- spec.securityContext.sysctls\n- spec.shareProcessNamespace\n- spec.securityContext.runAsUser\n- spec.securityContext.runAsGroup\n- spec.securityContext.supplementalGroups\n- spec.securityContext.supplementalGroupsPolicy\n- spec.containers[*].securityContext.appArmorProfile\n- spec.containers[*].securityContext.seLinuxOptions\n- spec.containers[*].securityContext.seccompProfile\n- spec.containers[*].securityContext.capabilities\n- spec.containers[*].securityContext.readOnlyRootFilesystem\n- spec.containers[*].securityContext.privileged\n- spec.containers[*].securityContext.allowPrivilegeEscalation\n- spec.containers[*].securityContext.procMount\n- spec.containers[*].securityContext.runAsUser\n- spec.containers[*].securityContext.runAsGroup";
+        description = "Specifies the OS of the containers in the pod.\nSome pod and container fields are restricted if this is set.\n\nIf the OS field is set to linux, the following fields must be unset:\n-securityContext.windowsOptions\n\nIf the OS field is set to windows, following fields must be unset:\n- spec.hostPID\n- spec.hostIPC\n- spec.hostUsers\n- spec.securityContext.appArmorProfile\n- spec.securityContext.seLinuxOptions\n- spec.securityContext.seccompProfile\n- spec.securityContext.fsGroup\n- spec.securityContext.fsGroupChangePolicy\n- spec.securityContext.sysctls\n- spec.shareProcessNamespace\n- spec.securityContext.runAsUser\n- spec.securityContext.runAsGroup\n- spec.securityContext.supplementalGroups\n- spec.securityContext.supplementalGroupsPolicy\n- spec.containers[*].securityContext.appArmorProfile\n- spec.containers[*].securityContext.seLinuxOptions\n- spec.containers[*].securityContext.seccompProfile\n- spec.containers[*].securityContext.capabilities\n- spec.containers[*].securityContext.readOnlyRootFilesystem\n- spec.containers[*].securityContext.privileged\n- spec.containers[*].securityContext.allowPrivilegeEscalation\n- spec.containers[*].securityContext.procMount\n- spec.containers[*].securityContext.runAsUser\n- spec.containers[*].securityContext.runAsGroup";
         type = (types.nullOr TemplateSpecOsModule);
         default = null;
       };
@@ -8389,12 +8013,12 @@ let
         default = [ ];
       };
       "resourceClaims" = mkOption {
-        description = "ResourceClaims defines which ResourceClaims must be allocated\nand reserved before the Pod is allowed to start. The resources\nwill be made available to those containers which consume them\nby name.\n\nThis is a stable field but requires that the\nDynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.";
+        description = "ResourceClaims defines which ResourceClaims must be allocated\nand reserved before the Pod is allowed to start. The resources\nwill be made available to those containers which consume them\nby name.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable.";
         type = (types.listOf TemplateSpecResourceClaimModule);
         default = [ ];
       };
       "resources" = mkOption {
-        description = "Resources is the total amount of CPU and Memory resources required by all\ncontainers in the pod. It supports specifying Requests and Limits for\n\"cpu\", \"memory\" and \"hugepages-\" resource names only. ResourceClaims are not supported.\n\nThis field enables fine-grained control over resource allocation for the\nentire pod, allowing resource sharing among containers in a pod.\n\nThis is an alpha field and requires enabling the PodLevelResources feature\ngate.";
+        description = "Resources is the total amount of CPU and Memory resources required by all\ncontainers in the pod. It supports specifying Requests and Limits for\n\"cpu\" and \"memory\" resource names only. ResourceClaims are not supported.\n\nThis field enables fine-grained control over resource allocation for the\nentire pod, allowing resource sharing among containers in a pod.\n\nThis is an alpha field and requires enabling the PodLevelResources feature\ngate.";
         type = (types.nullOr TemplateSpecResourcesModule);
         default = null;
       };
@@ -8468,11 +8092,6 @@ let
         type = (types.listOf TemplateSpecVolumeModule);
         default = [ ];
       };
-      "workloadRef" = mkOption {
-        description = "WorkloadRef provides a reference to the Workload object that this Pod belongs to.\nThis field is used by the scheduler to identify the PodGroup and apply the\ncorrect group scheduling policies. The Workload object referenced\nby this field may not exist at the time the Pod is created.\nThis field is immutable, but a Workload object with the same name\nmay be recreated with different policies. Doing this during pod scheduling\nmay result in the placement not conforming to the expected policies.";
-        type = (types.nullOr TemplateSpecWorkloadRefModule);
-        default = null;
-      };
     };
   };
   mkTemplateSpec =
@@ -8525,9 +8144,6 @@ let
     // {
     }
     // optionalAttrs (res."hostname" != null) { inherit (res) "hostname"; }
-    // {
-    }
-    // optionalAttrs (res."hostnameOverride" != null) { inherit (res) "hostnameOverride"; }
     // {
     }
     // optionalAttrs (res."imagePullSecrets" != [ ]) {
@@ -8629,11 +8245,6 @@ let
     }
     // optionalAttrs (res."volumes" != [ ]) { "volumes" = map mkTemplateSpecVolume res."volumes"; }
     // {
-    }
-    // optionalAttrs (res."workloadRef" != null) {
-      "workloadRef" = mkTemplateSpecWorkloadRef res."workloadRef";
-    }
-    // {
     };
   TemplateSpecOsModule = types.submodule {
     options = {
@@ -8712,7 +8323,7 @@ let
   TemplateSpecResourcesModule = types.submodule {
     options = {
       "claims" = mkOption {
-        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis field depends on the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
+        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
         type = (types.listOf TemplateSpecResourcesClaimModule);
         default = [ ];
       };
@@ -9027,7 +8638,7 @@ let
         default = null;
       };
       "operator" = mkOption {
-        description = "Operator represents a key's relationship to the value.\nValid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.\nLt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).";
+        description = "Operator represents a key's relationship to the value.\nValid operators are Exists and Equal. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -9809,7 +9420,7 @@ let
         default = null;
       };
       "resources" = mkOption {
-        description = "resources represents the minimum resources the volume should have.\nUsers are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
+        description = "resources represents the minimum resources the volume should have.\nIf RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
         type = (types.nullOr TemplateSpecVolumeEphemeralVolumeClaimTemplateSpecResourcesModule);
         default = null;
       };
@@ -9824,7 +9435,7 @@ let
         default = null;
       };
       "volumeAttributesClassName" = mkOption {
-        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string or nil value indicates that no\nVolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,\nthis field can be reset to its previous value (including nil) to cancel the modification.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/";
+        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string value means that no VolumeAttributesClass\nwill be applied to the claim but it's not allowed to reset this field to empty string once it is set.\nIf unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass\nwill be set by the persistentvolume controller if it exists.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/\n(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -10167,7 +9778,7 @@ let
   TemplateSpecVolumeGlusterfsModule = types.submodule {
     options = {
       "endpoints" = mkOption {
-        description = "endpoints is the endpoint name that details Glusterfs topology.";
+        description = "endpoints is the endpoint name that details Glusterfs topology.\nMore info: https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod";
         type = types.str;
       };
       "path" = mkOption {
@@ -10418,7 +10029,7 @@ let
         default = null;
       };
       "glusterfs" = mkOption {
-        description = "glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.\nDeprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.";
+        description = "glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.\nDeprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.\nMore info: https://examples.k8s.io/volumes/glusterfs/README.md";
         type = (types.nullOr TemplateSpecVolumeGlusterfsModule);
         default = null;
       };
@@ -10433,7 +10044,7 @@ let
         default = null;
       };
       "iscsi" = mkOption {
-        description = "iscsi represents an ISCSI Disk resource that is attached to a\nkubelet's host machine and then exposed to the pod.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi";
+        description = "iscsi represents an ISCSI Disk resource that is attached to a\nkubelet's host machine and then exposed to the pod.\nMore info: https://examples.k8s.io/volumes/iscsi/README.md";
         type = (types.nullOr TemplateSpecVolumeIscsiModule);
         default = null;
       };
@@ -10472,7 +10083,7 @@ let
         default = null;
       };
       "rbd" = mkOption {
-        description = "rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.\nDeprecated: RBD is deprecated and the in-tree rbd type is no longer supported.";
+        description = "rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.\nDeprecated: RBD is deprecated and the in-tree rbd type is no longer supported.\nMore info: https://examples.k8s.io/volumes/rbd/README.md";
         type = (types.nullOr TemplateSpecVolumeRbdModule);
         default = null;
       };
@@ -11045,11 +10656,6 @@ let
         type = (types.nullOr TemplateSpecVolumeProjectedSourceDownwardAPIModule);
         default = null;
       };
-      "podCertificate" = mkOption {
-        description = "Projects an auto-rotating credential bundle (private key and certificate\nchain) that the pod can use either as a TLS client or server.\n\nKubelet generates a private key and uses it to send a\nPodCertificateRequest to the named signer.  Once the signer approves the\nrequest and issues a certificate chain, Kubelet writes the key and\ncertificate chain to the pod filesystem.  The pod does not start until\ncertificates have been issued for each podCertificate projected volume\nsource in its spec.\n\nKubelet will begin trying to rotate the certificate at the time indicated\nby the signer using the PodCertificateRequest.Status.BeginRefreshAt\ntimestamp.\n\nKubelet can write a single file, indicated by the credentialBundlePath\nfield, or separate files, indicated by the keyPath and\ncertificateChainPath fields.\n\nThe credential bundle is a single file in PEM format.  The first PEM\nentry is the private key (in PKCS#8 format), and the remaining PEM\nentries are the certificate chain issued by the signer (typically,\nsigners will return their certificate chain in leaf-to-root order).\n\nPrefer using the credential bundle format, since your application code\ncan read it atomically.  If you use keyPath and certificateChainPath,\nyour application must make two separate file reads. If these coincide\nwith a certificate rotation, it is possible that the private key and leaf\ncertificate you read may not correspond to each other.  Your application\nwill need to check for this condition, and re-read until they are\nconsistent.\n\nThe named signer controls chooses the format of the certificate it\nissues; consult the signer implementation's documentation to learn how to\nuse the certificates it issues.";
-        type = (types.nullOr TemplateSpecVolumeProjectedSourcePodCertificateModule);
-        default = null;
-      };
       "secret" = mkOption {
         description = "secret information about the secret data to project";
         type = (types.nullOr TemplateSpecVolumeProjectedSourceSecretModule);
@@ -11083,11 +10689,6 @@ let
     }
     // {
     }
-    // optionalAttrs (res."podCertificate" != null) {
-      "podCertificate" = mkTemplateSpecVolumeProjectedSourcePodCertificate res."podCertificate";
-    }
-    // {
-    }
     // optionalAttrs (res."secret" != null) {
       "secret" = mkTemplateSpecVolumeProjectedSourceSecret res."secret";
     }
@@ -11098,64 +10699,6 @@ let
         mkTemplateSpecVolumeProjectedSourceServiceAccountToken
           res."serviceAccountToken";
     }
-    // {
-    };
-  TemplateSpecVolumeProjectedSourcePodCertificateModule = types.submodule {
-    options = {
-      "certificateChainPath" = mkOption {
-        description = "Write the certificate chain at this path in the projected volume.\n\nMost applications should use credentialBundlePath.  When using keyPath\nand certificateChainPath, your application needs to check that the key\nand leaf certificate are consistent, because it is possible to read the\nfiles mid-rotation.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "credentialBundlePath" = mkOption {
-        description = "Write the credential bundle at this path in the projected volume.\n\nThe credential bundle is a single file that contains multiple PEM blocks.\nThe first PEM block is a PRIVATE KEY block, containing a PKCS#8 private\nkey.\n\nThe remaining blocks are CERTIFICATE blocks, containing the issued\ncertificate chain from the signer (leaf and any intermediates).\n\nUsing credentialBundlePath lets your Pod's application code make a single\natomic read that retrieves a consistent key and certificate chain.  If you\nproject them to separate files, your application code will need to\nadditionally check that the leaf certificate was issued to the key.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "keyPath" = mkOption {
-        description = "Write the key at this path in the projected volume.\n\nMost applications should use credentialBundlePath.  When using keyPath\nand certificateChainPath, your application needs to check that the key\nand leaf certificate are consistent, because it is possible to read the\nfiles mid-rotation.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "keyType" = mkOption {
-        description = "The type of keypair Kubelet will generate for the pod.\n\nValid values are \"RSA3072\", \"RSA4096\", \"ECDSAP256\", \"ECDSAP384\",\n\"ECDSAP521\", and \"ED25519\".";
-        type = types.str;
-      };
-      "maxExpirationSeconds" = mkOption {
-        description = "maxExpirationSeconds is the maximum lifetime permitted for the\ncertificate.\n\nKubelet copies this value verbatim into the PodCertificateRequests it\ngenerates for this projection.\n\nIf omitted, kube-apiserver will set it to 86400(24 hours). kube-apiserver\nwill reject values shorter than 3600 (1 hour).  The maximum allowable\nvalue is 7862400 (91 days).\n\nThe signer implementation is then free to issue a certificate with any\nlifetime *shorter* than MaxExpirationSeconds, but no shorter than 3600\nseconds (1 hour).  This constraint is enforced by kube-apiserver.\n`kubernetes.io` signers will never issue certificates with a lifetime\nlonger than 24 hours.";
-        type = (types.nullOr types.int);
-        default = null;
-      };
-      "signerName" = mkOption {
-        description = "Kubelet's generated CSRs will be addressed to this signer.";
-        type = types.str;
-      };
-      "userAnnotations" = mkOption {
-        description = "userAnnotations allow pod authors to pass additional information to\nthe signer implementation.  Kubernetes does not restrict or validate this\nmetadata in any way.\n\nThese values are copied verbatim into the `spec.unverifiedUserAnnotations` field of\nthe PodCertificateRequest objects that Kubelet creates.\n\nEntries are subject to the same validation as object metadata annotations,\nwith the addition that all keys must be domain-prefixed. No restrictions\nare placed on values, except an overall size limitation on the entire field.\n\nSigners should document the keys and values they support. Signers should\ndeny requests that contain keys they do not recognize.";
-        type = (types.attrsOf types.str);
-        default = { };
-      };
-    };
-  };
-  mkTemplateSpecVolumeProjectedSourcePodCertificate =
-    res:
-    {
-    }
-    // optionalAttrs (res."certificateChainPath" != null) { inherit (res) "certificateChainPath"; }
-    // {
-    }
-    // optionalAttrs (res."credentialBundlePath" != null) { inherit (res) "credentialBundlePath"; }
-    // {
-    }
-    // optionalAttrs (res."keyPath" != null) { inherit (res) "keyPath"; }
-    // {
-      inherit (res) "keyType";
-    }
-    // optionalAttrs (res."maxExpirationSeconds" != null) { inherit (res) "maxExpirationSeconds"; }
-    // {
-      inherit (res) "signerName";
-    }
-    // optionalAttrs (res."userAnnotations" != { }) { inherit (res) "userAnnotations"; }
     // {
     };
   TemplateSpecVolumeProjectedSourceSecretItemModule = types.submodule {
@@ -11645,32 +11188,6 @@ let
     // {
       inherit (res) "volumePath";
     };
-  TemplateSpecWorkloadRefModule = types.submodule {
-    options = {
-      "name" = mkOption {
-        description = "Name defines the name of the Workload object this Pod belongs to.\nWorkload must be in the same namespace as the Pod.\nIf it doesn't match any existing Workload, the Pod will remain unschedulable\nuntil a Workload object is created and observed by the kube-scheduler.\nIt must be a DNS subdomain.";
-        type = types.str;
-      };
-      "podGroup" = mkOption {
-        description = "PodGroup is the name of the PodGroup within the Workload that this Pod\nbelongs to. If it doesn't match any existing PodGroup within the Workload,\nthe Pod will remain unschedulable until the Workload object is recreated\nand observed by the kube-scheduler. It must be a DNS label.";
-        type = types.str;
-      };
-      "podGroupReplicaKey" = mkOption {
-        description = "PodGroupReplicaKey specifies the replica key of the PodGroup to which this\nPod belongs. It is used to distinguish pods belonging to different replicas\nof the same pod group. The pod group policy is applied separately to each replica.\nWhen set, it must be a DNS label.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-    };
-  };
-  mkTemplateSpecWorkloadRef =
-    res:
-    {
-      inherit (res) "name";
-      inherit (res) "podGroup";
-    }
-    // optionalAttrs (res."podGroupReplicaKey" != null) { inherit (res) "podGroupReplicaKey"; }
-    // {
-    };
   PoolersModule = types.submodule (
     { name, ... }:
     {
@@ -11694,7 +11211,7 @@ let
           default = 1;
         };
         "monitoring" = mkOption {
-          description = "The configuration of the monitoring infrastructure of this pooler.\n\nDeprecated: This feature will be removed in an upcoming release. If\nyou need this functionality, you can create a PodMonitor manually.";
+          description = "The configuration of the monitoring infrastructure of this pooler.";
           type = (types.nullOr MonitoringModule);
           default = null;
         };

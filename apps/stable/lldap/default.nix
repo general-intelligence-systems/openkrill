@@ -149,7 +149,7 @@ in
     };
 
     # ── ArgoCD Application CR ────────────────────────────────────────
-    openkrill.apps.argocd.applications.lldap = {
+    openkrill.apps.argo-cd.applications.lldap = {
       namespace = "argocd";
       project = "default";
       source = {

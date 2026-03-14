@@ -74,7 +74,7 @@ in
         }];
       };
 
-    openkrill.apps.argocd.applications.metacontroller = {
+    openkrill.apps.argo-cd.applications.metacontroller = {
       namespace = "argocd";
       project = "default";
       source = {

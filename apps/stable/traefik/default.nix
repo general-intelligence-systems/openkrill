@@ -641,7 +641,7 @@ in
       };
     };
 
-    openkrill.apps.argocd.applications.traefik = {
+    openkrill.apps.argo-cd.applications.traefik = {
       namespace = "argocd";
       project = "default";
       source = {

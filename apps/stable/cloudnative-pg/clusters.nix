@@ -445,7 +445,7 @@ let
   AffinityAdditionalPodAntiAffinityModule = types.submodule {
     options = {
       "preferredDuringSchedulingIgnoredDuringExecution" = mkOption {
-        description = "The scheduler will prefer to schedule pods to nodes that satisfy\nthe anti-affinity expressions specified by this field, but it may choose\na node that violates one or more of the expressions. The node that is\nmost preferred is the one with the greatest sum of weights, i.e.\nfor each node that meets all of the scheduling requirements (resource\nrequest, requiredDuringScheduling anti-affinity expressions, etc.),\ncompute a sum by iterating through the elements of this field and subtracting\n\"weight\" from the sum if the node has pods which matches the corresponding podAffinityTerm; the\nnode(s) with the highest sum are the most preferred.";
+        description = "The scheduler will prefer to schedule pods to nodes that satisfy\nthe anti-affinity expressions specified by this field, but it may choose\na node that violates one or more of the expressions. The node that is\nmost preferred is the one with the greatest sum of weights, i.e.\nfor each node that meets all of the scheduling requirements (resource\nrequest, requiredDuringScheduling anti-affinity expressions, etc.),\ncompute a sum by iterating through the elements of this field and adding\n\"weight\" to the sum if the node has pods which matches the corresponding podAffinityTerm; the\nnode(s) with the highest sum are the most preferred.";
         type = (
           types.listOf AffinityAdditionalPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecutionModule
         );
@@ -1224,7 +1224,7 @@ let
         default = null;
       };
       "operator" = mkOption {
-        description = "Operator represents a key's relationship to the value.\nValid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.\nLt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).";
+        description = "Operator represents a key's relationship to the value.\nValid operators are Exists and Equal. Defaults to Equal.\nExists is equivalent to wildcard for value, so that a pod can\ntolerate all taints of a particular category.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -1302,11 +1302,6 @@ let
         type = (types.nullOr BackupBarmanObjectStoreAzureCredentialsStorageSasTokenModule);
         default = null;
       };
-      "useDefaultAzureCredentials" = mkOption {
-        description = "Use the default Azure authentication flow, which includes DefaultAzureCredential.\nThis allows authentication using environment variables and managed identities.";
-        type = types.bool;
-        default = false;
-      };
     };
   };
   mkBackupBarmanObjectStoreAzureCredentials =
@@ -1336,9 +1331,6 @@ let
     // optionalAttrs (res."storageSasToken" != null) {
       "storageSasToken" = mkBackupBarmanObjectStoreAzureCredentialsStorageSasToken res."storageSasToken";
     }
-    // {
-    }
-    // optionalAttrs res."useDefaultAzureCredentials" { inherit (res) "useDefaultAzureCredentials"; }
     // {
     };
   BackupBarmanObjectStoreAzureCredentialsStorageAccountModule = types.submodule {
@@ -1970,27 +1962,12 @@ let
         type = (types.listOf types.str);
       };
       "pgDumpExtraOptions" = mkOption {
-        description = "List of custom options to pass to the `pg_dump` command.\n\nIMPORTANT: Use with caution. The operator does not validate these options,\nand certain flags may interfere with its intended functionality or design.\nYou are responsible for ensuring that the provided options are compatible\nwith your environment and desired behavior.";
-        type = (types.listOf types.str);
-        default = [ ];
-      };
-      "pgRestoreDataOptions" = mkOption {
-        description = "Custom options to pass to the `pg_restore` command during the `data`\nsection. This setting overrides the generic `pgRestoreExtraOptions` value.\n\nIMPORTANT: Use with caution. The operator does not validate these options,\nand certain flags may interfere with its intended functionality or design.\nYou are responsible for ensuring that the provided options are compatible\nwith your environment and desired behavior.";
+        description = "List of custom options to pass to the `pg_dump` command. IMPORTANT:\nUse these options with caution and at your own risk, as the operator\ndoes not validate their content. Be aware that certain options may\nconflict with the operator's intended functionality or design.";
         type = (types.listOf types.str);
         default = [ ];
       };
       "pgRestoreExtraOptions" = mkOption {
-        description = "List of custom options to pass to the `pg_restore` command.\n\nIMPORTANT: Use with caution. The operator does not validate these options,\nand certain flags may interfere with its intended functionality or design.\nYou are responsible for ensuring that the provided options are compatible\nwith your environment and desired behavior.";
-        type = (types.listOf types.str);
-        default = [ ];
-      };
-      "pgRestorePostdataOptions" = mkOption {
-        description = "Custom options to pass to the `pg_restore` command during the `post-data`\nsection. This setting overrides the generic `pgRestoreExtraOptions` value.\n\nIMPORTANT: Use with caution. The operator does not validate these options,\nand certain flags may interfere with its intended functionality or design.\nYou are responsible for ensuring that the provided options are compatible\nwith your environment and desired behavior.";
-        type = (types.listOf types.str);
-        default = [ ];
-      };
-      "pgRestorePredataOptions" = mkOption {
-        description = "Custom options to pass to the `pg_restore` command during the `pre-data`\nsection. This setting overrides the generic `pgRestoreExtraOptions` value.\n\nIMPORTANT: Use with caution. The operator does not validate these options,\nand certain flags may interfere with its intended functionality or design.\nYou are responsible for ensuring that the provided options are compatible\nwith your environment and desired behavior.";
+        description = "List of custom options to pass to the `pg_restore` command. IMPORTANT:\nUse these options with caution and at your own risk, as the operator\ndoes not validate their content. Be aware that certain options may\nconflict with the operator's intended functionality or design.";
         type = (types.listOf types.str);
         default = [ ];
       };
@@ -2032,18 +2009,7 @@ let
     // optionalAttrs (res."pgDumpExtraOptions" != [ ]) { inherit (res) "pgDumpExtraOptions"; }
     // {
     }
-    // optionalAttrs (res."pgRestoreDataOptions" != [ ]) { inherit (res) "pgRestoreDataOptions"; }
-    // {
-    }
     // optionalAttrs (res."pgRestoreExtraOptions" != [ ]) { inherit (res) "pgRestoreExtraOptions"; }
-    // {
-    }
-    // optionalAttrs (res."pgRestorePostdataOptions" != [ ]) {
-      inherit (res) "pgRestorePostdataOptions";
-    }
-    // {
-    }
-    // optionalAttrs (res."pgRestorePredataOptions" != [ ]) { inherit (res) "pgRestorePredataOptions"; }
     // {
     }
     // optionalAttrs (res."postImportApplicationSQL" != [ ]) {
@@ -2128,7 +2094,7 @@ let
         default = null;
       };
       "options" = mkOption {
-        description = "The list of options that must be passed to initdb when creating the cluster.\n\nDeprecated: This could lead to inconsistent configurations,\nplease use the explicit provided parameters instead.\nIf defined, explicit values will be ignored.";
+        description = "The list of options that must be passed to initdb when creating the cluster.\nDeprecated: This could lead to inconsistent configurations,\nplease use the explicit provided parameters instead.\nIf defined, explicit values will be ignored.";
         type = (types.listOf types.str);
         default = [ ];
       };
@@ -2667,7 +2633,7 @@ let
         default = null;
       };
       "targetTime" = mkOption {
-        description = "The target time as a timestamp in RFC3339 format or PostgreSQL timestamp format.\nTimestamps without an explicit timezone are interpreted as UTC.";
+        description = "The target time as a timestamp in the RFC3339 standard";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -2880,7 +2846,7 @@ let
         default = null;
       };
       "prefix" = mkOption {
-        description = "Optional text to prepend to the name of each environment variable.\nMay consist of any printable ASCII characters except '='.";
+        description = "Optional text to prepend to the name of each environment variable. Must be a C_IDENTIFIER.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -2933,7 +2899,7 @@ let
   EnvModule = types.submodule {
     options = {
       "name" = mkOption {
-        description = "Name of the environment variable.\nMay consist of any printable ASCII characters except '='.";
+        description = "Name of the environment variable. Must be a C_IDENTIFIER.";
         type = types.str;
       };
       "value" = mkOption {
@@ -3009,37 +2975,6 @@ let
     // {
       inherit (res) "fieldPath";
     };
-  EnvValueFromFileKeyRefModule = types.submodule {
-    options = {
-      "key" = mkOption {
-        description = "The key within the env file. An invalid key will prevent the pod from starting.\nThe keys defined within a source may consist of any printable ASCII characters except '='.\nDuring Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.";
-        type = types.str;
-      };
-      "optional" = mkOption {
-        description = "Specify whether the file or its key must be defined. If the file or key\ndoes not exist, then the env var is not published.\nIf optional is set to true and the specified key does not exist,\nthe environment variable will not be set in the Pod's containers.\n\nIf optional is set to false and the specified key does not exist,\nan error will be returned during Pod creation.";
-        type = types.bool;
-        default = false;
-      };
-      "path" = mkOption {
-        description = "The path within the volume from which to select the file.\nMust be relative and may not contain the '..' path or start with '..'.";
-        type = types.str;
-      };
-      "volumeName" = mkOption {
-        description = "The name of the volume mount containing the env file.";
-        type = types.str;
-      };
-    };
-  };
-  mkEnvValueFromFileKeyRef =
-    res:
-    {
-      inherit (res) "key";
-    }
-    // optionalAttrs res."optional" { inherit (res) "optional"; }
-    // {
-      inherit (res) "path";
-      inherit (res) "volumeName";
-    };
   EnvValueFromModule = types.submodule {
     options = {
       "configMapKeyRef" = mkOption {
@@ -3050,11 +2985,6 @@ let
       "fieldRef" = mkOption {
         description = "Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,\nspec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.";
         type = (types.nullOr EnvValueFromFieldRefModule);
-        default = null;
-      };
-      "fileKeyRef" = mkOption {
-        description = "FileKeyRef selects a key of the env file.\nRequires the EnvFiles feature gate to be enabled.";
-        type = (types.nullOr EnvValueFromFileKeyRefModule);
         default = null;
       };
       "resourceFieldRef" = mkOption {
@@ -3079,11 +3009,6 @@ let
     // {
     }
     // optionalAttrs (res."fieldRef" != null) { "fieldRef" = mkEnvValueFromFieldRef res."fieldRef"; }
-    // {
-    }
-    // optionalAttrs (res."fileKeyRef" != null) {
-      "fileKeyRef" = mkEnvValueFromFileKeyRef res."fileKeyRef";
-    }
     // {
     }
     // optionalAttrs (res."resourceFieldRef" != null) {
@@ -3271,7 +3196,7 @@ let
         default = null;
       };
       "resources" = mkOption {
-        description = "resources represents the minimum resources the volume should have.\nUsers are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
+        description = "resources represents the minimum resources the volume should have.\nIf RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
         type = (types.nullOr EphemeralVolumeSourceVolumeClaimTemplateSpecResourcesModule);
         default = null;
       };
@@ -3286,7 +3211,7 @@ let
         default = null;
       };
       "volumeAttributesClassName" = mkOption {
-        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string or nil value indicates that no\nVolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,\nthis field can be reset to its previous value (including nil) to cancel the modification.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/";
+        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string value means that no VolumeAttributesClass\nwill be applied to the claim but it's not allowed to reset this field to empty string once it is set.\nIf unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass\nwill be set by the persistentvolume controller if it exists.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/\n(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -3488,11 +3413,6 @@ let
         type = (types.nullOr ExternalClusterBarmanObjectStoreAzureCredentialsStorageSasTokenModule);
         default = null;
       };
-      "useDefaultAzureCredentials" = mkOption {
-        description = "Use the default Azure authentication flow, which includes DefaultAzureCredential.\nThis allows authentication using environment variables and managed identities.";
-        type = types.bool;
-        default = false;
-      };
     };
   };
   mkExternalClusterBarmanObjectStoreAzureCredentials =
@@ -3526,9 +3446,6 @@ let
         mkExternalClusterBarmanObjectStoreAzureCredentialsStorageSasToken
           res."storageSasToken";
     }
-    // {
-    }
-    // optionalAttrs res."useDefaultAzureCredentials" { inherit (res) "useDefaultAzureCredentials"; }
     // {
     };
   ExternalClusterBarmanObjectStoreAzureCredentialsStorageAccountModule = types.submodule {
@@ -4107,7 +4024,7 @@ let
         default = true;
       };
       "isWALArchiver" = mkOption {
-        description = "Marks the plugin as the WAL archiver. At most one plugin can be\ndesignated as a WAL archiver. This cannot be enabled if the\n`.spec.backup.barmanObjectStore` configuration is present.";
+        description = "Only one plugin can be declared as WALArchiver.\nCannot be active if \".spec.backup.barmanObjectStore\" configuration is present.";
         type = types.bool;
         default = false;
       };
@@ -4908,22 +4825,17 @@ let
         default = false;
       };
       "enablePodMonitor" = mkOption {
-        description = "Enable or disable the `PodMonitor`\n\nDeprecated: This feature will be removed in an upcoming release. If\nyou need this functionality, you can create a PodMonitor manually.";
+        description = "Enable or disable the `PodMonitor`";
         type = types.bool;
         default = false;
       };
-      "metricsQueriesTTL" = mkOption {
-        description = "The interval during which metrics computed from queries are considered current.\nOnce it is exceeded, a new scrape will trigger a rerun\nof the queries.\nIf not set, defaults to 30 seconds, in line with Prometheus scraping defaults.\nSetting this to zero disables the caching mechanism and can cause heavy load on the PostgreSQL server.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
       "podMonitorMetricRelabelings" = mkOption {
-        description = "The list of metric relabelings for the `PodMonitor`. Applied to samples before ingestion.\n\nDeprecated: This feature will be removed in an upcoming release. If\nyou need this functionality, you can create a PodMonitor manually.";
+        description = "The list of metric relabelings for the `PodMonitor`. Applied to samples before ingestion.";
         type = (types.listOf MonitoringPodMonitorMetricRelabelingModule);
         default = [ ];
       };
       "podMonitorRelabelings" = mkOption {
-        description = "The list of relabelings for the `PodMonitor`. Applied to samples before scraping.\n\nDeprecated: This feature will be removed in an upcoming release. If\nyou need this functionality, you can create a PodMonitor manually.";
+        description = "The list of relabelings for the `PodMonitor`. Applied to samples before scraping.";
         type = (types.listOf MonitoringPodMonitorRelabelingModule);
         default = [ ];
       };
@@ -4954,9 +4866,6 @@ let
     // optionalAttrs res."enablePodMonitor" { inherit (res) "enablePodMonitor"; }
     // {
     }
-    // optionalAttrs (res."metricsQueriesTTL" != null) { inherit (res) "metricsQueriesTTL"; }
-    // {
-    }
     // optionalAttrs (res."podMonitorMetricRelabelings" != [ ]) {
       "podMonitorMetricRelabelings" =
         map mkMonitoringPodMonitorMetricRelabeling
@@ -4975,7 +4884,7 @@ let
   MonitoringPodMonitorMetricRelabelingModule = types.submodule {
     options = {
       "action" = mkOption {
-        description = "action to perform based on the regex matching.\n\n`Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0.\n`DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.\n\nDefault: \"Replace\"";
+        description = "Action to perform based on the regex matching.\n\n`Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0.\n`DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.\n\nDefault: \"Replace\"";
         type = (
           types.nullOr (
             types.enum [
@@ -5007,32 +4916,32 @@ let
         default = "replace";
       };
       "modulus" = mkOption {
-        description = "modulus to take of the hash of the source label values.\n\nOnly applicable when the action is `HashMod`.";
+        description = "Modulus to take of the hash of the source label values.\n\nOnly applicable when the action is `HashMod`.";
         type = (types.nullOr types.int);
         default = null;
       };
       "regex" = mkOption {
-        description = "regex defines the regular expression against which the extracted value is matched.";
+        description = "Regular expression against which the extracted value is matched.";
         type = (types.nullOr types.str);
         default = null;
       };
       "replacement" = mkOption {
-        description = "replacement value against which a Replace action is performed if the\nregular expression matches.\n\nRegex capture groups are available.";
+        description = "Replacement value against which a Replace action is performed if the\nregular expression matches.\n\nRegex capture groups are available.";
         type = (types.nullOr types.str);
         default = null;
       };
       "separator" = mkOption {
-        description = "separator defines the string between concatenated SourceLabels.";
+        description = "Separator is the string between concatenated SourceLabels.";
         type = (types.nullOr types.str);
         default = null;
       };
       "sourceLabels" = mkOption {
-        description = "sourceLabels defines the source labels select values from existing labels. Their content is\nconcatenated using the configured Separator and matched against the\nconfigured regular expression.";
+        description = "The source labels select values from existing labels. Their content is\nconcatenated using the configured Separator and matched against the\nconfigured regular expression.";
         type = (types.listOf types.str);
         default = [ ];
       };
       "targetLabel" = mkOption {
-        description = "targetLabel defines the label to which the resulting string is written in a replacement.\n\nIt is mandatory for `Replace`, `HashMod`, `Lowercase`, `Uppercase`,\n`KeepEqual` and `DropEqual` actions.\n\nRegex capture groups are available.";
+        description = "Label to which the resulting string is written in a replacement.\n\nIt is mandatory for `Replace`, `HashMod`, `Lowercase`, `Uppercase`,\n`KeepEqual` and `DropEqual` actions.\n\nRegex capture groups are available.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -5066,7 +4975,7 @@ let
   MonitoringPodMonitorRelabelingModule = types.submodule {
     options = {
       "action" = mkOption {
-        description = "action to perform based on the regex matching.\n\n`Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0.\n`DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.\n\nDefault: \"Replace\"";
+        description = "Action to perform based on the regex matching.\n\n`Uppercase` and `Lowercase` actions require Prometheus >= v2.36.0.\n`DropEqual` and `KeepEqual` actions require Prometheus >= v2.41.0.\n\nDefault: \"Replace\"";
         type = (
           types.nullOr (
             types.enum [
@@ -5098,32 +5007,32 @@ let
         default = "replace";
       };
       "modulus" = mkOption {
-        description = "modulus to take of the hash of the source label values.\n\nOnly applicable when the action is `HashMod`.";
+        description = "Modulus to take of the hash of the source label values.\n\nOnly applicable when the action is `HashMod`.";
         type = (types.nullOr types.int);
         default = null;
       };
       "regex" = mkOption {
-        description = "regex defines the regular expression against which the extracted value is matched.";
+        description = "Regular expression against which the extracted value is matched.";
         type = (types.nullOr types.str);
         default = null;
       };
       "replacement" = mkOption {
-        description = "replacement value against which a Replace action is performed if the\nregular expression matches.\n\nRegex capture groups are available.";
+        description = "Replacement value against which a Replace action is performed if the\nregular expression matches.\n\nRegex capture groups are available.";
         type = (types.nullOr types.str);
         default = null;
       };
       "separator" = mkOption {
-        description = "separator defines the string between concatenated SourceLabels.";
+        description = "Separator is the string between concatenated SourceLabels.";
         type = (types.nullOr types.str);
         default = null;
       };
       "sourceLabels" = mkOption {
-        description = "sourceLabels defines the source labels select values from existing labels. Their content is\nconcatenated using the configured Separator and matched against the\nconfigured regular expression.";
+        description = "The source labels select values from existing labels. Their content is\nconcatenated using the configured Separator and matched against the\nconfigured regular expression.";
         type = (types.listOf types.str);
         default = [ ];
       };
       "targetLabel" = mkOption {
-        description = "targetLabel defines the label to which the resulting string is written in a replacement.\n\nIt is mandatory for `Replace`, `HashMod`, `Lowercase`, `Uppercase`,\n`KeepEqual` and `DropEqual` actions.\n\nRegex capture groups are available.";
+        description = "Label to which the resulting string is written in a replacement.\n\nIt is mandatory for `Replace`, `HashMod`, `Lowercase`, `Uppercase`,\n`KeepEqual` and `DropEqual` actions.\n\nRegex capture groups are available.";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -5202,7 +5111,7 @@ let
         default = true;
       };
       "isWALArchiver" = mkOption {
-        description = "Marks the plugin as the WAL archiver. At most one plugin can be\ndesignated as a WAL archiver. This cannot be enabled if the\n`.spec.backup.barmanObjectStore` configuration is present.";
+        description = "Only one plugin can be declared as WALArchiver.\nCannot be active if \".spec.backup.barmanObjectStore\" configuration is present.";
         type = types.bool;
         default = false;
       };
@@ -5229,268 +5138,6 @@ let
       inherit (res) "name";
     }
     // optionalAttrs (res."parameters" != { }) { inherit (res) "parameters"; }
-    // {
-    };
-  PodSecurityContextAppArmorProfileModule = types.submodule {
-    options = {
-      "localhostProfile" = mkOption {
-        description = "localhostProfile indicates a profile loaded on the node that should be used.\nThe profile must be preconfigured on the node to work.\nMust match the loaded name of the profile.\nMust be set if and only if type is \"Localhost\".";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "type" = mkOption {
-        description = "type indicates which kind of AppArmor profile will be applied.\nValid options are:\n  Localhost - a profile pre-loaded on the node.\n  RuntimeDefault - the container runtime's default profile.\n  Unconfined - no AppArmor enforcement.";
-        type = types.str;
-      };
-    };
-  };
-  mkPodSecurityContextAppArmorProfile =
-    res:
-    {
-    }
-    // optionalAttrs (res."localhostProfile" != null) { inherit (res) "localhostProfile"; }
-    // {
-      inherit (res) "type";
-    };
-  PodSecurityContextModule = types.submodule {
-    options = {
-      "appArmorProfile" = mkOption {
-        description = "appArmorProfile is the AppArmor options to use by the containers in this pod.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr PodSecurityContextAppArmorProfileModule);
-        default = null;
-      };
-      "fsGroup" = mkOption {
-        description = "A special supplemental group that applies to all containers in a pod.\nSome volume types allow the Kubelet to change the ownership of that volume\nto be owned by the pod:\n\n1. The owning GID will be the FSGroup\n2. The setgid bit is set (new files created in the volume will be owned by FSGroup)\n3. The permission bits are OR'd with rw-rw----\n\nIf unset, the Kubelet will not modify the ownership and permissions of any volume.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr types.int);
-        default = null;
-      };
-      "fsGroupChangePolicy" = mkOption {
-        description = "fsGroupChangePolicy defines behavior of changing ownership and permission of the volume\nbefore being exposed inside Pod. This field will only apply to\nvolume types which support fsGroup based ownership(and permissions).\nIt will have no effect on ephemeral volume types such as: secret, configmaps\nand emptydir.\nValid values are \"OnRootMismatch\" and \"Always\". If not specified, \"Always\" is used.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "runAsGroup" = mkOption {
-        description = "The GID to run the entrypoint of the container process.\nUses runtime default if unset.\nMay also be set in SecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence\nfor that container.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr types.int);
-        default = null;
-      };
-      "runAsNonRoot" = mkOption {
-        description = "Indicates that the container must run as a non-root user.\nIf true, the Kubelet will validate the image at runtime to ensure that it\ndoes not run as UID 0 (root) and fail to start the container if it does.\nIf unset or false, no such validation will be performed.\nMay also be set in SecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.";
-        type = types.bool;
-        default = false;
-      };
-      "runAsUser" = mkOption {
-        description = "The UID to run the entrypoint of the container process.\nDefaults to user specified in image metadata if unspecified.\nMay also be set in SecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence\nfor that container.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr types.int);
-        default = null;
-      };
-      "seLinuxChangePolicy" = mkOption {
-        description = "seLinuxChangePolicy defines how the container's SELinux label is applied to all volumes used by the Pod.\nIt has no effect on nodes that do not support SELinux or to volumes does not support SELinux.\nValid values are \"MountOption\" and \"Recursive\".\n\n\"Recursive\" means relabeling of all files on all Pod volumes by the container runtime.\nThis may be slow for large volumes, but allows mixing privileged and unprivileged Pods sharing the same volume on the same node.\n\n\"MountOption\" mounts all eligible Pod volumes with `-o context` mount option.\nThis requires all Pods that share the same volume to use the same SELinux label.\nIt is not possible to share the same volume among privileged and unprivileged Pods.\nEligible volumes are in-tree FibreChannel and iSCSI volumes, and all CSI volumes\nwhose CSI driver announces SELinux support by setting spec.seLinuxMount: true in their\nCSIDriver instance. Other volumes are always re-labelled recursively.\n\"MountOption\" value is allowed only when SELinuxMount feature gate is enabled.\n\nIf not specified and SELinuxMount feature gate is enabled, \"MountOption\" is used.\nIf not specified and SELinuxMount feature gate is disabled, \"MountOption\" is used for ReadWriteOncePod volumes\nand \"Recursive\" for all other volumes.\n\nThis field affects only Pods that have SELinux label set, either in PodSecurityContext or in SecurityContext of all containers.\n\nAll Pods that use the same volume should use the same seLinuxChangePolicy, otherwise some pods can get stuck in ContainerCreating state.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "seLinuxOptions" = mkOption {
-        description = "The SELinux context to be applied to all containers.\nIf unspecified, the container runtime will allocate a random SELinux context for each\ncontainer.  May also be set in SecurityContext.  If set in\nboth SecurityContext and PodSecurityContext, the value specified in SecurityContext\ntakes precedence for that container.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr PodSecurityContextSeLinuxOptionsModule);
-        default = null;
-      };
-      "seccompProfile" = mkOption {
-        description = "The seccomp options to use by the containers in this pod.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr PodSecurityContextSeccompProfileModule);
-        default = null;
-      };
-      "supplementalGroups" = mkOption {
-        description = "A list of groups applied to the first process run in each container, in\naddition to the container's primary GID and fsGroup (if specified).  If\nthe SupplementalGroupsPolicy feature is enabled, the\nsupplementalGroupsPolicy field determines whether these are in addition\nto or instead of any group memberships defined in the container image.\nIf unspecified, no additional groups are added, though group memberships\ndefined in the container image may still be used, depending on the\nsupplementalGroupsPolicy field.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.listOf types.int);
-        default = [ ];
-      };
-      "supplementalGroupsPolicy" = mkOption {
-        description = "Defines how supplemental groups of the first container processes are calculated.\nValid values are \"Merge\" and \"Strict\". If not specified, \"Merge\" is used.\n(Alpha) Using the field requires the SupplementalGroupsPolicy feature gate to be enabled\nand the container runtime must implement support for this feature.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "sysctls" = mkOption {
-        description = "Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported\nsysctls (by the container runtime) might fail to launch.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.listOf PodSecurityContextSysctlModule);
-        default = [ ];
-      };
-      "windowsOptions" = mkOption {
-        description = "The Windows specific settings applied to all containers.\nIf unspecified, the options within a container's SecurityContext will be used.\nIf set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is linux.";
-        type = (types.nullOr PodSecurityContextWindowsOptionsModule);
-        default = null;
-      };
-    };
-  };
-  mkPodSecurityContext =
-    res:
-    {
-    }
-    // optionalAttrs (res."appArmorProfile" != null) {
-      "appArmorProfile" = mkPodSecurityContextAppArmorProfile res."appArmorProfile";
-    }
-    // {
-    }
-    // optionalAttrs (res."fsGroup" != null) { inherit (res) "fsGroup"; }
-    // {
-    }
-    // optionalAttrs (res."fsGroupChangePolicy" != null) { inherit (res) "fsGroupChangePolicy"; }
-    // {
-    }
-    // optionalAttrs (res."runAsGroup" != null) { inherit (res) "runAsGroup"; }
-    // {
-    }
-    // optionalAttrs res."runAsNonRoot" { inherit (res) "runAsNonRoot"; }
-    // {
-    }
-    // optionalAttrs (res."runAsUser" != null) { inherit (res) "runAsUser"; }
-    // {
-    }
-    // optionalAttrs (res."seLinuxChangePolicy" != null) { inherit (res) "seLinuxChangePolicy"; }
-    // {
-    }
-    // optionalAttrs (res."seLinuxOptions" != null) {
-      "seLinuxOptions" = mkPodSecurityContextSeLinuxOptions res."seLinuxOptions";
-    }
-    // {
-    }
-    // optionalAttrs (res."seccompProfile" != null) {
-      "seccompProfile" = mkPodSecurityContextSeccompProfile res."seccompProfile";
-    }
-    // {
-    }
-    // optionalAttrs (res."supplementalGroups" != [ ]) { inherit (res) "supplementalGroups"; }
-    // {
-    }
-    // optionalAttrs (res."supplementalGroupsPolicy" != null) {
-      inherit (res) "supplementalGroupsPolicy";
-    }
-    // {
-    }
-    // optionalAttrs (res."sysctls" != [ ]) {
-      "sysctls" = map mkPodSecurityContextSysctl res."sysctls";
-    }
-    // {
-    }
-    // optionalAttrs (res."windowsOptions" != null) {
-      "windowsOptions" = mkPodSecurityContextWindowsOptions res."windowsOptions";
-    }
-    // {
-    };
-  PodSecurityContextSeLinuxOptionsModule = types.submodule {
-    options = {
-      "level" = mkOption {
-        description = "Level is SELinux level label that applies to the container.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "role" = mkOption {
-        description = "Role is a SELinux role label that applies to the container.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "type" = mkOption {
-        description = "Type is a SELinux type label that applies to the container.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "user" = mkOption {
-        description = "User is a SELinux user label that applies to the container.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-    };
-  };
-  mkPodSecurityContextSeLinuxOptions =
-    res:
-    {
-    }
-    // optionalAttrs (res."level" != null) { inherit (res) "level"; }
-    // {
-    }
-    // optionalAttrs (res."role" != null) { inherit (res) "role"; }
-    // {
-    }
-    // optionalAttrs (res."type" != null) { inherit (res) "type"; }
-    // {
-    }
-    // optionalAttrs (res."user" != null) { inherit (res) "user"; }
-    // {
-    };
-  PodSecurityContextSeccompProfileModule = types.submodule {
-    options = {
-      "localhostProfile" = mkOption {
-        description = "localhostProfile indicates a profile defined in a file on the node should be used.\nThe profile must be preconfigured on the node to work.\nMust be a descending path, relative to the kubelet's configured seccomp profile location.\nMust be set if type is \"Localhost\". Must NOT be set for any other type.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "type" = mkOption {
-        description = "type indicates which kind of seccomp profile will be applied.\nValid options are:\n\nLocalhost - a profile defined in a file on the node should be used.\nRuntimeDefault - the container runtime default profile should be used.\nUnconfined - no profile should be applied.";
-        type = types.str;
-      };
-    };
-  };
-  mkPodSecurityContextSeccompProfile =
-    res:
-    {
-    }
-    // optionalAttrs (res."localhostProfile" != null) { inherit (res) "localhostProfile"; }
-    // {
-      inherit (res) "type";
-    };
-  PodSecurityContextSysctlModule = types.submodule {
-    options = {
-      "name" = mkOption {
-        description = "Name of a property to set";
-        type = types.str;
-      };
-      "value" = mkOption {
-        description = "Value of a property to set";
-        type = types.str;
-      };
-    };
-  };
-  mkPodSecurityContextSysctl = res: {
-    inherit (res) "name";
-    inherit (res) "value";
-  };
-  PodSecurityContextWindowsOptionsModule = types.submodule {
-    options = {
-      "gmsaCredentialSpec" = mkOption {
-        description = "GMSACredentialSpec is where the GMSA admission webhook\n(https://github.com/kubernetes-sigs/windows-gmsa) inlines the contents of the\nGMSA credential spec named by the GMSACredentialSpecName field.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "gmsaCredentialSpecName" = mkOption {
-        description = "GMSACredentialSpecName is the name of the GMSA credential spec to use.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "hostProcess" = mkOption {
-        description = "HostProcess determines if a container should be run as a 'Host Process' container.\nAll of a Pod's containers must have the same effective HostProcess value\n(it is not allowed to have a mix of HostProcess containers and non-HostProcess containers).\nIn addition, if HostProcess is true then HostNetwork must also be set to true.";
-        type = types.bool;
-        default = false;
-      };
-      "runAsUserName" = mkOption {
-        description = "The UserName in Windows to run the entrypoint of the container process.\nDefaults to the user specified in image metadata if unspecified.\nMay also be set in PodSecurityContext. If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-    };
-  };
-  mkPodSecurityContextWindowsOptions =
-    res:
-    {
-    }
-    // optionalAttrs (res."gmsaCredentialSpec" != null) { inherit (res) "gmsaCredentialSpec"; }
-    // {
-    }
-    // optionalAttrs (res."gmsaCredentialSpecName" != null) { inherit (res) "gmsaCredentialSpecName"; }
-    // {
-    }
-    // optionalAttrs res."hostProcess" { inherit (res) "hostProcess"; }
-    // {
-    }
-    // optionalAttrs (res."runAsUserName" != null) { inherit (res) "runAsUserName"; }
     // {
     };
   PostgresqlExtensionImageModule = types.submodule {
@@ -5862,11 +5509,6 @@ let
         );
         default = null;
       };
-      "failoverQuorum" = mkOption {
-        description = "FailoverQuorum enables a quorum-based check before failover, improving\ndata durability and safety during failover events in CloudNativePG-managed\nPostgreSQL clusters.";
-        type = types.bool;
-        default = false;
-      };
       "maxStandbyNamesFromCluster" = mkOption {
         description = "Specifies the maximum number of local cluster pods that can be\nautomatically included in the `synchronous_standby_names` option in\nPostgreSQL.";
         type = (types.nullOr types.int);
@@ -5902,9 +5544,6 @@ let
     {
     }
     // optionalAttrs (res."dataDurability" != null) { inherit (res) "dataDurability"; }
-    // {
-    }
-    // optionalAttrs res."failoverQuorum" { inherit (res) "failoverQuorum"; }
     // {
     }
     // optionalAttrs (res."maxStandbyNamesFromCluster" != null) {
@@ -6537,11 +6176,6 @@ let
         type = (types.nullOr ProjectedVolumeTemplateSourceDownwardAPIModule);
         default = null;
       };
-      "podCertificate" = mkOption {
-        description = "Projects an auto-rotating credential bundle (private key and certificate\nchain) that the pod can use either as a TLS client or server.\n\nKubelet generates a private key and uses it to send a\nPodCertificateRequest to the named signer.  Once the signer approves the\nrequest and issues a certificate chain, Kubelet writes the key and\ncertificate chain to the pod filesystem.  The pod does not start until\ncertificates have been issued for each podCertificate projected volume\nsource in its spec.\n\nKubelet will begin trying to rotate the certificate at the time indicated\nby the signer using the PodCertificateRequest.Status.BeginRefreshAt\ntimestamp.\n\nKubelet can write a single file, indicated by the credentialBundlePath\nfield, or separate files, indicated by the keyPath and\ncertificateChainPath fields.\n\nThe credential bundle is a single file in PEM format.  The first PEM\nentry is the private key (in PKCS#8 format), and the remaining PEM\nentries are the certificate chain issued by the signer (typically,\nsigners will return their certificate chain in leaf-to-root order).\n\nPrefer using the credential bundle format, since your application code\ncan read it atomically.  If you use keyPath and certificateChainPath,\nyour application must make two separate file reads. If these coincide\nwith a certificate rotation, it is possible that the private key and leaf\ncertificate you read may not correspond to each other.  Your application\nwill need to check for this condition, and re-read until they are\nconsistent.\n\nThe named signer controls chooses the format of the certificate it\nissues; consult the signer implementation's documentation to learn how to\nuse the certificates it issues.";
-        type = (types.nullOr ProjectedVolumeTemplateSourcePodCertificateModule);
-        default = null;
-      };
       "secret" = mkOption {
         description = "secret information about the secret data to project";
         type = (types.nullOr ProjectedVolumeTemplateSourceSecretModule);
@@ -6573,11 +6207,6 @@ let
     }
     // {
     }
-    // optionalAttrs (res."podCertificate" != null) {
-      "podCertificate" = mkProjectedVolumeTemplateSourcePodCertificate res."podCertificate";
-    }
-    // {
-    }
     // optionalAttrs (res."secret" != null) {
       "secret" = mkProjectedVolumeTemplateSourceSecret res."secret";
     }
@@ -6588,64 +6217,6 @@ let
         mkProjectedVolumeTemplateSourceServiceAccountToken
           res."serviceAccountToken";
     }
-    // {
-    };
-  ProjectedVolumeTemplateSourcePodCertificateModule = types.submodule {
-    options = {
-      "certificateChainPath" = mkOption {
-        description = "Write the certificate chain at this path in the projected volume.\n\nMost applications should use credentialBundlePath.  When using keyPath\nand certificateChainPath, your application needs to check that the key\nand leaf certificate are consistent, because it is possible to read the\nfiles mid-rotation.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "credentialBundlePath" = mkOption {
-        description = "Write the credential bundle at this path in the projected volume.\n\nThe credential bundle is a single file that contains multiple PEM blocks.\nThe first PEM block is a PRIVATE KEY block, containing a PKCS#8 private\nkey.\n\nThe remaining blocks are CERTIFICATE blocks, containing the issued\ncertificate chain from the signer (leaf and any intermediates).\n\nUsing credentialBundlePath lets your Pod's application code make a single\natomic read that retrieves a consistent key and certificate chain.  If you\nproject them to separate files, your application code will need to\nadditionally check that the leaf certificate was issued to the key.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "keyPath" = mkOption {
-        description = "Write the key at this path in the projected volume.\n\nMost applications should use credentialBundlePath.  When using keyPath\nand certificateChainPath, your application needs to check that the key\nand leaf certificate are consistent, because it is possible to read the\nfiles mid-rotation.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "keyType" = mkOption {
-        description = "The type of keypair Kubelet will generate for the pod.\n\nValid values are \"RSA3072\", \"RSA4096\", \"ECDSAP256\", \"ECDSAP384\",\n\"ECDSAP521\", and \"ED25519\".";
-        type = types.str;
-      };
-      "maxExpirationSeconds" = mkOption {
-        description = "maxExpirationSeconds is the maximum lifetime permitted for the\ncertificate.\n\nKubelet copies this value verbatim into the PodCertificateRequests it\ngenerates for this projection.\n\nIf omitted, kube-apiserver will set it to 86400(24 hours). kube-apiserver\nwill reject values shorter than 3600 (1 hour).  The maximum allowable\nvalue is 7862400 (91 days).\n\nThe signer implementation is then free to issue a certificate with any\nlifetime *shorter* than MaxExpirationSeconds, but no shorter than 3600\nseconds (1 hour).  This constraint is enforced by kube-apiserver.\n`kubernetes.io` signers will never issue certificates with a lifetime\nlonger than 24 hours.";
-        type = (types.nullOr types.int);
-        default = null;
-      };
-      "signerName" = mkOption {
-        description = "Kubelet's generated CSRs will be addressed to this signer.";
-        type = types.str;
-      };
-      "userAnnotations" = mkOption {
-        description = "userAnnotations allow pod authors to pass additional information to\nthe signer implementation.  Kubernetes does not restrict or validate this\nmetadata in any way.\n\nThese values are copied verbatim into the `spec.unverifiedUserAnnotations` field of\nthe PodCertificateRequest objects that Kubelet creates.\n\nEntries are subject to the same validation as object metadata annotations,\nwith the addition that all keys must be domain-prefixed. No restrictions\nare placed on values, except an overall size limitation on the entire field.\n\nSigners should document the keys and values they support. Signers should\ndeny requests that contain keys they do not recognize.";
-        type = (types.attrsOf types.str);
-        default = { };
-      };
-    };
-  };
-  mkProjectedVolumeTemplateSourcePodCertificate =
-    res:
-    {
-    }
-    // optionalAttrs (res."certificateChainPath" != null) { inherit (res) "certificateChainPath"; }
-    // {
-    }
-    // optionalAttrs (res."credentialBundlePath" != null) { inherit (res) "credentialBundlePath"; }
-    // {
-    }
-    // optionalAttrs (res."keyPath" != null) { inherit (res) "keyPath"; }
-    // {
-      inherit (res) "keyType";
-    }
-    // optionalAttrs (res."maxExpirationSeconds" != null) { inherit (res) "maxExpirationSeconds"; }
-    // {
-      inherit (res) "signerName";
-    }
-    // optionalAttrs (res."userAnnotations" != { }) { inherit (res) "userAnnotations"; }
     // {
     };
   ProjectedVolumeTemplateSourceSecretItemModule = types.submodule {
@@ -6905,7 +6476,7 @@ let
   ResourcesModule = types.submodule {
     options = {
       "claims" = mkOption {
-        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis field depends on the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
+        description = "Claims lists the names of resources, defined in spec.resourceClaims,\nthat are used by this container.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.";
         type = (types.listOf ResourcesClaimModule);
         default = [ ];
       };
@@ -6954,266 +6525,6 @@ let
     // optionalAttrs (res."localhostProfile" != null) { inherit (res) "localhostProfile"; }
     // {
       inherit (res) "type";
-    };
-  SecurityContextAppArmorProfileModule = types.submodule {
-    options = {
-      "localhostProfile" = mkOption {
-        description = "localhostProfile indicates a profile loaded on the node that should be used.\nThe profile must be preconfigured on the node to work.\nMust match the loaded name of the profile.\nMust be set if and only if type is \"Localhost\".";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "type" = mkOption {
-        description = "type indicates which kind of AppArmor profile will be applied.\nValid options are:\n  Localhost - a profile pre-loaded on the node.\n  RuntimeDefault - the container runtime's default profile.\n  Unconfined - no AppArmor enforcement.";
-        type = types.str;
-      };
-    };
-  };
-  mkSecurityContextAppArmorProfile =
-    res:
-    {
-    }
-    // optionalAttrs (res."localhostProfile" != null) { inherit (res) "localhostProfile"; }
-    // {
-      inherit (res) "type";
-    };
-  SecurityContextCapabilitiesModule = types.submodule {
-    options = {
-      "add" = mkOption {
-        description = "Added capabilities";
-        type = (types.listOf types.str);
-        default = [ ];
-      };
-      "drop" = mkOption {
-        description = "Removed capabilities";
-        type = (types.listOf types.str);
-        default = [ ];
-      };
-    };
-  };
-  mkSecurityContextCapabilities =
-    res:
-    {
-    }
-    // optionalAttrs (res."add" != [ ]) { inherit (res) "add"; }
-    // {
-    }
-    // optionalAttrs (res."drop" != [ ]) { inherit (res) "drop"; }
-    // {
-    };
-  SecurityContextModule = types.submodule {
-    options = {
-      "allowPrivilegeEscalation" = mkOption {
-        description = "AllowPrivilegeEscalation controls whether a process can gain more\nprivileges than its parent process. This bool directly controls if\nthe no_new_privs flag will be set on the container process.\nAllowPrivilegeEscalation is true always when the container is:\n1) run as Privileged\n2) has CAP_SYS_ADMIN\nNote that this field cannot be set when spec.os.name is windows.";
-        type = types.bool;
-        default = false;
-      };
-      "appArmorProfile" = mkOption {
-        description = "appArmorProfile is the AppArmor options to use by this container. If set, this profile\noverrides the pod's appArmorProfile.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr SecurityContextAppArmorProfileModule);
-        default = null;
-      };
-      "capabilities" = mkOption {
-        description = "The capabilities to add/drop when running containers.\nDefaults to the default set of capabilities granted by the container runtime.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr SecurityContextCapabilitiesModule);
-        default = null;
-      };
-      "privileged" = mkOption {
-        description = "Run container in privileged mode.\nProcesses in privileged containers are essentially equivalent to root on the host.\nDefaults to false.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = types.bool;
-        default = false;
-      };
-      "procMount" = mkOption {
-        description = "procMount denotes the type of proc mount to use for the containers.\nThe default value is Default which uses the container runtime defaults for\nreadonly paths and masked paths.\nThis requires the ProcMountType feature flag to be enabled.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "readOnlyRootFilesystem" = mkOption {
-        description = "Whether this container has a read-only root filesystem.\nDefault is false.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = types.bool;
-        default = false;
-      };
-      "runAsGroup" = mkOption {
-        description = "The GID to run the entrypoint of the container process.\nUses runtime default if unset.\nMay also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr types.int);
-        default = null;
-      };
-      "runAsNonRoot" = mkOption {
-        description = "Indicates that the container must run as a non-root user.\nIf true, the Kubelet will validate the image at runtime to ensure that it\ndoes not run as UID 0 (root) and fail to start the container if it does.\nIf unset or false, no such validation will be performed.\nMay also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.";
-        type = types.bool;
-        default = false;
-      };
-      "runAsUser" = mkOption {
-        description = "The UID to run the entrypoint of the container process.\nDefaults to user specified in image metadata if unspecified.\nMay also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr types.int);
-        default = null;
-      };
-      "seLinuxOptions" = mkOption {
-        description = "The SELinux context to be applied to the container.\nIf unspecified, the container runtime will allocate a random SELinux context for each\ncontainer.  May also be set in PodSecurityContext.  If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr SecurityContextSeLinuxOptionsModule);
-        default = null;
-      };
-      "seccompProfile" = mkOption {
-        description = "The seccomp options to use by this container. If seccomp options are\nprovided at both the pod & container level, the container options\noverride the pod options.\nNote that this field cannot be set when spec.os.name is windows.";
-        type = (types.nullOr SecurityContextSeccompProfileModule);
-        default = null;
-      };
-      "windowsOptions" = mkOption {
-        description = "The Windows specific settings applied to all containers.\nIf unspecified, the options from the PodSecurityContext will be used.\nIf set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.\nNote that this field cannot be set when spec.os.name is linux.";
-        type = (types.nullOr SecurityContextWindowsOptionsModule);
-        default = null;
-      };
-    };
-  };
-  mkSecurityContext =
-    res:
-    {
-    }
-    // optionalAttrs res."allowPrivilegeEscalation" { inherit (res) "allowPrivilegeEscalation"; }
-    // {
-    }
-    // optionalAttrs (res."appArmorProfile" != null) {
-      "appArmorProfile" = mkSecurityContextAppArmorProfile res."appArmorProfile";
-    }
-    // {
-    }
-    // optionalAttrs (res."capabilities" != null) {
-      "capabilities" = mkSecurityContextCapabilities res."capabilities";
-    }
-    // {
-    }
-    // optionalAttrs res."privileged" { inherit (res) "privileged"; }
-    // {
-    }
-    // optionalAttrs (res."procMount" != null) { inherit (res) "procMount"; }
-    // {
-    }
-    // optionalAttrs res."readOnlyRootFilesystem" { inherit (res) "readOnlyRootFilesystem"; }
-    // {
-    }
-    // optionalAttrs (res."runAsGroup" != null) { inherit (res) "runAsGroup"; }
-    // {
-    }
-    // optionalAttrs res."runAsNonRoot" { inherit (res) "runAsNonRoot"; }
-    // {
-    }
-    // optionalAttrs (res."runAsUser" != null) { inherit (res) "runAsUser"; }
-    // {
-    }
-    // optionalAttrs (res."seLinuxOptions" != null) {
-      "seLinuxOptions" = mkSecurityContextSeLinuxOptions res."seLinuxOptions";
-    }
-    // {
-    }
-    // optionalAttrs (res."seccompProfile" != null) {
-      "seccompProfile" = mkSecurityContextSeccompProfile res."seccompProfile";
-    }
-    // {
-    }
-    // optionalAttrs (res."windowsOptions" != null) {
-      "windowsOptions" = mkSecurityContextWindowsOptions res."windowsOptions";
-    }
-    // {
-    };
-  SecurityContextSeLinuxOptionsModule = types.submodule {
-    options = {
-      "level" = mkOption {
-        description = "Level is SELinux level label that applies to the container.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "role" = mkOption {
-        description = "Role is a SELinux role label that applies to the container.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "type" = mkOption {
-        description = "Type is a SELinux type label that applies to the container.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "user" = mkOption {
-        description = "User is a SELinux user label that applies to the container.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-    };
-  };
-  mkSecurityContextSeLinuxOptions =
-    res:
-    {
-    }
-    // optionalAttrs (res."level" != null) { inherit (res) "level"; }
-    // {
-    }
-    // optionalAttrs (res."role" != null) { inherit (res) "role"; }
-    // {
-    }
-    // optionalAttrs (res."type" != null) { inherit (res) "type"; }
-    // {
-    }
-    // optionalAttrs (res."user" != null) { inherit (res) "user"; }
-    // {
-    };
-  SecurityContextSeccompProfileModule = types.submodule {
-    options = {
-      "localhostProfile" = mkOption {
-        description = "localhostProfile indicates a profile defined in a file on the node should be used.\nThe profile must be preconfigured on the node to work.\nMust be a descending path, relative to the kubelet's configured seccomp profile location.\nMust be set if type is \"Localhost\". Must NOT be set for any other type.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "type" = mkOption {
-        description = "type indicates which kind of seccomp profile will be applied.\nValid options are:\n\nLocalhost - a profile defined in a file on the node should be used.\nRuntimeDefault - the container runtime default profile should be used.\nUnconfined - no profile should be applied.";
-        type = types.str;
-      };
-    };
-  };
-  mkSecurityContextSeccompProfile =
-    res:
-    {
-    }
-    // optionalAttrs (res."localhostProfile" != null) { inherit (res) "localhostProfile"; }
-    // {
-      inherit (res) "type";
-    };
-  SecurityContextWindowsOptionsModule = types.submodule {
-    options = {
-      "gmsaCredentialSpec" = mkOption {
-        description = "GMSACredentialSpec is where the GMSA admission webhook\n(https://github.com/kubernetes-sigs/windows-gmsa) inlines the contents of the\nGMSA credential spec named by the GMSACredentialSpecName field.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "gmsaCredentialSpecName" = mkOption {
-        description = "GMSACredentialSpecName is the name of the GMSA credential spec to use.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "hostProcess" = mkOption {
-        description = "HostProcess determines if a container should be run as a 'Host Process' container.\nAll of a Pod's containers must have the same effective HostProcess value\n(it is not allowed to have a mix of HostProcess containers and non-HostProcess containers).\nIn addition, if HostProcess is true then HostNetwork must also be set to true.";
-        type = types.bool;
-        default = false;
-      };
-      "runAsUserName" = mkOption {
-        description = "The UserName in Windows to run the entrypoint of the container process.\nDefaults to the user specified in image metadata if unspecified.\nMay also be set in PodSecurityContext. If set in both SecurityContext and\nPodSecurityContext, the value specified in SecurityContext takes precedence.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-    };
-  };
-  mkSecurityContextWindowsOptions =
-    res:
-    {
-    }
-    // optionalAttrs (res."gmsaCredentialSpec" != null) { inherit (res) "gmsaCredentialSpec"; }
-    // {
-    }
-    // optionalAttrs (res."gmsaCredentialSpecName" != null) { inherit (res) "gmsaCredentialSpecName"; }
-    // {
-    }
-    // optionalAttrs res."hostProcess" { inherit (res) "hostProcess"; }
-    // {
-    }
-    // optionalAttrs (res."runAsUserName" != null) { inherit (res) "runAsUserName"; }
-    // {
     };
   ServiceAccountTemplateMetadataModule = types.submodule {
     options = {
@@ -7378,7 +6689,7 @@ let
         default = null;
       };
       "resources" = mkOption {
-        description = "resources represents the minimum resources the volume should have.\nUsers are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
+        description = "resources represents the minimum resources the volume should have.\nIf RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
         type = (types.nullOr StoragePvcTemplateResourcesModule);
         default = null;
       };
@@ -7393,7 +6704,7 @@ let
         default = null;
       };
       "volumeAttributesClassName" = mkOption {
-        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string or nil value indicates that no\nVolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,\nthis field can be reset to its previous value (including nil) to cancel the modification.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/";
+        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string value means that no VolumeAttributesClass\nwill be applied to the claim but it's not allowed to reset this field to empty string once it is set.\nIf unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass\nwill be set by the persistentvolume controller if it exists.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/\n(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -7706,7 +7017,7 @@ let
         default = null;
       };
       "resources" = mkOption {
-        description = "resources represents the minimum resources the volume should have.\nUsers are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
+        description = "resources represents the minimum resources the volume should have.\nIf RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
         type = (types.nullOr TablespaceStoragePvcTemplateResourcesModule);
         default = null;
       };
@@ -7721,7 +7032,7 @@ let
         default = null;
       };
       "volumeAttributesClassName" = mkOption {
-        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string or nil value indicates that no\nVolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,\nthis field can be reset to its previous value (including nil) to cancel the modification.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/";
+        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string value means that no VolumeAttributesClass\nwill be applied to the claim but it's not allowed to reset this field to empty string once it is set.\nIf unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass\nwill be set by the persistentvolume controller if it exists.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/\n(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -8095,7 +7406,7 @@ let
         default = null;
       };
       "resources" = mkOption {
-        description = "resources represents the minimum resources the volume should have.\nUsers are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
+        description = "resources represents the minimum resources the volume should have.\nIf RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements\nthat are lower than previous value but must still be higher than capacity recorded in the\nstatus field of the claim.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources";
         type = (types.nullOr WalStoragePvcTemplateResourcesModule);
         default = null;
       };
@@ -8110,7 +7421,7 @@ let
         default = null;
       };
       "volumeAttributesClassName" = mkOption {
-        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string or nil value indicates that no\nVolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,\nthis field can be reset to its previous value (including nil) to cancel the modification.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/";
+        description = "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.\nIf specified, the CSI driver will create or update the volume with the attributes defined\nin the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,\nit can be changed after the claim is created. An empty string value means that no VolumeAttributesClass\nwill be applied to the claim but it's not allowed to reset this field to empty string once it is set.\nIf unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass\nwill be set by the persistentvolume controller if it exists.\nIf the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be\nset to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource\nexists.\nMore info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/\n(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).";
         type = (types.nullOr types.str);
         default = null;
       };
@@ -8395,11 +7706,6 @@ let
           type = (types.listOf PluginModule);
           default = [ ];
         };
-        "podSecurityContext" = mkOption {
-          description = "Override the PodSecurityContext applied to every Pod of the cluster.\nWhen set, this overrides the operator's default PodSecurityContext for the cluster.\nIf omitted, the operator defaults are used.\nThis field doesn't have any effect if SecurityContextConstraints are present.";
-          type = (types.nullOr PodSecurityContextModule);
-          default = null;
-        };
         "postgresGID" = mkOption {
           description = "The GID of the `postgres` user inside the image, defaults to `26`";
           type = (types.nullOr types.int);
@@ -8416,7 +7722,7 @@ let
           default = null;
         };
         "primaryUpdateMethod" = mkOption {
-          description = "Method to follow to upgrade the primary server during a rolling\nupdate procedure, after all replicas have been successfully updated:\nit can be with a switchover (`switchover`) or in-place (`restart` - default).\nNote: when using `switchover`, the operator will reject updates that change both\nthe image name and PostgreSQL configuration parameters simultaneously to avoid\nconfiguration mismatches during the switchover process.";
+          description = "Method to follow to upgrade the primary server during a rolling\nupdate procedure, after all replicas have been successfully updated:\nit can be with a switchover (`switchover`) or in-place (`restart` - default)";
           type = (
             types.nullOr (
               types.enum [
@@ -8483,18 +7789,13 @@ let
           type = (types.nullOr SeccompProfileModule);
           default = null;
         };
-        "securityContext" = mkOption {
-          description = "Override the SecurityContext applied to every Container in the Pod of the cluster.\nWhen set, this overrides the operator's default Container SecurityContext.\nIf omitted, the operator defaults are used.";
-          type = (types.nullOr SecurityContextModule);
-          default = null;
-        };
         "serviceAccountTemplate" = mkOption {
           description = "Configure the generation of the service account";
           type = (types.nullOr ServiceAccountTemplateModule);
           default = null;
         };
         "smartShutdownTimeout" = mkOption {
-          description = "The time in seconds that controls the window of time reserved for the smart shutdown of Postgres to complete.\nMake sure you reserve enough time for the operator to request a fast shutdown of Postgres\n(that is: `stopDelay` - `smartShutdownTimeout`). Default is 180 seconds.";
+          description = "The time in seconds that controls the window of time reserved for the smart shutdown of Postgres to complete.\nMake sure you reserve enough time for the operator to request a fast shutdown of Postgres\n(that is: `stopDelay` - `smartShutdownTimeout`).";
           type = (types.nullOr types.int);
           default = 180;
         };
@@ -8645,11 +7946,6 @@ let
     // optionalAttrs (res."plugins" != [ ]) { "plugins" = map mkPlugin res."plugins"; }
     // {
     }
-    // optionalAttrs (res."podSecurityContext" != null) {
-      "podSecurityContext" = mkPodSecurityContext res."podSecurityContext";
-    }
-    // {
-    }
     // optionalAttrs (res."postgresGID" != null) { inherit (res) "postgresGID"; }
     // {
     }
@@ -8692,11 +7988,6 @@ let
     }
     // optionalAttrs (res."seccompProfile" != null) {
       "seccompProfile" = mkSeccompProfile res."seccompProfile";
-    }
-    // {
-    }
-    // optionalAttrs (res."securityContext" != null) {
-      "securityContext" = mkSecurityContext res."securityContext";
     }
     // {
     }

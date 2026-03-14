@@ -1,11 +1,20 @@
 # apps/unstable/wavefront-adapter-for-istio — Bitnami wavefront-adapter-for-istio
-{ config, lib, charts, kubelib, k8s, ... }:
+{
+  config,
+  lib,
+  charts,
+  kubelib,
+  k8s,
+  ...
+}:
 with lib;
 let
   cfg = config.openkrill.apps.wavefront-adapter-for-istio;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
+  imports = [ ./custom.nix ];
+
   options.openkrill.apps.wavefront-adapter-for-istio = {
     enable = mkEnableOption "Bitnami wavefront-adapter-for-istio";
 
@@ -16,7 +25,7 @@ in
 
     values = mkOption {
       type = types.submodule (import ./values.nix);
-      default = {};
+      default = { };
       description = "Helm chart values. Schema-derived defaults are set automatically.";
     };
 
@@ -33,7 +42,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.wavefront-adapter-for-istio = {
+    openkrill.apps.argo-cd.applications.wavefront-adapter-for-istio = {
       namespace = "argocd";
       project = "default";
       source = {
@@ -47,19 +56,23 @@ in
         namespace = cfg.namespace;
       };
       syncPolicy = {
-        automated = { prune = true; selfHeal = true; };
+        automated = {
+          prune = true;
+          selfHeal = true;
+        };
         syncOptions = [ "CreateNamespace=true" ];
       };
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests.wavefront-adapter-for-istio.content =
-      [ (k8s.mkNamespace cfg.namespace) ]
-      ++ kubelib.fromHelm {
-        name = "wavefront-adapter-for-istio";
-        chart = charts.bitnami.wavefront-adapter-for-istio.latest;
-        namespace = cfg.namespace;
-        values = cfg.values;
-      };
+    openkrill.manifests.wavefront-adapter-for-istio.content = [
+      (k8s.mkNamespace cfg.namespace)
+    ]
+    ++ kubelib.fromHelm {
+      name = "wavefront-adapter-for-istio";
+      chart = charts.bitnami.wavefront-adapter-for-istio.latest;
+      namespace = cfg.namespace;
+      values = cfg.values;
+    };
   };
 }

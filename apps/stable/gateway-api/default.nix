@@ -33,7 +33,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.argocd.applications.gateway-api = {
+    openkrill.apps.argo-cd.applications.gateway-api = {
       namespace = "argocd";
       project = "default";
       source = {

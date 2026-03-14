@@ -1,12 +1,22 @@
 # apps/unstable/argo-workflows — Bitnami argo-workflows
-{ config, lib, charts, kubelib, k8s, ... }:
+{
+  config,
+  lib,
+  charts,
+  kubelib,
+  k8s,
+  ...
+}:
 with lib;
 let
   cfg = config.openkrill.apps.argo-workflows;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
-  imports = [ ./crds.nix ];
+  imports = [
+    ./crds.nix
+    ./custom.nix
+  ];
 
   options.openkrill.apps.argo-workflows = {
     enable = mkEnableOption "Bitnami argo-workflows";
@@ -18,7 +28,7 @@ in
 
     values = mkOption {
       type = types.submodule (import ./values.nix);
-      default = {};
+      default = { };
       description = "Helm chart values. Schema-derived defaults are set automatically.";
     };
 
@@ -35,7 +45,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.argo-workflows = {
+    openkrill.apps.argo-cd.applications.argo-workflows = {
       namespace = "argocd";
       project = "default";
       source = {
@@ -49,19 +59,26 @@ in
         namespace = cfg.namespace;
       };
       syncPolicy = {
-        automated = { prune = true; selfHeal = true; };
-        syncOptions = [ "CreateNamespace=true" "ServerSideApply=true" ];
+        automated = {
+          prune = true;
+          selfHeal = true;
+        };
+        syncOptions = [
+          "CreateNamespace=true"
+          "ServerSideApply=true"
+        ];
       };
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests.argo-workflows.content =
-      [ (k8s.mkNamespace cfg.namespace) ]
-      ++ kubelib.fromHelm {
-        name = "argo-workflows";
-        chart = charts.bitnami.argo-workflows.latest;
-        namespace = cfg.namespace;
-        values = cfg.values;
-      };
+    openkrill.manifests.argo-workflows.content = [
+      (k8s.mkNamespace cfg.namespace)
+    ]
+    ++ kubelib.fromHelm {
+      name = "argo-workflows";
+      chart = charts.bitnami.argo-workflows.latest;
+      namespace = cfg.namespace;
+      values = cfg.values;
+    };
   };
 }

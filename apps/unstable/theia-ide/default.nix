@@ -63,7 +63,7 @@ in
       port = 3000;
     };
 
-    openkrill.apps.argocd.applications.theia-ide = {
+    openkrill.apps.argo-cd.applications.theia-ide = {
       namespace = "argocd";
       project = "default";
       source = {

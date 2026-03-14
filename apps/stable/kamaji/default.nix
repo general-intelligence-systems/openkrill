@@ -61,7 +61,7 @@ in
         }];
       };
 
-    openkrill.apps.argocd.applications.kamaji = {
+    openkrill.apps.argo-cd.applications.kamaji = {
       namespace = "argocd";
       project = "default";
       source = {

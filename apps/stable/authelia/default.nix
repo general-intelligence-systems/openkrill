@@ -416,7 +416,7 @@ in
       auth = false;  # Authelia itself must not go through ForwardAuth
     };
 
-    openkrill.apps.argocd.applications.authelia = {
+    openkrill.apps.argo-cd.applications.authelia = {
       namespace = "argocd";
       project = "default";
       source = {

@@ -15,7 +15,7 @@
 # App modules are opt-in.  Enable the ones you need:
 #
 #   openkrill.apps.cert-manager.enable = true;
-#   openkrill.apps.argocd.enable = true;
+#   openkrill.apps.argo-cd.enable = true;
 #   # etc.
 #
 # See examples/default-stack for a full-stack configuration.

@@ -1,4 +1,10 @@
-# CRD fragment stub — clickhouse-operator CRDs could not be parsed.
-# Populate manually with:
-#   bin/create-module-crds --fragment clickhouse-operator <crds.yaml> > apps/unstable/clickhouse-operator/crds.nix
-{ }
+# Auto-generated — imports per-CRD fragment modules.
+# Regenerate: bin/generate-bitnami-crds clickhouse-operator <url>
+{
+  imports = [
+    ./clickhouseinstallations.nix
+    ./clickhouseinstallationtemplates.nix
+    ./clickhousekeeperinstallations.nix
+    ./clickhouseoperatorconfigurations.nix
+  ];
+}

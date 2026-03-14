@@ -151,7 +151,7 @@ in
     };
 
     # ── ArgoCD Application CR ─────────────────────────────────────────
-    openkrill.apps.argocd.applications.lago = {
+    openkrill.apps.argo-cd.applications.lago = {
       namespace = "argocd";
       project   = "default";
       source = {

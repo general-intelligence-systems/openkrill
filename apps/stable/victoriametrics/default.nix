@@ -168,7 +168,7 @@ in
       port = 80;
     };
 
-    openkrill.apps.argocd.applications.victoriametrics = {
+    openkrill.apps.argo-cd.applications.victoriametrics = {
       namespace = "argocd";
       project = "default";
       source = {

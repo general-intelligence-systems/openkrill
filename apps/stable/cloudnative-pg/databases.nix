@@ -26,7 +26,7 @@ let
   ExtensionModule = types.submodule {
     options = {
       "ensure" = mkOption {
-        description = "Specifies whether an object (e.g schema) should be present or absent\nin the database. If set to `present`, the object will be created if\nit does not exist. If set to `absent`, the extension/schema will be\nremoved if it exists.";
+        description = "Specifies whether an extension/schema should be present or absent in\nthe database. If set to `present`, the extension/schema will be\ncreated if it does not exist. If set to `absent`, the\nextension/schema will be removed if it exists.";
         type = (
           types.nullOr (
             types.enum [
@@ -38,7 +38,7 @@ let
         default = "present";
       };
       "name" = mkOption {
-        description = "Name of the object (extension, schema, FDW, server)";
+        description = "Name of the extension/schema";
         type = types.str;
       };
       "schema" = mkOption {
@@ -67,139 +67,10 @@ let
     // optionalAttrs (res."version" != null) { inherit (res) "version"; }
     // {
     };
-  FdwModule = types.submodule {
-    options = {
-      "ensure" = mkOption {
-        description = "Specifies whether an object (e.g schema) should be present or absent\nin the database. If set to `present`, the object will be created if\nit does not exist. If set to `absent`, the extension/schema will be\nremoved if it exists.";
-        type = (
-          types.nullOr (
-            types.enum [
-              "present"
-              "absent"
-            ]
-          )
-        );
-        default = "present";
-      };
-      "handler" = mkOption {
-        description = "Name of the handler function (e.g., \"postgres_fdw_handler\").\nThis will be empty if no handler is specified. In that case,\nthe default handler is registered when the FDW extension is created.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "name" = mkOption {
-        description = "Name of the object (extension, schema, FDW, server)";
-        type = types.str;
-      };
-      "options" = mkOption {
-        description = "Options specifies the configuration options for the FDW.";
-        type = (types.listOf FdwOptionModule);
-        default = [ ];
-      };
-      "owner" = mkOption {
-        description = "Owner specifies the database role that will own the Foreign Data Wrapper.\nThe role must have superuser privileges in the target database.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-      "usage" = mkOption {
-        description = "List of roles for which `USAGE` privileges on the FDW are granted or revoked.";
-        type = (types.listOf FdwUsageModule);
-        default = [ ];
-      };
-      "validator" = mkOption {
-        description = "Name of the validator function (e.g., \"postgres_fdw_validator\").\nThis will be empty if no validator is specified. In that case,\nthe default validator is registered when the FDW extension is created.";
-        type = (types.nullOr types.str);
-        default = null;
-      };
-    };
-  };
-  mkFdw =
-    res:
-    {
-    }
-    // optionalAttrs (res."ensure" != null) { inherit (res) "ensure"; }
-    // {
-    }
-    // optionalAttrs (res."handler" != null) { inherit (res) "handler"; }
-    // {
-      inherit (res) "name";
-    }
-    // optionalAttrs (res."options" != [ ]) { "options" = map mkFdwOption res."options"; }
-    // {
-    }
-    // optionalAttrs (res."owner" != null) { inherit (res) "owner"; }
-    // {
-    }
-    // optionalAttrs (res."usage" != [ ]) { "usage" = map mkFdwUsage res."usage"; }
-    // {
-    }
-    // optionalAttrs (res."validator" != null) { inherit (res) "validator"; }
-    // {
-    };
-  FdwOptionModule = types.submodule {
-    options = {
-      "ensure" = mkOption {
-        description = "Specifies whether an option should be present or absent in\nthe database. If set to `present`, the option will be\ncreated if it does not exist. If set to `absent`, the\noption will be removed if it exists.";
-        type = (
-          types.nullOr (
-            types.enum [
-              "present"
-              "absent"
-            ]
-          )
-        );
-        default = "present";
-      };
-      "name" = mkOption {
-        description = "Name of the option";
-        type = types.str;
-      };
-      "value" = mkOption {
-        description = "Value of the option";
-        type = types.str;
-      };
-    };
-  };
-  mkFdwOption =
-    res:
-    {
-    }
-    // optionalAttrs (res."ensure" != null) { inherit (res) "ensure"; }
-    // {
-      inherit (res) "name";
-      inherit (res) "value";
-    };
-  FdwUsageModule = types.submodule {
-    options = {
-      "name" = mkOption {
-        description = "Name of the usage";
-        type = types.str;
-      };
-      "type" = mkOption {
-        description = "The type of usage";
-        type = (
-          types.nullOr (
-            types.enum [
-              "grant"
-              "revoke"
-            ]
-          )
-        );
-        default = "grant";
-      };
-    };
-  };
-  mkFdwUsage =
-    res:
-    {
-      inherit (res) "name";
-    }
-    // optionalAttrs (res."type" != null) { inherit (res) "type"; }
-    // {
-    };
   SchemaModule = types.submodule {
     options = {
       "ensure" = mkOption {
-        description = "Specifies whether an object (e.g schema) should be present or absent\nin the database. If set to `present`, the object will be created if\nit does not exist. If set to `absent`, the extension/schema will be\nremoved if it exists.";
+        description = "Specifies whether an extension/schema should be present or absent in\nthe database. If set to `present`, the extension/schema will be\ncreated if it does not exist. If set to `absent`, the\nextension/schema will be removed if it exists.";
         type = (
           types.nullOr (
             types.enum [
@@ -211,7 +82,7 @@ let
         default = "present";
       };
       "name" = mkOption {
-        description = "Name of the object (extension, schema, FDW, server)";
+        description = "Name of the extension/schema";
         type = types.str;
       };
       "owner" = mkOption {
@@ -230,116 +101,6 @@ let
       inherit (res) "name";
     }
     // optionalAttrs (res."owner" != null) { inherit (res) "owner"; }
-    // {
-    };
-  ServerModule = types.submodule {
-    options = {
-      "ensure" = mkOption {
-        description = "Specifies whether an object (e.g schema) should be present or absent\nin the database. If set to `present`, the object will be created if\nit does not exist. If set to `absent`, the extension/schema will be\nremoved if it exists.";
-        type = (
-          types.nullOr (
-            types.enum [
-              "present"
-              "absent"
-            ]
-          )
-        );
-        default = "present";
-      };
-      "fdw" = mkOption {
-        description = "The name of the Foreign Data Wrapper (FDW)";
-        type = types.str;
-      };
-      "name" = mkOption {
-        description = "Name of the object (extension, schema, FDW, server)";
-        type = types.str;
-      };
-      "options" = mkOption {
-        description = "Options specifies the configuration options for the server\n(key is the option name, value is the option value).";
-        type = (types.listOf ServerOptionModule);
-        default = [ ];
-      };
-      "usage" = mkOption {
-        description = "List of roles for which `USAGE` privileges on the server are granted or revoked.";
-        type = (types.listOf ServerUsageModule);
-        default = [ ];
-      };
-    };
-  };
-  mkServer =
-    res:
-    {
-    }
-    // optionalAttrs (res."ensure" != null) { inherit (res) "ensure"; }
-    // {
-      inherit (res) "fdw";
-      inherit (res) "name";
-    }
-    // optionalAttrs (res."options" != [ ]) { "options" = map mkServerOption res."options"; }
-    // {
-    }
-    // optionalAttrs (res."usage" != [ ]) { "usage" = map mkServerUsage res."usage"; }
-    // {
-    };
-  ServerOptionModule = types.submodule {
-    options = {
-      "ensure" = mkOption {
-        description = "Specifies whether an option should be present or absent in\nthe database. If set to `present`, the option will be\ncreated if it does not exist. If set to `absent`, the\noption will be removed if it exists.";
-        type = (
-          types.nullOr (
-            types.enum [
-              "present"
-              "absent"
-            ]
-          )
-        );
-        default = "present";
-      };
-      "name" = mkOption {
-        description = "Name of the option";
-        type = types.str;
-      };
-      "value" = mkOption {
-        description = "Value of the option";
-        type = types.str;
-      };
-    };
-  };
-  mkServerOption =
-    res:
-    {
-    }
-    // optionalAttrs (res."ensure" != null) { inherit (res) "ensure"; }
-    // {
-      inherit (res) "name";
-      inherit (res) "value";
-    };
-  ServerUsageModule = types.submodule {
-    options = {
-      "name" = mkOption {
-        description = "Name of the usage";
-        type = types.str;
-      };
-      "type" = mkOption {
-        description = "The type of usage";
-        type = (
-          types.nullOr (
-            types.enum [
-              "grant"
-              "revoke"
-            ]
-          )
-        );
-        default = "grant";
-      };
-    };
-  };
-  mkServerUsage =
-    res:
-    {
-      inherit (res) "name";
-    }
-    // optionalAttrs (res."type" != null) { inherit (res) "type"; }
     // {
     };
   DatabasesModule = types.submodule (
@@ -408,11 +169,6 @@ let
           type = (types.listOf ExtensionModule);
           default = [ ];
         };
-        "fdws" = mkOption {
-          description = "The list of foreign data wrappers to be managed in the database";
-          type = (types.listOf FdwModule);
-          default = [ ];
-        };
         "icuLocale" = mkOption {
           description = "Maps to the `ICU_LOCALE` parameter of `CREATE DATABASE`. This\nsetting cannot be changed. Specifies the ICU locale when the ICU\nprovider is used. This option requires `localeProvider` to be set to\n`icu`. Available from PostgreSQL 15.";
           type = (types.nullOr types.str);
@@ -459,11 +215,6 @@ let
         "schemas" = mkOption {
           description = "The list of schemas to be managed in the database";
           type = (types.listOf SchemaModule);
-          default = [ ];
-        };
-        "servers" = mkOption {
-          description = "The list of foreign servers to be managed in the database";
-          type = (types.listOf ServerModule);
           default = [ ];
         };
         "tablespace" = mkOption {
@@ -513,9 +264,6 @@ let
     // optionalAttrs (res."extensions" != [ ]) { "extensions" = map mkExtension res."extensions"; }
     // {
     }
-    // optionalAttrs (res."fdws" != [ ]) { "fdws" = map mkFdw res."fdws"; }
-    // {
-    }
     // optionalAttrs (res."icuLocale" != null) { inherit (res) "icuLocale"; }
     // {
     }
@@ -540,9 +288,6 @@ let
       inherit (res) "owner";
     }
     // optionalAttrs (res."schemas" != [ ]) { "schemas" = map mkSchema res."schemas"; }
-    // {
-    }
-    // optionalAttrs (res."servers" != [ ]) { "servers" = map mkServer res."servers"; }
     // {
     }
     // optionalAttrs (res."tablespace" != null) { inherit (res) "tablespace"; }

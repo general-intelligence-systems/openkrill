@@ -37,7 +37,7 @@
         openkrill.gitops.enable = true;
 
         # ── Core infrastructure ──────────────────────────────────────
-        openkrill.apps.argocd.enable           = true;
+        openkrill.apps.argo-cd.enable           = true;
         openkrill.apps.cert-manager.enable     = true;
         openkrill.apps.cilium.enable           = true;
         openkrill.apps.cloudnative-pg.enable   = true;
@@ -52,7 +52,7 @@
         openkrill.apps.trust-manager.enable    = true;
 
         # ── ArgoCD ───────────────────────────────────────────────────
-        openkrill.apps.argocd = {
+        openkrill.apps.argo-cd = {
           domain = "argocd.${domain}";
           oidc.issuer = "https://auth.${domain}";
         };

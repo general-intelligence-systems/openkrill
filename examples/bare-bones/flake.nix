@@ -40,7 +40,7 @@
   #      # ── GitOps ──────────────────────────────────────────────────
   #      # cert-manager, trust-manager, and argocd are enabled by default.
   #      # The self-signed CA chain and trust bundle are auto-configured.
-  #      openkrill.apps.argocd = {
+  #      openkrill.apps.argo-cd = {
   #        domain = "argocd.${domain}";
   #        oidc.issuer = "https://auth.${domain}";
   #      };

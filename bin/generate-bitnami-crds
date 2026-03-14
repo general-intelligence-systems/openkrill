@@ -6,140 +6,148 @@ set -euo pipefail
 # A crds.nix is then generated that imports all the per-CRD files.
 #
 # Usage: bin/generate-bitnami-crds <module-name> <github-tree-url>
-#
-# Example:
-#   bin/generate-bitnami-crds sealed-secrets https://github.com/bitnami/charts/tree/main/bitnami/sealed-secrets/crds
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
+STABLE=false
+POSITIONAL=()
+for arg in "$@"; do
+  case "$arg" in
+    --stable) STABLE=true ;;
+    *)        POSITIONAL+=("$arg") ;;
+  esac
+done
+set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
+
 if [[ $# -lt 2 ]]; then
-  echo "Usage: bin/generate-bitnami-crds <module-name> <github-tree-url>" >&2
+  echo "Usage: bin/generate-bitnami-crds <module-name> <github-tree-url> [--stable]" >&2
   exit 1
 fi
 
 MODULE_NAME="$1"
-TREE_URL="$2"
-MODULE_DIR="${SCRIPT_DIR}/apps/unstable/${MODULE_NAME}"
-
-if [[ ! -d "$MODULE_DIR" ]]; then
-  echo "FAIL: ${MODULE_DIR} does not exist (run generate-bitnami-module first)" >&2
-  exit 1
-fi
-
-# ── Parse GitHub tree URL ──────────────────────────────────────────
-# https://github.com/<owner>/<repo>/tree/<ref>/<path>
-read -r OWNER REPO REF DIR_PATH <<< "$(echo "$TREE_URL" | ruby -e '
-  m = STDIN.read.strip.match(%r{github\.com/([^/]+)/([^/]+)/tree/([^/]+)/(.+)})
-  abort "Cannot parse URL" unless m
-  puts "#{m[1]} #{m[2]} #{m[3]} #{m[4]}"
-')"
-
-# ── List YAML files via GitHub API ─────────────────────────────────
-FILES=$(curl -sf "https://api.github.com/repos/${OWNER}/${REPO}/contents/${DIR_PATH}?ref=${REF}" \
-  | ruby -rjson -e '
-    JSON.parse(STDIN.read)
-      .select { |f| f["name"].end_with?(".yaml", ".yml") && f["type"] == "file" }
-      .each { |f| puts f["download_url"] }
-  ' 2>/dev/null) || FILES=""
-
-if [[ -z "$FILES" ]]; then
-  echo "SKIP: ${MODULE_NAME} CRDs (no YAML files at ${DIR_PATH})"
-  exit 0
-fi
-
-# ── Download, de-helm, and generate per-CRD fragments ──────────────
+APPS_DIR="${SCRIPT_DIR}/apps/unstable"
+$STABLE && APPS_DIR="${SCRIPT_DIR}/apps/stable"
+MODULE_DIR="${APPS_DIR}/${MODULE_NAME}"
 TMPDIR=$(mktemp -d)
 trap "rm -rf '$TMPDIR'" EXIT
-
 GENERATED_FILES=()
-ok_count=0
-fail_count=0
 
-for url in $FILES; do
-  # Download and strip Helm template directives
-  crd_yaml="${TMPDIR}/crd.yaml"
-  curl -sf "$url" | ruby -e '
-    STDIN.each_line do |line|
-      next if line.strip =~ /^\{\{-?\s*(if|else|end|range|with|define|template|block|include)/
-      puts line.gsub(/\{\{.*?\}\}/, "")
-    end
-  ' > "$crd_yaml"
+[[ -d "$MODULE_DIR" ]] || { echo "${MODULE_DIR} does not exist" >&2; exit 1; }
 
-  # A CRD YAML may contain multiple documents separated by ---
-  # Split into individual docs and process each
-  ruby -ryaml -e '
-    YAML.load_stream(File.read(ARGV[0])).each_with_index do |doc, i|
-      next unless doc.is_a?(Hash) && doc["kind"] == "CustomResourceDefinition"
-      plural = doc.dig("spec", "names", "plural")
-      next unless plural
-      outfile = File.join(ARGV[1], "#{plural.downcase}.yaml")
-      File.write(outfile, YAML.dump(doc))
-      puts "#{plural.downcase}"
-    end
-  ' "$crd_yaml" "$TMPDIR" 2>/dev/null || true
-done
+# ── Functions ──────────────────────────────────────────────────────
 
-# Now generate a .nix fragment for each extracted CRD
+format_nix() {
+  nix run nixpkgs#nixfmt -- "$1" 2>/dev/null || true
+}
+
+# Download CRD YAMLs from a GitHub tree URL, strip Helm directives,
+# and split multi-doc YAMLs into individual <plural>.yaml files in $TMPDIR.
+retrieve_files() {
+  local tree_url="$1"
+
+  read -r owner repo ref dir_path <<< "$(echo "$tree_url" | ruby -e '
+    m = STDIN.read.strip.match(%r{github\.com/([^/]+)/([^/]+)/tree/([^/]+)/(.+)})
+    abort "Cannot parse URL" unless m
+    puts "#{m[1]} #{m[2]} #{m[3]} #{m[4]}"
+  ')"
+
+  local urls
+  urls=$(curl -sf "https://api.github.com/repos/${owner}/${repo}/contents/${dir_path}?ref=${ref}" \
+    | ruby -rjson -e '
+      JSON.parse(STDIN.read)
+        .select { |f| f["name"].end_with?(".yaml", ".yml") && f["type"] == "file" }
+        .each { |f| puts f["download_url"] }
+    ' 2>/dev/null) || urls=""
+
+  [[ -z "$urls" ]] && return
+
+  for url in $urls; do
+    curl -sf "$url" | ruby -e '
+      STDIN.each_line do |line|
+        next if line.strip =~ /^\{\{-?\s*(if|else|end|range|with|define|template|block|include)/
+        puts line.gsub(/\{\{.*?\}\}/, "")
+      end
+    ' > "${TMPDIR}/crd.yaml"
+
+    ruby -ryaml -e '
+      YAML.load_stream(File.read(ARGV[0])).each do |doc|
+        next unless doc.is_a?(Hash) && doc["kind"] == "CustomResourceDefinition"
+        plural = doc.dig("spec", "names", "plural")
+        next unless plural
+        File.write(File.join(ARGV[1], "#{plural.downcase}.yaml"), YAML.dump(doc))
+      end
+    ' "${TMPDIR}/crd.yaml" "$TMPDIR" 2>/dev/null || true
+
+    rm -f "${TMPDIR}/crd.yaml"
+  done
+}
+
+# Generate a single .nix fragment from a CRD YAML file.
+create_crd() {
+  local crd_yaml="$1"
+  local name
+  name=$(basename "$crd_yaml" .yaml)
+
+  local nix_file="${MODULE_DIR}/${name}.nix"
+  local tmp_nix="${TMPDIR}/${name}.nix"
+
+  if "${SCRIPT_DIR}/bin/create-module-crds" --fragment "$MODULE_NAME" "$crd_yaml" \
+      > "$tmp_nix" 2>/dev/null; then
+    format_nix "$tmp_nix"
+    mv "$tmp_nix" "$nix_file"
+    GENERATED_FILES+=("${name}.nix")
+    echo "  ${MODULE_NAME}/${name}"
+  else
+    rm -f "$tmp_nix"
+    echo "  ${MODULE_NAME}/${name} (failed)" >&2
+  fi
+}
+
+# Remove stale per-CRD .nix files from previous runs.
+cleanup_old_nix() {
+  local keep=(default.nix values.nix crds.nix custom.nix)
+
+  for existing in "${MODULE_DIR}"/*.nix; do
+    [[ -f "$existing" ]] || continue
+    local fname
+    fname=$(basename "$existing")
+
+    local skip=false
+    for k in "${keep[@]}"; do [[ "$fname" == "$k" ]] && skip=true && break; done
+    $skip && continue
+
+    local found=false
+    for gen in "${GENERATED_FILES[@]}"; do [[ "$fname" == "$gen" ]] && found=true && break; done
+    $found || rm -f "$existing"
+  done
+}
+
+# Write crds.nix with sorted imports.
+create_crd_index() {
+
+  {
+    echo "# Auto-generated — imports per-CRD fragment modules."
+    echo "# Regenerate: bin/generate-bitnami-crds ${MODULE_NAME} <url>"
+    echo "{"
+    echo "  imports = ["
+    IFS=$'\n' sorted=($(sort <<<"${GENERATED_FILES[*]}")); unset IFS
+    for f in "${sorted[@]}"; do echo "    ./${f}"; done
+    echo "  ];"
+    echo "}"
+  } > "${MODULE_DIR}/crds.nix"
+
+  format_nix "${MODULE_DIR}/crds.nix"
+  git -C "$SCRIPT_DIR" add -f "${MODULE_DIR}/" 2>/dev/null || true
+}
+
+# ── Main ───────────────────────────────────────────────────────────
+
+retrieve_files "$2"
+
 for crd_yaml in "$TMPDIR"/*.yaml; do
   [[ -f "$crd_yaml" ]] || continue
-  basename=$(basename "$crd_yaml" .yaml)
-  # skip the temp download file
-  [[ "$basename" == "crd" ]] && continue
-
-  nix_out="${TMPDIR}/${basename}.nix"
-  if "${SCRIPT_DIR}/bin/create-module-crds" --fragment "$MODULE_NAME" "$crd_yaml" \
-      > "$nix_out" 2>/dev/null; then
-    nixfmt "$nix_out" 2>/dev/null || true
-    mv "$nix_out" "${MODULE_DIR}/${basename}.nix"
-    GENERATED_FILES+=("${basename}.nix")
-    ((ok_count++))
-  else
-    echo "  WARN: ${MODULE_NAME}/${basename} CRD generation failed, skipping"
-    ((fail_count++))
-  fi
+  create_crd "$crd_yaml"
 done
 
-if [[ ${#GENERATED_FILES[@]} -eq 0 ]]; then
-  echo "FAIL: ${MODULE_NAME} CRDs (no fragments generated)"
-  exit 1
-fi
-
-# ── Remove stale per-CRD .nix files from previous runs ─────────────
-# Preserve known non-CRD files: default.nix, values.nix, crds.nix, custom.nix
-KEEP_FILES=(default.nix values.nix crds.nix custom.nix)
-for existing in "${MODULE_DIR}"/*.nix; do
-  [[ -f "$existing" ]] || continue
-  fname=$(basename "$existing")
-  # Skip known module files
-  skip=false
-  for keep in "${KEEP_FILES[@]}"; do
-    [[ "$fname" == "$keep" ]] && skip=true && break
-  done
-  $skip && continue
-  # Remove if not in the newly generated set
-  found=false
-  for gen in "${GENERATED_FILES[@]}"; do
-    [[ "$fname" == "$gen" ]] && found=true && break
-  done
-  $found || rm -f "$existing"
-done
-
-# ── Generate crds.nix as an imports-only module ────────────────────
-{
-  echo "# Auto-generated — imports all per-CRD fragment modules."
-  echo "# Re-generate with: bin/generate-bitnami-crds ${MODULE_NAME} <github-tree-url>"
-  echo "{"
-  echo "  imports = ["
-  # Sort for deterministic output
-  IFS=$'\n' sorted=($(sort <<<"${GENERATED_FILES[*]}")); unset IFS
-  for f in "${sorted[@]}"; do
-    echo "    ./${f}"
-  done
-  echo "  ];"
-  echo "}"
-} > "${MODULE_DIR}/crds.nix"
-
-nixfmt "${MODULE_DIR}/crds.nix" 2>/dev/null || true
-git -C "$SCRIPT_DIR" add -f "${MODULE_DIR}/" 2>/dev/null || true
-
-echo "OK: ${MODULE_NAME} CRDs (${ok_count} fragments${fail_count:+, ${fail_count} failed})"
+cleanup_old_nix
+create_crd_index
