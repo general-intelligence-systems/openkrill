@@ -43,7 +43,7 @@ in
 
     # ── ArgoCD Application ──────────────────────────────────────────
     openkrill.apps.argo-cd.applications.grafana-k6-operator = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

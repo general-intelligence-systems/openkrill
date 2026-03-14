@@ -68,7 +68,7 @@ Every app module declares its own ArgoCD Application CR in its
 The Application CR points at the git-daemon manifest repo and scopes
 itself to the module's manifest file using `directory.include`.
 
-All Application CRs merge into `openkrill.manifests."argocd".content`
+All Application CRs merge into `openkrill.manifests."argo-cd".content`
 via `applications.nix`.  The NixOS module system concatenates the
 lists.  The result is a single `argocd.yaml` manifest containing the
 Helm chart resources **and** all Application CRs, which k3s
@@ -79,7 +79,7 @@ auto-deploys at bootstrap.
 ```nix
 config = mkIf cfg.enable {
   openkrill.apps.argocd.applications.my-app = {
-    namespace = "argocd";
+    namespace = "argo-cd";
     project = "default";
     source = {
       repoURL = config.openkrill.gitops.repoURL;
@@ -105,7 +105,7 @@ config = mkIf cfg.enable {
 
 | Field | Value | Notes |
 |-------|-------|-------|
-| `namespace` | `"argocd"` | The Application CR itself lives in the argocd namespace |
+| `namespace` | `"argo-cd"` | The Application CR itself lives in the argo-cd namespace |
 | `project` | `"default"` | ArgoCD project; use `"default"` unless you have custom AppProjects |
 | `source.repoURL` | `config.openkrill.gitops.repoURL` | Set by the consumer; must be reachable from inside the cluster |
 | `source.targetRevision` | `"rendered-manifests"` | Branch name in the bare git repo |
@@ -152,7 +152,7 @@ target namespace (e.g. gateway-api, traefik), omit
 
 ```nix
 openkrill.apps.argocd.applications.gateway-api = {
-  namespace = "argocd";
+  namespace = "argo-cd";
   project = "default";
   source = {
     repoURL = config.openkrill.gitops.repoURL;

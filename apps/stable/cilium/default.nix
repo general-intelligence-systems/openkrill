@@ -118,7 +118,7 @@ in
       };
 
     openkrill.apps.argo-cd.applications.cilium = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

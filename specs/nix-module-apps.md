@@ -640,7 +640,7 @@ sync it from the git-daemon manifest repo.  See
 ```nix
 config = lib.mkIf cfg.enable {
   openkrill.apps.argocd.applications.my-app = {
-    namespace = "argocd";
+    namespace = "argo-cd";
     project = "default";
     source = {
       repoURL = config.openkrill.gitops.repoURL;

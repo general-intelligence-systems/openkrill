@@ -214,7 +214,7 @@ in
   config = mkIf cfg.enable {
     # ArgoCD Application CR
     openkrill.apps.argocd.applications.my-app = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

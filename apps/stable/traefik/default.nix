@@ -642,7 +642,7 @@ in
     };
 
     openkrill.apps.argo-cd.applications.traefik = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

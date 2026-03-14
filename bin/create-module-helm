@@ -110,7 +110,7 @@ in
 
     # ── ArgoCD Application ──────────────────────────────────────────
     openkrill.apps.argocd.applications.${MODULE_NAME} = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

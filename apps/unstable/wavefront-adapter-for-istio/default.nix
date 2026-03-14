@@ -43,7 +43,7 @@ in
 
     # ── ArgoCD Application ──────────────────────────────────────────
     openkrill.apps.argo-cd.applications.wavefront-adapter-for-istio = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

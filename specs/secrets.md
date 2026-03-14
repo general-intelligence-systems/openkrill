@@ -273,7 +273,7 @@ Override with `remoteSecretName` when they differ:
 
 ```nix
 argocd-oidc-secret = {
-  namespace = "argocd";
+  namespace = "argo-cd";
   remoteSecretName = "openkrill-argocd-oidc-secret";   # source in secret-store
   # target secret name defaults to "argocd-oidc-secret"
   keys = [ "oidc.authelia.clientSecret" ];
@@ -287,7 +287,7 @@ values (hardcoded). Use `templateData` for the static parts:
 
 ```nix
 argocd-repo-my-git = {
-  namespace = "argocd";
+  namespace = "argo-cd";
   remoteSecretName = "my-git-credentials";
   labels = { "argocd.argoproj.io/secret-type" = "repository"; };
   templateData = {
@@ -316,7 +316,7 @@ secrets need `argocd.argoproj.io/secret-type: repository`). Use the
 
 ```nix
 my-secret = {
-  namespace = "argocd";
+  namespace = "argo-cd";
   labels = { "argocd.argoproj.io/secret-type" = "repository"; };
   keys = [ "token" ];
 };

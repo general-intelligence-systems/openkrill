@@ -150,7 +150,7 @@ in
 
     # ── ArgoCD Application CR ────────────────────────────────────────
     openkrill.apps.argo-cd.applications.lldap = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

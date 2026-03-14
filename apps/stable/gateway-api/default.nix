@@ -34,7 +34,7 @@ in
 
   config = mkIf cfg.enable {
     openkrill.apps.argo-cd.applications.gateway-api = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

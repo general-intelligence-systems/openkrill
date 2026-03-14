@@ -261,7 +261,7 @@ in
       };
 
     openkrill.apps.argo-cd.applications.external-secrets = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

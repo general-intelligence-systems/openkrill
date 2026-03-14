@@ -162,7 +162,7 @@ in
     ) cfg.runners);
 
     openkrill.apps.argo-cd.applications.forgejo-runner = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

@@ -152,7 +152,7 @@ in
 
     # ── ArgoCD Application CR ─────────────────────────────────────────
     openkrill.apps.argo-cd.applications.lago = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project   = "default";
       source = {
         repoURL          = config.openkrill.gitops.repoURL;

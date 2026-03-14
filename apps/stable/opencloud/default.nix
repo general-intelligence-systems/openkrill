@@ -323,7 +323,7 @@ in
     };
 
     openkrill.apps.argo-cd.applications.opencloud = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

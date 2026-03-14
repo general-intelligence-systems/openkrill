@@ -62,7 +62,7 @@ in
       };
 
     openkrill.apps.argo-cd.applications.kamaji = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

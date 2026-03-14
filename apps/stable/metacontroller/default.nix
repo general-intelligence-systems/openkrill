@@ -75,7 +75,7 @@ in
       };
 
     openkrill.apps.argo-cd.applications.metacontroller = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;

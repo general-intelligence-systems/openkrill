@@ -323,7 +323,7 @@ in
 
   config = mkIf cfg.enable {
     openkrill.apps.argo-cd.applications.helm = {
-      namespace = "argocd";
+      namespace = "argo-cd";
       project = "default";
       source = {
         repoURL = config.openkrill.gitops.repoURL;
