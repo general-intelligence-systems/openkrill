@@ -49,6 +49,7 @@ in
     openkrill.apps.argo-cd.values = mkMerge [
       {
         fullnameOverride = mkDefault "argocd";
+        controller.resourcesPreset = mkDefault "small";
         controller.metrics.enabled = mkDefault true;
         server.certificate = mkDefault {
           enabled = true;
