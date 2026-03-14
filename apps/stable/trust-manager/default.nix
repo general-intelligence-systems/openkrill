@@ -17,20 +17,13 @@ let
   cfg = config.openkrill.apps.trust-manager;
   certManagerCfg = config.openkrill.apps.cert-manager;
   helpers          = import ../../../modules/lib/helpers.nix { inherit lib; };
-  chart = kubelib.extractChart (kubelib.fetchChart {
-    repo = "https://charts.jetstack.io/";
-    chart = "trust-manager";
-    version = "v0.16.0";
-    chartHash = "sha256-fbvGdEiLj0Y4iDDU2XF9+mXMwEY23BtwLZxB13WWwus=";
-  });
-
   defaults = {
     crds.enabled = true;
   };
 
   helmResources = kubelib.fromHelm {
     name = "trust-manager";
-    inherit chart;
+    chart = charts.jetstack.trust-manager.latest;
     namespace = cfg.namespace;
     values = recursiveUpdate defaults cfg.values;
   };

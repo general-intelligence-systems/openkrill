@@ -457,19 +457,12 @@ and you want typed values instead of `types.attrs`.
 
 **`default.nix`:**
 ```nix
-{ config, lib, kubelib, ... }:
+{ config, lib, charts, kubelib, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.my-app;
   helpers     = import ../../../modules/lib/helpers.nix { inherit lib; };
   appTemplate = import ../../../modules/lib/app-template.nix { inherit lib; };
-
-  chart = kubelib.extractChart (kubelib.fetchChart {
-    repo = "https://bjw-s-labs.github.io/helm-charts/";
-    chart = "app-template";
-    version = "4.6.2";
-    chartHash = "sha256-AAAA...";
-  });
 
   defaults = {
     controllers.main.containers.main.image = {
@@ -497,7 +490,7 @@ in
   config = mkIf cfg.enable {
     openkrill.manifests.my-app.content = kubelib.fromHelm {
       name = "my-app";
-      inherit chart;
+      chart = charts.bjw-s-labs.app-template.latest;
       namespace = cfg.namespace;
       values = recursiveUpdate defaults cfg.values;
     };
@@ -941,8 +934,8 @@ From nixhelm2's `lib/default.nix`. Key functions:
 | Function | Returns | Use |
 |----------|---------|-----|
 | `kubelib.fromHelm { name, chart, namespace, values, extraOpts? }` | `listOf attrs` | Render a Helm chart to a list of K8s resource attrsets |
-| `kubelib.fetchChart { repo, chart, version, chartHash }` | `derivation` | Download a chart tarball (`.tgz`) not tracked in nixhelm |
-| `kubelib.extractChart tarball` | `derivation` | Extract a chart tarball into a directory for `helm template` |
+| `kubelib.fetchChart { repo, chart, version, chartHash }` | `derivation` | Download a chart tarball (`.tgz`) — fallback for charts not in the nixhelm2 catalog |
+| `kubelib.extractChart tarball` | `derivation` | Extract a chart tarball into a directory — use with `fetchChart` for non-catalog charts |
 | `kubelib.applyValues { chart, name, namespace?, values?, ... }` | `derivation` | Run `helm template` on an extracted chart, producing rendered YAML |
 | `kubelib.fromYAML yamlString` | `listOf attrs` | Parse a multi-document YAML string into Nix attrsets |
 

@@ -85,19 +85,12 @@ In your app's `default.nix`, import `app-template.nix`:
 
 ```nix
 # apps/my-app/default.nix
-{ config, lib, kubelib, ... }:
+{ config, lib, charts, kubelib, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.my-app;
   helpers     = import ../../../modules/lib/helpers.nix { inherit lib; };
   appTemplate = import ../../../modules/lib/app-template.nix { inherit lib; };
-
-  chart = kubelib.extractChart (kubelib.fetchChart {
-    repo = "https://bjw-s-labs.github.io/helm-charts/";
-    chart = "app-template";
-    version = "4.6.2";
-    chartHash = "sha256-AAAA...";
-  });
 
   defaults = {
     controllers.main.containers.main.image = {
@@ -150,7 +143,7 @@ in
 
     openkrill.manifests.my-app.content = kubelib.fromHelm {
       name = "my-app";
-      inherit chart;
+      chart = charts.bjw-s-labs.app-template.latest;
       namespace = cfg.namespace;
       values = recursiveUpdate defaults cfg.values;
     };
@@ -396,7 +389,7 @@ Before using the app-template typed values in a new module:
 - [ ] `values` option uses `appTemplate.valuesType` instead of `types.attrs`
 - [ ] Module defaults defined in a `defaults` let-binding
 - [ ] `values = recursiveUpdate defaults cfg.values` passed to `kubelib.fromHelm`
-- [ ] Helm chart pinned with `kubelib.fetchChart` + `kubelib.extractChart` (version + hash)
+- [ ] Helm chart referenced from nixhelm2 catalog (`charts.<repo>.<chart>.latest`)
 - [ ] ArgoCD Application CR declared
 - [ ] `extraManifests` option declared via `helpers.mkExtraManifestsOption`
 - [ ] Files staged: `git add apps/<name>/`
