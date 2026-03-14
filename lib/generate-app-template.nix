@@ -225,6 +225,7 @@ let
       baseType = mapScalarType schema;
 
       # Determine whether to wrap in nullOr
+      # When the default would be null, wrap the type in nullOr so null is valid
       type =
         if isRequired then baseType
         else if hasConst then baseType
@@ -234,7 +235,7 @@ let
         else if isMap then baseType
         else if isPassthrough schema then baseType
         else if nullable then baseType  # already nullOr from mapScalarType
-        else baseType;
+        else "(types.nullOr ${baseType})";
 
       default =
         if isRequired then noDefault
@@ -272,7 +273,7 @@ let
       default =
         if isRequired then noDefault
         else if hasAttr "default" schema then schema.default
-        else {};
+        else null;
 
       defBody = ''
         ${modName} = types.submodule {

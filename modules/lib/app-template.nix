@@ -30,7 +30,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "includeChecksumInControllers" = mkOption {
@@ -49,11 +49,11 @@ let
         default = { };
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -111,7 +111,7 @@ let
       };
       "basePath" = mkOption {
         description = "Base path containing configmap subfolders";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "configMapsOverrides" = mkOption {
@@ -128,11 +128,11 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "identifier" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "optional" = mkOption {
@@ -145,24 +145,24 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "configMap" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "configMapRef" = mkOption {
         type = (types.nullOr ControllerContainerEnvFromConfigMapRefModule);
-        default = { };
+        default = null;
       };
       "prefix" = mkOption {
         type = (types.nullOr types.str);
         default = null;
       };
       "secret" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "secretRef" = mkOption {
         type = (types.nullOr ControllerContainerEnvFromSecretRefModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -170,11 +170,11 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "identifier" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "optional" = mkOption {
@@ -187,7 +187,7 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "digest" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "pullPolicy" = mkOption {
@@ -200,11 +200,11 @@ let
         );
       };
       "repository" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "tag" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -215,12 +215,12 @@ let
       "postStart" = mkOption {
         description = "PostStart is called immediately after a container is created. If the handler fails, the container is terminated and restarted according to its restart policy. Other management of the container blocks until the hook completes. More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks";
         type = (types.nullOr ControllerContainerLifecyclePostStartModule);
-        default = { };
+        default = null;
       };
       "preStop" = mkOption {
         description = "PreStop is called immediately before a container is terminated due to an API request or management event such as liveness/startup probe failure, preemption, resource contention, etc. The handler is not called if the container crashes or exits. The Pod's termination grace period countdown begins before the PreStop hook is executed. Regardless of the outcome of the handler, the container will eventually terminate within the Pod's termination grace period (unless delayed by finalizers). Other management of the container blocks until the hook completes or until the termination grace period is reached. More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks";
         type = (types.nullOr ControllerContainerLifecyclePreStopModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -282,22 +282,22 @@ let
       "exec" = mkOption {
         description = "Exec specifies the action to take.";
         type = (types.nullOr ControllerContainerLifecyclePostStartExecModule);
-        default = { };
+        default = null;
       };
       "httpGet" = mkOption {
         description = "HTTPGet specifies the http request to perform.";
         type = (types.nullOr ControllerContainerLifecyclePostStartHttpGetModule);
-        default = { };
+        default = null;
       };
       "sleep" = mkOption {
         description = "Sleep represents the duration that the container should sleep before being terminated.";
         type = (types.nullOr ControllerContainerLifecyclePostStartSleepModule);
-        default = { };
+        default = null;
       };
       "tcpSocket" = mkOption {
         description = "Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept for the backward compatibility. There are no validation of this field and lifecycle hooks will fail in runtime when tcp handler is specified.";
         type = (types.nullOr ControllerContainerLifecyclePostStartTcpSocketModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -382,22 +382,22 @@ let
       "exec" = mkOption {
         description = "Exec specifies the action to take.";
         type = (types.nullOr ControllerContainerLifecyclePreStopExecModule);
-        default = { };
+        default = null;
       };
       "httpGet" = mkOption {
         description = "HTTPGet specifies the http request to perform.";
         type = (types.nullOr ControllerContainerLifecyclePreStopHttpGetModule);
-        default = { };
+        default = null;
       };
       "sleep" = mkOption {
         description = "Sleep represents the duration that the container should sleep before being terminated.";
         type = (types.nullOr ControllerContainerLifecyclePreStopSleepModule);
-        default = { };
+        default = null;
       };
       "tcpSocket" = mkOption {
         description = "Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept for the backward compatibility. There are no validation of this field and lifecycle hooks will fail in runtime when tcp handler is specified.";
         type = (types.nullOr ControllerContainerLifecyclePreStopTcpSocketModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -460,16 +460,16 @@ let
       "image" = mkOption {
         description = "Image configuration for the container.";
         type = (types.nullOr ControllerContainerImageModule);
-        default = { };
+        default = null;
       };
       "lifecycle" = mkOption {
         description = "Lifecycle event hooks for the container.";
         type = (types.nullOr ControllerContainerLifecycleModule);
-        default = { };
+        default = null;
       };
       "nameOverride" = mkOption {
         description = "Override the container name.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "ports" = mkOption {
@@ -480,21 +480,21 @@ let
       "probes" = mkOption {
         description = "Probe settings for the container.";
         type = (types.nullOr ControllerContainerProbesModule);
-        default = { };
+        default = null;
       };
       "resources" = mkOption {
         description = "Resource requests and limits for the container.";
         type = (types.nullOr ControllerContainerResourcesModule);
-        default = { };
+        default = null;
       };
       "restartPolicy" = mkOption {
         description = "Restart policy for the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "securityContext" = mkOption {
         description = "Security context for the container.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "stdin" = mkOption {
@@ -504,7 +504,7 @@ let
       };
       "terminationMessagePath" = mkOption {
         description = "Path for the container's termination message file.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "terminationMessagePolicy" = mkOption {
@@ -523,7 +523,7 @@ let
       };
       "workingDir" = mkOption {
         description = "Working directory for the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -562,17 +562,17 @@ let
     options = {
       "liveness" = mkOption {
         description = "Liveness probe configuration.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "readiness" = mkOption {
         description = "Readiness probe configuration.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "startup" = mkOption {
         description = "Startup probe configuration.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -601,34 +601,34 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "activeDeadlineSeconds" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "backoffLimit" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = 6;
       };
       "concurrencyPolicy" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = "Forbid";
       };
       "failedJobsHistory" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = 1;
       };
       "parallelism" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "schedule" = mkOption {
         type = types.str;
       };
       "startingDeadlineSeconds" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = 30;
       };
       "successfulJobsHistory" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = 1;
       };
       "suspend" = mkOption {
@@ -636,11 +636,11 @@ let
         default = false;
       };
       "timeZone" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "ttlSecondsAfterFinished" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
     };
@@ -649,11 +649,11 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "identifier" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "optional" = mkOption {
@@ -666,24 +666,24 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "configMap" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "configMapRef" = mkOption {
         type = (types.nullOr ControllerDefaultContainerOptionsEnvFromConfigMapRefModule);
-        default = { };
+        default = null;
       };
       "prefix" = mkOption {
         type = (types.nullOr types.str);
         default = null;
       };
       "secret" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "secretRef" = mkOption {
         type = (types.nullOr ControllerDefaultContainerOptionsEnvFromSecretRefModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -691,11 +691,11 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "identifier" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "optional" = mkOption {
@@ -708,7 +708,7 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "digest" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "pullPolicy" = mkOption {
@@ -721,11 +721,11 @@ let
         );
       };
       "repository" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "tag" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -751,15 +751,15 @@ let
       };
       "image" = mkOption {
         type = (types.nullOr ControllerDefaultContainerOptionsImageModule);
-        default = { };
+        default = null;
       };
       "resources" = mkOption {
         description = "ResourceRequirements describes the compute resource requirements.";
         type = (types.nullOr ControllerDefaultContainerOptionsResourcesModule);
-        default = { };
+        default = null;
       };
       "securityContext" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -788,11 +788,11 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "identifier" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "optional" = mkOption {
@@ -805,24 +805,24 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "configMap" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "configMapRef" = mkOption {
         type = (types.nullOr ControllerInitContainerEnvFromConfigMapRefModule);
-        default = { };
+        default = null;
       };
       "prefix" = mkOption {
         type = (types.nullOr types.str);
         default = null;
       };
       "secret" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "secretRef" = mkOption {
         type = (types.nullOr ControllerInitContainerEnvFromSecretRefModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -830,11 +830,11 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "identifier" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "optional" = mkOption {
@@ -847,7 +847,7 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "digest" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "pullPolicy" = mkOption {
@@ -860,11 +860,11 @@ let
         );
       };
       "repository" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "tag" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -875,12 +875,12 @@ let
       "postStart" = mkOption {
         description = "PostStart is called immediately after a container is created. If the handler fails, the container is terminated and restarted according to its restart policy. Other management of the container blocks until the hook completes. More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks";
         type = (types.nullOr ControllerInitContainerLifecyclePostStartModule);
-        default = { };
+        default = null;
       };
       "preStop" = mkOption {
         description = "PreStop is called immediately before a container is terminated due to an API request or management event such as liveness/startup probe failure, preemption, resource contention, etc. The handler is not called if the container crashes or exits. The Pod's termination grace period countdown begins before the PreStop hook is executed. Regardless of the outcome of the handler, the container will eventually terminate within the Pod's termination grace period (unless delayed by finalizers). Other management of the container blocks until the hook completes or until the termination grace period is reached. More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks";
         type = (types.nullOr ControllerInitContainerLifecyclePreStopModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -942,22 +942,22 @@ let
       "exec" = mkOption {
         description = "Exec specifies the action to take.";
         type = (types.nullOr ControllerInitContainerLifecyclePostStartExecModule);
-        default = { };
+        default = null;
       };
       "httpGet" = mkOption {
         description = "HTTPGet specifies the http request to perform.";
         type = (types.nullOr ControllerInitContainerLifecyclePostStartHttpGetModule);
-        default = { };
+        default = null;
       };
       "sleep" = mkOption {
         description = "Sleep represents the duration that the container should sleep before being terminated.";
         type = (types.nullOr ControllerInitContainerLifecyclePostStartSleepModule);
-        default = { };
+        default = null;
       };
       "tcpSocket" = mkOption {
         description = "Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept for the backward compatibility. There are no validation of this field and lifecycle hooks will fail in runtime when tcp handler is specified.";
         type = (types.nullOr ControllerInitContainerLifecyclePostStartTcpSocketModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -1042,22 +1042,22 @@ let
       "exec" = mkOption {
         description = "Exec specifies the action to take.";
         type = (types.nullOr ControllerInitContainerLifecyclePreStopExecModule);
-        default = { };
+        default = null;
       };
       "httpGet" = mkOption {
         description = "HTTPGet specifies the http request to perform.";
         type = (types.nullOr ControllerInitContainerLifecyclePreStopHttpGetModule);
-        default = { };
+        default = null;
       };
       "sleep" = mkOption {
         description = "Sleep represents the duration that the container should sleep before being terminated.";
         type = (types.nullOr ControllerInitContainerLifecyclePreStopSleepModule);
-        default = { };
+        default = null;
       };
       "tcpSocket" = mkOption {
         description = "Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept for the backward compatibility. There are no validation of this field and lifecycle hooks will fail in runtime when tcp handler is specified.";
         type = (types.nullOr ControllerInitContainerLifecyclePreStopTcpSocketModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -1120,16 +1120,16 @@ let
       "image" = mkOption {
         description = "Image configuration for the container.";
         type = (types.nullOr ControllerInitContainerImageModule);
-        default = { };
+        default = null;
       };
       "lifecycle" = mkOption {
         description = "Lifecycle event hooks for the container.";
         type = (types.nullOr ControllerInitContainerLifecycleModule);
-        default = { };
+        default = null;
       };
       "nameOverride" = mkOption {
         description = "Override the container name.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "ports" = mkOption {
@@ -1140,21 +1140,21 @@ let
       "probes" = mkOption {
         description = "Probe settings for the container.";
         type = (types.nullOr ControllerInitContainerProbesModule);
-        default = { };
+        default = null;
       };
       "resources" = mkOption {
         description = "Resource requests and limits for the container.";
         type = (types.nullOr ControllerInitContainerResourcesModule);
-        default = { };
+        default = null;
       };
       "restartPolicy" = mkOption {
         description = "Restart policy for the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "securityContext" = mkOption {
         description = "Security context for the container.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "stdin" = mkOption {
@@ -1164,7 +1164,7 @@ let
       };
       "terminationMessagePath" = mkOption {
         description = "Path for the container's termination message file.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "terminationMessagePolicy" = mkOption {
@@ -1183,7 +1183,7 @@ let
       };
       "workingDir" = mkOption {
         description = "Working directory for the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -1222,17 +1222,17 @@ let
     options = {
       "liveness" = mkOption {
         description = "Liveness probe configuration.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "readiness" = mkOption {
         description = "Readiness probe configuration.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "startup" = mkOption {
         description = "Startup probe configuration.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -1261,23 +1261,23 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "activeDeadlineSeconds" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "backoffLimit" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = 6;
       };
       "completionMode" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "completions" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "parallelism" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "suspend" = mkOption {
@@ -1285,7 +1285,7 @@ let
         default = false;
       };
       "ttlSecondsAfterFinished" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
     };
@@ -1311,12 +1311,12 @@ let
       "cronjob" = mkOption {
         description = "CronJob-specific options. Required when type is cronjob.";
         type = (types.nullOr ControllerCronjobModule);
-        default = { };
+        default = null;
       };
       "defaultContainerOptions" = mkOption {
         description = "Default options for all (init)Containers. Each can be overridden on a container level.";
         type = (types.nullOr ControllerDefaultContainerOptionsModule);
-        default = { };
+        default = null;
       };
       "defaultContainerOptionsStrategy" = mkOption {
         description = "Strategy for default container options.\noverwrite: use container-level options if set.\nmerge: merge container-level options with defaults.";
@@ -1334,7 +1334,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "initContainers" = mkOption {
@@ -1345,7 +1345,7 @@ let
       "job" = mkOption {
         description = "Job-specific options. Required when type is job.";
         type = (types.nullOr ControllerJobModule);
-        default = { };
+        default = null;
       };
       "labels" = mkOption {
         description = "Labels to set on the item.";
@@ -1355,15 +1355,15 @@ let
       "pod" = mkOption {
         description = "Pod-level options for this controller.";
         type = (types.nullOr ControllerPodModule);
-        default = { };
+        default = null;
       };
       "podDisruptionBudget" = mkOption {
         description = "PodDisruptionBudget Policy for this controller.";
         type = (types.nullOr ControllerPodDisruptionBudgetModule);
-        default = { };
+        default = null;
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "replicas" = mkOption {
@@ -1373,7 +1373,7 @@ let
       };
       "revisionHistoryLimit" = mkOption {
         description = "ReplicaSet revision history limit.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "rollingUpdate" = mkOption {
@@ -1384,20 +1384,20 @@ let
       "serviceAccount" = mkOption {
         description = "ServiceAccount used by the controller.";
         type = (types.nullOr ControllerServiceAccountModule);
-        default = { };
+        default = null;
       };
       "statefulset" = mkOption {
         description = "StatefulSet-specific options. Required when type is statefulset.";
         type = (types.nullOr ControllerStatefulsetModule);
-        default = { };
+        default = null;
       };
       "strategy" = mkOption {
         description = "Controller upgrade strategy.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "type" = mkOption {
@@ -1421,17 +1421,17 @@ let
       "nodeAffinity" = mkOption {
         description = "Describes node affinity scheduling rules for the pod.";
         type = (types.nullOr ControllerPodAffinityNodeAffinityModule);
-        default = { };
+        default = null;
       };
       "podAffinity" = mkOption {
         description = "Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).";
         type = (types.nullOr ControllerPodAffinityPodAffinityModule);
-        default = { };
+        default = null;
       };
       "podAntiAffinity" = mkOption {
         description = "Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).";
         type = (types.nullOr ControllerPodAffinityPodAntiAffinityModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -1450,7 +1450,7 @@ let
         type = (
           types.nullOr ControllerPodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionModule
         );
-        default = { };
+        default = null;
       };
     };
   };
@@ -1689,7 +1689,7 @@ let
             type = (
               types.nullOr ControllerPodAffinityPodAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTermLabelSelectorModule
             );
-            default = { };
+            default = null;
           };
           "matchLabelKeys" = mkOption {
             description = "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.";
@@ -1706,7 +1706,7 @@ let
             type = (
               types.nullOr ControllerPodAffinityPodAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTermNamespaceSelectorModule
             );
-            default = { };
+            default = null;
           };
           "namespaces" = mkOption {
             description = "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\".";
@@ -1807,7 +1807,7 @@ let
             type = (
               types.nullOr ControllerPodAffinityPodAffinityRequiredDuringSchedulingIgnoredDuringExecutionLabelSelectorModule
             );
-            default = { };
+            default = null;
           };
           "matchLabelKeys" = mkOption {
             description = "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.";
@@ -1824,7 +1824,7 @@ let
             type = (
               types.nullOr ControllerPodAffinityPodAffinityRequiredDuringSchedulingIgnoredDuringExecutionNamespaceSelectorModule
             );
-            default = { };
+            default = null;
           };
           "namespaces" = mkOption {
             description = "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\".";
@@ -1960,7 +1960,7 @@ let
             type = (
               types.nullOr ControllerPodAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTermLabelSelectorModule
             );
-            default = { };
+            default = null;
           };
           "matchLabelKeys" = mkOption {
             description = "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.";
@@ -1977,7 +1977,7 @@ let
             type = (
               types.nullOr ControllerPodAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTermNamespaceSelectorModule
             );
-            default = { };
+            default = null;
           };
           "namespaces" = mkOption {
             description = "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\".";
@@ -2078,7 +2078,7 @@ let
             type = (
               types.nullOr ControllerPodAffinityPodAntiAffinityRequiredDuringSchedulingIgnoredDuringExecutionLabelSelectorModule
             );
-            default = { };
+            default = null;
           };
           "matchLabelKeys" = mkOption {
             description = "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.";
@@ -2095,7 +2095,7 @@ let
             type = (
               types.nullOr ControllerPodAffinityPodAntiAffinityRequiredDuringSchedulingIgnoredDuringExecutionNamespaceSelectorModule
             );
-            default = { };
+            default = null;
           };
           "namespaces" = mkOption {
             description = "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\".";
@@ -2151,11 +2151,11 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "maxUnavailable" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "minAvailable" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -2185,11 +2185,11 @@ let
     options = {
       "name" = mkOption {
         description = "Required.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "value" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -2204,7 +2204,7 @@ let
       };
       "ip" = mkOption {
         description = "IP address of the host file entry.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -2214,7 +2214,7 @@ let
     options = {
       "name" = mkOption {
         description = "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -2225,7 +2225,7 @@ let
       "affinity" = mkOption {
         description = "Set affinity constraint rules. Helm templates can be used.\nSee https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity";
         type = (types.nullOr ControllerPodAffinityModule);
-        default = { };
+        default = null;
       };
       "annotations" = mkOption {
         description = "Annotations to set on the item.";
@@ -2240,11 +2240,11 @@ let
       "dnsConfig" = mkOption {
         description = "Specifies the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS configuration based on DNSPolicy.";
         type = (types.nullOr ControllerPodDnsConfigModule);
-        default = { };
+        default = null;
       };
       "dnsPolicy" = mkOption {
         description = "Configure the Pod DNS policy. Defaults to 'ClusterFirst' if hostNetwork is false and 'ClusterFirstWithHostNet' if hostNetwork is true.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "enableServiceLinks" = mkOption {
@@ -2279,7 +2279,7 @@ let
       };
       "hostname" = mkOption {
         description = "Set the Pod's hostname.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "imagePullSecrets" = mkOption {
@@ -2299,7 +2299,7 @@ let
       };
       "priorityClassName" = mkOption {
         description = "Custom priority class for different treatment by the scheduler.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "resourceClaims" = mkOption {
@@ -2310,21 +2310,21 @@ let
       "resources" = mkOption {
         description = "Set the resource requests / limits for the Pod. (Requires Kubernetes 1.32 or newer)";
         type = (types.nullOr ControllerPodResourcesModule);
-        default = { };
+        default = null;
       };
       "restartPolicy" = mkOption {
         description = "Set container restart policy. Defaults to 'Always'. When controller.type is 'cronjob' it defaults to 'Never'.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "runtimeClassName" = mkOption {
         description = "Set a runtimeClassName other than the default one (ie: `nvidia`).";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "schedulerName" = mkOption {
         description = "Set a custom scheduler name.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "schedulingGates" = mkOption {
@@ -2335,7 +2335,7 @@ let
       "securityContext" = mkOption {
         description = "Configure the Security Context for the Pod.";
         type = (types.nullOr ControllerPodSecurityContextModule);
-        default = { };
+        default = null;
       };
       "shareProcessNamespace" = mkOption {
         description = "Allows sharing process namespace between containers in a Pod.\nSee https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/";
@@ -2368,12 +2368,12 @@ let
       };
       "resourceClaimName" = mkOption {
         description = "ResourceClaimName is the name of a ResourceClaim object in the same namespace as this pod.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "resourceClaimTemplateName" = mkOption {
         description = "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace as this pod.\n\nThe template will be used to create a new ResourceClaim, which will be bound to this pod. When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name, along with a generated component, will be used to form a unique name for the ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.\n\nThis field is immutable and no changes will be made to the corresponding ResourceClaim by the control plane after creating the ResourceClaim.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -2412,17 +2412,17 @@ let
     options = {
       "fsGroup" = mkOption {
         description = "A special supplemental group that applies to all containers in a pod. Some volume types allow the Kubelet to change the ownership of that volume to be owned by the pod:\n\n1. The owning GID will be the FSGroup 2. The setgid bit is set (new files created in the volume will be owned by FSGroup) 3. The permission bits are OR'd with rw-rw----\n\nIf unset, the Kubelet will not modify the ownership and permissions of any volume. Note that this field cannot be set when spec.os.name is windows.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "fsGroupChangePolicy" = mkOption {
         description = "fsGroupChangePolicy defines behavior of changing ownership and permission of the volume before being exposed inside Pod. This field will only apply to volume types which support fsGroup based ownership(and permissions). It will have no effect on ephemeral volume types such as: secret, configmaps and emptydir. Valid values are \"OnRootMismatch\" and \"Always\". If not specified, \"Always\" is used. Note that this field cannot be set when spec.os.name is windows.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "runAsGroup" = mkOption {
         description = "The GID to run the entrypoint of the container process. Uses runtime default if unset. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "runAsNonRoot" = mkOption {
@@ -2432,18 +2432,18 @@ let
       };
       "runAsUser" = mkOption {
         description = "The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "seLinuxOptions" = mkOption {
         description = "The SELinux context to be applied to all containers. If unspecified, the container runtime will allocate a random SELinux context for each container.  May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows.";
         type = (types.nullOr ControllerPodSecurityContextSeLinuxOptionsModule);
-        default = { };
+        default = null;
       };
       "seccompProfile" = mkOption {
         description = "The seccomp options to use by the containers in this pod. Note that this field cannot be set when spec.os.name is windows.";
         type = (types.nullOr ControllerPodSecurityContextSeccompProfileModule);
-        default = { };
+        default = null;
       };
       "supplementalGroups" = mkOption {
         description = "A list of groups applied to the first process run in each container, in addition to the container's primary GID, the fsGroup (if specified), and group memberships defined in the container image for the uid of the container process. If unspecified, no additional groups are added to any container. Note that group memberships defined in the container image for the uid of the container process are still effective, even if they are not included in this list. Note that this field cannot be set when spec.os.name is windows.";
@@ -2471,22 +2471,22 @@ let
     options = {
       "level" = mkOption {
         description = "Level is SELinux level label that applies to the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "role" = mkOption {
         description = "Role is a SELinux role label that applies to the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "type" = mkOption {
         description = "Type is a SELinux type label that applies to the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "user" = mkOption {
         description = "User is a SELinux user label that applies to the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -2496,7 +2496,7 @@ let
     options = {
       "localhostProfile" = mkOption {
         description = "localhostProfile indicates a profile defined in a file on the node should be used. The profile must be preconfigured on the node to work. Must be a descending path, relative to the kubelet's configured seccomp profile location. Must be set if type is \"Localhost\". Must NOT be set for any other type.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "type" = mkOption {
@@ -2523,27 +2523,27 @@ let
     options = {
       "effect" = mkOption {
         description = "Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "key" = mkOption {
         description = "Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "operator" = mkOption {
         description = "Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "tolerationSeconds" = mkOption {
         description = "TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "value" = mkOption {
         description = "Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -2587,7 +2587,7 @@ let
       "labelSelector" = mkOption {
         description = "LabelSelector is used to find matching pods. Pods that match this label selector are counted to determine the number of pods in their corresponding topology domain.";
         type = (types.nullOr ControllerPodTopologySpreadConstraintLabelSelectorModule);
-        default = { };
+        default = null;
       };
       "matchLabelKeys" = mkOption {
         description = "MatchLabelKeys is a set of pod label keys to select the pods over which spreading will be calculated. The keys are used to lookup values from the incoming pod labels, those key-value labels are ANDed with labelSelector to select the group of existing pods over which spreading will be calculated for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. MatchLabelKeys cannot be set when LabelSelector isn't set. Keys that don't exist in the incoming pod labels will be ignored. A null or empty list means only match against labelSelector.\n\nThis is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).";
@@ -2600,17 +2600,17 @@ let
       };
       "minDomains" = mkOption {
         description = "MinDomains indicates a minimum number of eligible domains. When the number of eligible domains with matching topology keys is less than minDomains, Pod Topology Spread treats \"global minimum\" as 0, and then the calculation of Skew is performed. And when the number of eligible domains with matching topology keys equals or greater than minDomains, this value has no effect on scheduling. As a result, when the number of eligible domains is less than minDomains, scheduler won't schedule more than maxSkew Pods to those domains. If value is nil, the constraint behaves as if MinDomains is equal to 1. Valid values are integers greater than 0. When value is not nil, WhenUnsatisfiable must be DoNotSchedule.\n\nFor example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same labelSelector spread as 2/2/2: | zone1 | zone2 | zone3 | |  P P  |  P P  |  P P  | The number of domains is less than 5(MinDomains), so \"global minimum\" is treated as 0. In this situation, new pod with the same labelSelector cannot be scheduled, because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones, it will violate MaxSkew.\n\nThis is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "nodeAffinityPolicy" = mkOption {
         description = "NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector when calculating pod topology spread skew. Options are: - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations. - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.\n\nIf this value is nil, the behavior is equivalent to the Honor policy. This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "nodeTaintsPolicy" = mkOption {
         description = "NodeTaintsPolicy indicates how we will treat node taints when calculating pod topology spread skew. Options are: - Honor: nodes without taints, along with tainted nodes for which the incoming pod has a toleration, are included. - Ignore: node taints are ignored. All nodes are included.\n\nIf this value is nil, the behavior is equivalent to the Ignore policy. This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "topologyKey" = mkOption {
@@ -2628,12 +2628,12 @@ let
     options = {
       "identifier" = mkOption {
         description = "Reference a serviceAccount configured in this chart by its key.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
         description = "Reference a serviceAccount by its name. Helm templates are supported.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -2643,10 +2643,10 @@ let
     options = {
       "persistentVolumeClaimRetentionPolicy" = mkOption {
         type = (types.nullOr ControllerStatefulsetPersistentVolumeClaimRetentionPolicyModule);
-        default = { };
+        default = null;
       };
       "podManagementPolicy" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "serviceName" = mkOption {
@@ -2654,7 +2654,7 @@ let
         default = { };
       };
       "startOrdinal" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = 0;
       };
       "volumeClaimTemplates" = mkOption {
@@ -2690,7 +2690,7 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "apiGroup" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "kind" = mkOption {
@@ -2705,7 +2705,7 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "apiGroup" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "kind" = mkOption {
@@ -2720,7 +2720,7 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "accessMode" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "advancedMounts" = mkOption {
@@ -2734,11 +2734,11 @@ let
       };
       "dataSource" = mkOption {
         type = (types.nullOr ControllerStatefulsetVolumeClaimTemplateDataSourceModule);
-        default = { };
+        default = null;
       };
       "dataSourceRef" = mkOption {
         type = (types.nullOr ControllerStatefulsetVolumeClaimTemplateDataSourceRefModule);
-        default = { };
+        default = null;
       };
       "enabled" = mkOption {
         type = types.bool;
@@ -2760,7 +2760,7 @@ let
         type = types.str;
       };
       "storageClass" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -2771,17 +2771,17 @@ let
       "nodeAffinity" = mkOption {
         description = "Describes node affinity scheduling rules for the pod.";
         type = (types.nullOr DefaultPodOptionsAffinityNodeAffinityModule);
-        default = { };
+        default = null;
       };
       "podAffinity" = mkOption {
         description = "Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).";
         type = (types.nullOr DefaultPodOptionsAffinityPodAffinityModule);
-        default = { };
+        default = null;
       };
       "podAntiAffinity" = mkOption {
         description = "Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).";
         type = (types.nullOr DefaultPodOptionsAffinityPodAntiAffinityModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -2800,7 +2800,7 @@ let
         type = (
           types.nullOr DefaultPodOptionsAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionModule
         );
-        default = { };
+        default = null;
       };
     };
   };
@@ -3039,7 +3039,7 @@ let
             type = (
               types.nullOr DefaultPodOptionsAffinityPodAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTermLabelSelectorModule
             );
-            default = { };
+            default = null;
           };
           "matchLabelKeys" = mkOption {
             description = "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.";
@@ -3056,7 +3056,7 @@ let
             type = (
               types.nullOr DefaultPodOptionsAffinityPodAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTermNamespaceSelectorModule
             );
-            default = { };
+            default = null;
           };
           "namespaces" = mkOption {
             description = "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\".";
@@ -3157,7 +3157,7 @@ let
             type = (
               types.nullOr DefaultPodOptionsAffinityPodAffinityRequiredDuringSchedulingIgnoredDuringExecutionLabelSelectorModule
             );
-            default = { };
+            default = null;
           };
           "matchLabelKeys" = mkOption {
             description = "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.";
@@ -3174,7 +3174,7 @@ let
             type = (
               types.nullOr DefaultPodOptionsAffinityPodAffinityRequiredDuringSchedulingIgnoredDuringExecutionNamespaceSelectorModule
             );
-            default = { };
+            default = null;
           };
           "namespaces" = mkOption {
             description = "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\".";
@@ -3310,7 +3310,7 @@ let
             type = (
               types.nullOr DefaultPodOptionsAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTermLabelSelectorModule
             );
-            default = { };
+            default = null;
           };
           "matchLabelKeys" = mkOption {
             description = "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.";
@@ -3327,7 +3327,7 @@ let
             type = (
               types.nullOr DefaultPodOptionsAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTermNamespaceSelectorModule
             );
-            default = { };
+            default = null;
           };
           "namespaces" = mkOption {
             description = "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\".";
@@ -3428,7 +3428,7 @@ let
             type = (
               types.nullOr DefaultPodOptionsAffinityPodAntiAffinityRequiredDuringSchedulingIgnoredDuringExecutionLabelSelectorModule
             );
-            default = { };
+            default = null;
           };
           "matchLabelKeys" = mkOption {
             description = "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.";
@@ -3445,7 +3445,7 @@ let
             type = (
               types.nullOr DefaultPodOptionsAffinityPodAntiAffinityRequiredDuringSchedulingIgnoredDuringExecutionNamespaceSelectorModule
             );
-            default = { };
+            default = null;
           };
           "namespaces" = mkOption {
             description = "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\".";
@@ -3522,11 +3522,11 @@ let
     options = {
       "name" = mkOption {
         description = "Required.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "value" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -3541,7 +3541,7 @@ let
       };
       "ip" = mkOption {
         description = "IP address of the host file entry.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -3551,7 +3551,7 @@ let
     options = {
       "name" = mkOption {
         description = "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -3562,7 +3562,7 @@ let
       "affinity" = mkOption {
         description = "Set affinity constraint rules. Helm templates can be used.\nSee https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity";
         type = (types.nullOr DefaultPodOptionsAffinityModule);
-        default = { };
+        default = null;
       };
       "annotations" = mkOption {
         description = "Annotations to set on the item.";
@@ -3577,11 +3577,11 @@ let
       "dnsConfig" = mkOption {
         description = "Specifies the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS configuration based on DNSPolicy.";
         type = (types.nullOr DefaultPodOptionsDnsConfigModule);
-        default = { };
+        default = null;
       };
       "dnsPolicy" = mkOption {
         description = "Configure the Pod DNS policy. Defaults to 'ClusterFirst' if hostNetwork is false and 'ClusterFirstWithHostNet' if hostNetwork is true.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "enableServiceLinks" = mkOption {
@@ -3616,7 +3616,7 @@ let
       };
       "hostname" = mkOption {
         description = "Set the Pod's hostname.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "imagePullSecrets" = mkOption {
@@ -3636,7 +3636,7 @@ let
       };
       "priorityClassName" = mkOption {
         description = "Custom priority class for different treatment by the scheduler.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "resourceClaims" = mkOption {
@@ -3647,21 +3647,21 @@ let
       "resources" = mkOption {
         description = "Set the resource requests / limits for the Pod. (Requires Kubernetes 1.32 or newer)";
         type = (types.nullOr DefaultPodOptionsResourcesModule);
-        default = { };
+        default = null;
       };
       "restartPolicy" = mkOption {
         description = "Set container restart policy. Defaults to 'Always'. When controller.type is 'cronjob' it defaults to 'Never'.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "runtimeClassName" = mkOption {
         description = "Set a runtimeClassName other than the default one (ie: `nvidia`).";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "schedulerName" = mkOption {
         description = "Set a custom scheduler name.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "schedulingGates" = mkOption {
@@ -3672,7 +3672,7 @@ let
       "securityContext" = mkOption {
         description = "Configure the Security Context for the Pod.";
         type = (types.nullOr DefaultPodOptionsSecurityContextModule);
-        default = { };
+        default = null;
       };
       "shareProcessNamespace" = mkOption {
         description = "Allows sharing process namespace between containers in a Pod.\nSee https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/";
@@ -3705,12 +3705,12 @@ let
       };
       "resourceClaimName" = mkOption {
         description = "ResourceClaimName is the name of a ResourceClaim object in the same namespace as this pod.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "resourceClaimTemplateName" = mkOption {
         description = "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace as this pod.\n\nThe template will be used to create a new ResourceClaim, which will be bound to this pod. When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name, along with a generated component, will be used to form a unique name for the ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.\n\nThis field is immutable and no changes will be made to the corresponding ResourceClaim by the control plane after creating the ResourceClaim.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -3749,17 +3749,17 @@ let
     options = {
       "fsGroup" = mkOption {
         description = "A special supplemental group that applies to all containers in a pod. Some volume types allow the Kubelet to change the ownership of that volume to be owned by the pod:\n\n1. The owning GID will be the FSGroup 2. The setgid bit is set (new files created in the volume will be owned by FSGroup) 3. The permission bits are OR'd with rw-rw----\n\nIf unset, the Kubelet will not modify the ownership and permissions of any volume. Note that this field cannot be set when spec.os.name is windows.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "fsGroupChangePolicy" = mkOption {
         description = "fsGroupChangePolicy defines behavior of changing ownership and permission of the volume before being exposed inside Pod. This field will only apply to volume types which support fsGroup based ownership(and permissions). It will have no effect on ephemeral volume types such as: secret, configmaps and emptydir. Valid values are \"OnRootMismatch\" and \"Always\". If not specified, \"Always\" is used. Note that this field cannot be set when spec.os.name is windows.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "runAsGroup" = mkOption {
         description = "The GID to run the entrypoint of the container process. Uses runtime default if unset. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "runAsNonRoot" = mkOption {
@@ -3769,18 +3769,18 @@ let
       };
       "runAsUser" = mkOption {
         description = "The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "seLinuxOptions" = mkOption {
         description = "The SELinux context to be applied to all containers. If unspecified, the container runtime will allocate a random SELinux context for each container.  May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows.";
         type = (types.nullOr DefaultPodOptionsSecurityContextSeLinuxOptionsModule);
-        default = { };
+        default = null;
       };
       "seccompProfile" = mkOption {
         description = "The seccomp options to use by the containers in this pod. Note that this field cannot be set when spec.os.name is windows.";
         type = (types.nullOr DefaultPodOptionsSecurityContextSeccompProfileModule);
-        default = { };
+        default = null;
       };
       "supplementalGroups" = mkOption {
         description = "A list of groups applied to the first process run in each container, in addition to the container's primary GID, the fsGroup (if specified), and group memberships defined in the container image for the uid of the container process. If unspecified, no additional groups are added to any container. Note that group memberships defined in the container image for the uid of the container process are still effective, even if they are not included in this list. Note that this field cannot be set when spec.os.name is windows.";
@@ -3808,22 +3808,22 @@ let
     options = {
       "level" = mkOption {
         description = "Level is SELinux level label that applies to the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "role" = mkOption {
         description = "Role is a SELinux role label that applies to the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "type" = mkOption {
         description = "Type is a SELinux type label that applies to the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "user" = mkOption {
         description = "User is a SELinux user label that applies to the container.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -3833,7 +3833,7 @@ let
     options = {
       "localhostProfile" = mkOption {
         description = "localhostProfile indicates a profile defined in a file on the node should be used. The profile must be preconfigured on the node to work. Must be a descending path, relative to the kubelet's configured seccomp profile location. Must be set if type is \"Localhost\". Must NOT be set for any other type.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "type" = mkOption {
@@ -3860,27 +3860,27 @@ let
     options = {
       "effect" = mkOption {
         description = "Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "key" = mkOption {
         description = "Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "operator" = mkOption {
         description = "Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "tolerationSeconds" = mkOption {
         description = "TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "value" = mkOption {
         description = "Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -3924,7 +3924,7 @@ let
       "labelSelector" = mkOption {
         description = "LabelSelector is used to find matching pods. Pods that match this label selector are counted to determine the number of pods in their corresponding topology domain.";
         type = (types.nullOr DefaultPodOptionsTopologySpreadConstraintLabelSelectorModule);
-        default = { };
+        default = null;
       };
       "matchLabelKeys" = mkOption {
         description = "MatchLabelKeys is a set of pod label keys to select the pods over which spreading will be calculated. The keys are used to lookup values from the incoming pod labels, those key-value labels are ANDed with labelSelector to select the group of existing pods over which spreading will be calculated for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. MatchLabelKeys cannot be set when LabelSelector isn't set. Keys that don't exist in the incoming pod labels will be ignored. A null or empty list means only match against labelSelector.\n\nThis is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).";
@@ -3937,17 +3937,17 @@ let
       };
       "minDomains" = mkOption {
         description = "MinDomains indicates a minimum number of eligible domains. When the number of eligible domains with matching topology keys is less than minDomains, Pod Topology Spread treats \"global minimum\" as 0, and then the calculation of Skew is performed. And when the number of eligible domains with matching topology keys equals or greater than minDomains, this value has no effect on scheduling. As a result, when the number of eligible domains is less than minDomains, scheduler won't schedule more than maxSkew Pods to those domains. If value is nil, the constraint behaves as if MinDomains is equal to 1. Valid values are integers greater than 0. When value is not nil, WhenUnsatisfiable must be DoNotSchedule.\n\nFor example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same labelSelector spread as 2/2/2: | zone1 | zone2 | zone3 | |  P P  |  P P  |  P P  | The number of domains is less than 5(MinDomains), so \"global minimum\" is treated as 0. In this situation, new pod with the same labelSelector cannot be scheduled, because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones, it will violate MaxSkew.\n\nThis is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "nodeAffinityPolicy" = mkOption {
         description = "NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector when calculating pod topology spread skew. Options are: - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations. - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.\n\nIf this value is nil, the behavior is equivalent to the Honor policy. This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "nodeTaintsPolicy" = mkOption {
         description = "NodeTaintsPolicy indicates how we will treat node taints when calculating pod topology spread skew. Options are: - Honor: nodes without taints, along with tainted nodes for which the incoming pod has a toleration, are included. - Ignore: node taints are ignored. All nodes are included.\n\nIf this value is nil, the behavior is equivalent to the Ignore policy. This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "topologyKey" = mkOption {
@@ -4001,12 +4001,12 @@ let
       "resource" = mkOption {
         description = "resource is an ObjectRef to another Kubernetes resource in the namespace of the Ingress object. If resource is specified, a service.Name and service.Port must not be specified. This is a mutually exclusive setting with \"Service\".";
         type = (types.nullOr IngresDefaultBackendResourceModule);
-        default = { };
+        default = null;
       };
       "service" = mkOption {
         description = "service references a service as a backend. This is a mutually exclusive setting with \"Resource\".";
         type = (types.nullOr IngresDefaultBackendServiceModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -4015,7 +4015,7 @@ let
     options = {
       "apiGroup" = mkOption {
         description = "APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "kind" = mkOption {
@@ -4038,7 +4038,7 @@ let
       "port" = mkOption {
         description = "port of the referenced service. A port name or port number is required for a IngressServiceBackend.";
         type = (types.nullOr IngresDefaultBackendServicePortModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -4047,12 +4047,12 @@ let
     options = {
       "name" = mkOption {
         description = "name is the name of the port on the Service. This is a mutually exclusive setting with \"Number\".";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "number" = mkOption {
         description = "number is the numerical port number (e.g. 80) on the Service. This is a mutually exclusive setting with \"Name\".";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
     };
@@ -4067,13 +4067,13 @@ let
       };
       "className" = mkOption {
         description = "Set the ingressClass used for this Ingress.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "defaultBackend" = mkOption {
         description = "Set the defaultBackend for this Ingress. This disables any other rules.";
         type = (types.nullOr IngresDefaultBackendModule);
-        default = { };
+        default = null;
       };
       "enabled" = mkOption {
         description = "Set to false to disable the Ingress.";
@@ -4081,7 +4081,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "hosts" = mkOption {
@@ -4095,11 +4095,11 @@ let
         default = { };
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "tls" = mkOption {
@@ -4119,7 +4119,7 @@ let
       };
       "controller" = mkOption {
         description = "Controller this NetworkPolicy should target.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "enabled" = mkOption {
@@ -4128,7 +4128,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "labels" = mkOption {
@@ -4138,7 +4138,7 @@ let
       };
       "podSelector" = mkOption {
         description = "Custom podSelector for the NetworkPolicy. Takes precedence over targeting a controller.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "policyTypes" = mkOption {
@@ -4147,7 +4147,7 @@ let
         default = [ ];
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "rules" = mkOption {
@@ -4155,7 +4155,7 @@ let
         type = NetworkpolicieRulesModule;
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -4180,17 +4180,17 @@ let
     options = {
       "endPort" = mkOption {
         description = "endPort indicates that the range of ports from port to endPort if set, inclusive, should be allowed by the policy. This field cannot be defined if the port field is not defined or if the port field is defined as a named (string) port. The endPort must be equal or greater than port.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "port" = mkOption {
         description = "port represents the port on the given protocol. This can either be a numerical or named port on a pod. If this field is not provided, this matches all port names and numbers. If present, only traffic on the specified protocol AND port will be matched.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "protocol" = mkOption {
         description = "protocol represents the protocol (TCP, UDP, or SCTP) which traffic must match. If not specified, this field defaults to TCP.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -4215,17 +4215,17 @@ let
       "ipBlock" = mkOption {
         description = "ipBlock defines policy on a particular IPBlock. If this field is set then neither of the other fields can be.";
         type = (types.nullOr NetworkpolicieRulesEgresToIpBlockModule);
-        default = { };
+        default = null;
       };
       "namespaceSelector" = mkOption {
         description = "namespaceSelector selects namespaces using cluster-scoped labels. This field follows standard label selector semantics; if present but empty, it selects all namespaces.\n\nIf podSelector is also set, then the NetworkPolicyPeer as a whole selects the pods matching podSelector in the namespaces selected by namespaceSelector. Otherwise it selects all pods in the namespaces selected by namespaceSelector.";
         type = (types.nullOr NetworkpolicieRulesEgresToNamespaceSelectorModule);
-        default = { };
+        default = null;
       };
       "podSelector" = mkOption {
         description = "podSelector is a label selector which selects pods. This field follows standard label selector semantics; if present but empty, it selects all pods.\n\nIf namespaceSelector is also set, then the NetworkPolicyPeer as a whole selects the pods matching podSelector in the Namespaces selected by NamespaceSelector. Otherwise it selects the pods matching podSelector in the policy's own namespace.";
         type = (types.nullOr NetworkpolicieRulesEgresToPodSelectorModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -4315,17 +4315,17 @@ let
       "ipBlock" = mkOption {
         description = "ipBlock defines policy on a particular IPBlock. If this field is set then neither of the other fields can be.";
         type = (types.nullOr NetworkpolicieRulesIngresFromIpBlockModule);
-        default = { };
+        default = null;
       };
       "namespaceSelector" = mkOption {
         description = "namespaceSelector selects namespaces using cluster-scoped labels. This field follows standard label selector semantics; if present but empty, it selects all namespaces.\n\nIf podSelector is also set, then the NetworkPolicyPeer as a whole selects the pods matching podSelector in the namespaces selected by namespaceSelector. Otherwise it selects all pods in the namespaces selected by namespaceSelector.";
         type = (types.nullOr NetworkpolicieRulesIngresFromNamespaceSelectorModule);
-        default = { };
+        default = null;
       };
       "podSelector" = mkOption {
         description = "podSelector is a label selector which selects pods. This field follows standard label selector semantics; if present but empty, it selects all pods.\n\nIf namespaceSelector is also set, then the NetworkPolicyPeer as a whole selects the pods matching podSelector in the Namespaces selected by NamespaceSelector. Otherwise it selects the pods matching podSelector in the policy's own namespace.";
         type = (types.nullOr NetworkpolicieRulesIngresFromPodSelectorModule);
-        default = { };
+        default = null;
       };
     };
   };
@@ -4415,17 +4415,17 @@ let
     options = {
       "endPort" = mkOption {
         description = "endPort indicates that the range of ports from port to endPort if set, inclusive, should be allowed by the policy. This field cannot be defined if the port field is not defined or if the port field is defined as a named (string) port. The endPort must be equal or greater than port.";
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "port" = mkOption {
         description = "port represents the port on the given protocol. This can either be a numerical or named port on a pod. If this field is not provided, this matches all port names and numbers. If present, only traffic on the specified protocol AND port will be matched.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "protocol" = mkOption {
         description = "protocol represents the protocol (TCP, UDP, or SCTP) which traffic must match. If not specified, this field defaults to TCP.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -4461,7 +4461,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "kind" = mkOption {
@@ -4474,7 +4474,7 @@ let
         default = { };
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "spec" = mkOption {
@@ -4482,7 +4482,7 @@ let
         type = types.anything;
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -4501,7 +4501,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "labels" = mkOption {
@@ -4510,7 +4510,7 @@ let
         default = { };
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "roleRef" = mkOption {
@@ -4522,7 +4522,7 @@ let
         type = (types.listOf RbacBindingSubjectModule);
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "type" = mkOption {
@@ -4541,7 +4541,7 @@ let
     options = {
       "identifier" = mkOption {
         description = "Reference an Role or ClusterRole configured in this chart by its key.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "kind" = mkOption {
@@ -4555,7 +4555,7 @@ let
       };
       "name" = mkOption {
         description = "Reference a Role or ClusterRole by its name. Helm template enabled.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -4565,22 +4565,22 @@ let
     options = {
       "identifier" = mkOption {
         description = "Reference a serviceAccount configured in this chart by its key.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "kind" = mkOption {
         description = "The kind of the referenced subject. Supported values: ServiceAccount, User, Group.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
         description = "Reference an subject by its name.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "namespace" = mkOption {
         description = "The namespace of the referenced subject. Do not define if kind is User or Group.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -4614,7 +4614,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "labels" = mkOption {
@@ -4623,7 +4623,7 @@ let
         default = { };
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "rules" = mkOption {
@@ -4631,7 +4631,7 @@ let
         type = (types.listOf types.anything);
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "type" = mkOption {
@@ -4659,7 +4659,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "hostnames" = mkOption {
@@ -4690,7 +4690,7 @@ let
         default = [ ];
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "rules" = mkOption {
@@ -4699,7 +4699,7 @@ let
         default = [ ];
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -4708,26 +4708,26 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "group" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "kind" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
         type = types.str;
       };
       "namespace" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "port" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
       "sectionName" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -4736,33 +4736,33 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "group" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "identifier" = mkOption {
         description = "Reference to a service identifier defined within the chart values.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "kind" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "name" = mkOption {
         description = "Reference to a backend Service name.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "namespace" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "port" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "weight" = mkOption {
-        type = types.int;
+        type = (types.nullOr types.int);
         default = null;
       };
     };
@@ -4787,7 +4787,7 @@ let
       };
       "name" = mkOption {
         description = "Optional name of the route rule. This name must be unique within a Route if it is set.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "sessionPersistence" = mkOption {
@@ -4816,7 +4816,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "includeChecksumInControllers" = mkOption {
@@ -4835,7 +4835,7 @@ let
         default = { };
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "stringData" = mkOption {
@@ -4843,12 +4843,12 @@ let
         type = (types.attrsOf types.str);
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "type" = mkOption {
         description = "Secret type.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
     };
@@ -4858,7 +4858,7 @@ let
     options = {
       "basePath" = mkOption {
         description = "Base path containing secret subfolders";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "enabled" = mkOption {
@@ -4929,7 +4929,7 @@ let
         default = true;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "labels" = mkOption {
@@ -4938,7 +4938,7 @@ let
         default = { };
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "staticToken" = mkOption {
@@ -4947,7 +4947,7 @@ let
         default = false;
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -4965,12 +4965,12 @@ let
         default = { };
       };
       "clusterIP" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "controller" = mkOption {
         description = "Controller this Service should target.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "enabled" = mkOption {
@@ -4983,7 +4983,7 @@ let
         default = [ ];
       };
       "externalName" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "externalTrafficPolicy" = mkOption {
@@ -4997,11 +4997,11 @@ let
       };
       "extraSelectorLabels" = mkOption {
         description = "Additional match labels for the Service selector.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "internalTrafficPolicy" = mkOption {
@@ -5041,11 +5041,11 @@ let
         default = { };
       };
       "loadBalancerClass" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "loadBalancerIP" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "loadBalancerSourceRanges" = mkOption {
@@ -5058,7 +5058,7 @@ let
         default = { };
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "primary" = mkOption {
@@ -5083,7 +5083,7 @@ let
         default = { };
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "trafficDistribution" = mkOption {
@@ -5128,12 +5128,12 @@ let
         default = [ ];
       };
       "forceRename" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "jobLabel" = mkOption {
         description = "The label to use to retrieve the job name from the target service's metadata. Defaults to the ServiceMonitor's 'metadata.name'. Helm templates can be used.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "labels" = mkOption {
@@ -5142,13 +5142,13 @@ let
         default = { };
       };
       "prefix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "selector" = mkOption {
         description = "Selector to select Endpoints objects.";
         type = (types.nullOr ServiceMonitorSelectorModule);
-        default = { };
+        default = null;
       };
       "service" = mkOption {
         description = "Service to monitor. Either 'serviceName' or 'service' must be specified.";
@@ -5157,11 +5157,11 @@ let
       };
       "serviceName" = mkOption {
         description = "Reference to a Service name to monitor. Helm templates are supported. Deprecated in favor of 'service'.";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "suffix" = mkOption {
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "targetLabels" = mkOption {
@@ -5175,11 +5175,11 @@ let
     freeformType = types.attrsOf types.anything;
     options = {
       "key" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "operator" = mkOption {
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "values" = mkOption {
@@ -5208,7 +5208,7 @@ let
     options = {
       "appProtocol" = mkOption {
         description = "appProtocol value for the port.\nSee https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol";
-        type = types.str;
+        type = (types.nullOr types.str);
         default = null;
       };
       "enabled" = mkOption {
@@ -5218,18 +5218,18 @@ let
       };
       "nodePort" = mkOption {
         description = "nodePort value for LoadBalancer and NodePort Service types.\nSee https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "port" = mkOption {
         description = "Port name / number.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
       "portRange" = mkOption {
         description = "A range of ports to include in the Service.";
         type = (types.nullOr ServicePortPortRangeModule);
-        default = { };
+        default = null;
       };
       "primary" = mkOption {
         description = "Set to true to make this the primary port (used in probes, notes, etc).\nOnly one port can be marked as primary.";
@@ -5249,7 +5249,7 @@ let
       };
       "targetPort" = mkOption {
         description = "Set the targetPort if you want the Service port to differ from the application port. If set, this value is used in the container definition instead of 'port'.\nNamed ports are not supported for this field.";
-        type = types.anything;
+        type = (types.nullOr types.anything);
         default = null;
       };
     };
@@ -5280,7 +5280,7 @@ in
       "configMapsFromFolder" = mkOption {
         description = "Generate ConfigMaps from files in the chart filesystem";
         type = (types.nullOr ConfigMapsFromFolderModule);
-        default = { };
+        default = null;
       };
       "controllers" = mkOption {
         description = "Define the Pod controllers to be generated by the chart";
@@ -5290,7 +5290,7 @@ in
       "defaultPodOptions" = mkOption {
         description = "Set default options for all controllers / pods here. Each of these options can be overridden on a controller level.";
         type = (types.nullOr DefaultPodOptionsModule);
-        default = { };
+        default = null;
       };
       "defaultPodOptionsStrategy" = mkOption {
         description = "Set the strategy for the default pod options. Defaults to overwrite.\noverwrite: If pod-level options are set, use those instead of the defaults.\nmerge: If pod-level options are set, merge them with the defaults.";
@@ -5305,7 +5305,7 @@ in
       "global" = mkOption {
         description = "Allows for configuring chart-wide settings";
         type = (types.nullOr GlobalModule);
-        default = { };
+        default = null;
       };
       "ingress" = mkOption {
         description = "Kubernetes Ingress objects to be generated by the chart";
@@ -5330,7 +5330,7 @@ in
       "rbac" = mkOption {
         description = "Configure the Roles and Role Bindings for the chart here";
         type = (types.nullOr RbacModule);
-        default = { };
+        default = null;
       };
       "route" = mkOption {
         description = "Kubernetes Gateway API *Route objects to be generated by the chart";
@@ -5345,7 +5345,7 @@ in
       "secretsFromFolder" = mkOption {
         description = "Generate Secrets from files in the chart filesystem";
         type = (types.nullOr SecretsFromFolderModule);
-        default = { };
+        default = null;
       };
       "service" = mkOption {
         description = "Kubernetes Service objects to be generated by the chart";
