@@ -88,7 +88,7 @@ in
   config = mkIf cfg.enable {
     # ── Default Helm values ──────────────────────────────────────────
     openkrill.apps.cert-manager.values = {
-      crds.enabled = mkDefault true;
+      installCRDs = mkDefault true;
     };
 
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
