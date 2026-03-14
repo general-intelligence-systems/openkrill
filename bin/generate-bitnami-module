@@ -69,11 +69,20 @@ mkdir -p "$MODULE_DIR"
 if $GENERATE_CRD; then
   cat > "${MODULE_DIR}/crds.nix" <<'NIXEOF'
 # CRD fragment stub — populate with:
-#   bin/create-module-crds --fragment <module-name> <crds.yaml> > apps/unstable/<module-name>/crds.nix
+#   bin/generate-bitnami-crds <module-name> <github-tree-url>
 { }
 NIXEOF
 else
   rm -f "${MODULE_DIR}/crds.nix"
+fi
+
+# ── 3b. Generate custom.nix (empty module, never overwrite) ────────
+if [[ ! -f "${MODULE_DIR}/custom.nix" ]]; then
+  cat > "${MODULE_DIR}/custom.nix" <<'NIXEOF'
+# Custom overrides for this module.
+# This file is never overwritten by the generator.
+{ }
+NIXEOF
 fi
 
 # ── 4. Generate values.nix ────────────────────────────────────────
@@ -103,12 +112,13 @@ NIXEOF
 fi
 
 # ── 5. Generate default.nix ───────────────────────────────────────
-imports_line=""
 sync_options='[ "CreateNamespace=true" ]'
 
 if $GENERATE_CRD; then
-  imports_line=$'\n  imports = [ ./crds.nix ];\n'
+  imports_line=$'\n  imports = [ ./crds.nix ./custom.nix ];\n'
   sync_options='[ "CreateNamespace=true" "ServerSideApply=true" ]'
+else
+  imports_line=$'\n  imports = [ ./custom.nix ];\n'
 fi
 
 cat > "${MODULE_DIR}/default.nix" <<NIXEOF
@@ -183,7 +193,7 @@ NIXEOF
 rm -f "${MODULE_DIR}/helm.nix"
 
 # ── 7. Format ─────────────────────────────────────────────────────
-files_to_fmt=("${MODULE_DIR}/default.nix" "${MODULE_DIR}/values.nix")
+files_to_fmt=("${MODULE_DIR}/default.nix" "${MODULE_DIR}/values.nix" "${MODULE_DIR}/custom.nix")
 $GENERATE_CRD && [[ -f "${MODULE_DIR}/crds.nix" ]] && files_to_fmt+=("${MODULE_DIR}/crds.nix")
 
 if command -v nixfmt &>/dev/null; then
