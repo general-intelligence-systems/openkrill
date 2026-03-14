@@ -287,7 +287,7 @@ ControlPlaneMetricsAnnotationsPrometheusModule = types.submodule {
 };
 "io/port" = mkOption {
   type = (types.nullOr types.str);
-  default = "{{ .Values.controlPlane.service.ports.metrics }}";
+  default = "";
 };
 "io/scrape" = mkOption {
   type = (types.nullOr types.str);
@@ -431,97 +431,7 @@ ControlPlaneModule = types.submodule {
 "defaultConfig" = mkOption {
   description = "APISIX apisix configuration (evaluated as a template)";
   type = (types.nullOr types.str);
-  default = "{{- if .Values.controlPlane.metrics.enabled }}
-plugin_attr:
-  prometheus:
-    export_uri: /apisix/prometheus/metrics
-    metric_prefix: apisix_
-    enable_export_server: true
-    export_addr:
-      ip: 0.0.0.0
-      port: {{ .Values.controlPlane.containerPorts.metrics }}
-{{- end }}
-nginx_config:
-  error_log: /dev/stderr
-  stream:
-    access_log: /dev/stdout
-  http:
-    access_log: /dev/stdout
-  http_configuration_snippet: |
-    proxy_buffering off;
-apisix:
-  control:
-    ip: 0.0.0.0
-    port: {{ .Values.controlPlane.containerPorts.control }}
-deployment:
-  role: control_plane
-  role_control_plane:
-      config_provider: etcd
-      conf_server:
-        listen: 0.0.0.0:{{ .Values.controlPlane.containerPorts.configServer }}
-        cert: /bitnami/certs/{{ .Values.controlPlane.tls.certFilename }}
-        cert_key: /bitnami/certs/{{ .Values.controlPlane.tls.certKeyFilename }}
-  etcd:
-    host:
-      {{- if .Values.etcd.enabled  }}
-        {{- $replicas := $.Values.etcd.replicaCount | int }}
-        {{- range $i, $_e := until $replicas }}
-      - {{ printf "%s://%s-%d.%s:%v" (ternary "https" "http" $.Values.etcd.auth.client.secureTransport) (include "apisix.etcd.fullname" $ ) $i (include "apisix.etcd.headlessServiceName" $) ( include "apisix.etcd.port" $ ) }}          {{- end }}
-      {{- else }}
-      {{- range $node := .Values.externalEtcd.servers }}
-      - {{ ternary "https" "http" $.Values.externalEtcd.secureTransport }}://{{ printf "%s:%v" $node (include "apisix.etcd.port" $) }}
-      {{- end }}
-      {{- end }}
-    prefix: /apisix
-    timeout: 30
-    use_grpc: false
-    startup_retry: 60
-    {{- if (include "apisix.etcd.authEnabled" .) }}
-    user: "{{ print "{{APISIX_ETCD_USER}}" }}"
-    password: "{{ print "{{APISIX_ETCD_PASSWORD}}" }}"
-    {{- end }}
-  {{- if .Values.controlPlane.tls.enabled }}
-  certs:
-    {{- if .Values.controlPlane.tls.enabled }}
-    cert: /bitnami/certs/{{ .Values.controlPlane.tls.certFilename }}
-    cert_key: /bitnami/certs/{{ .Values.controlPlane.tls.certKeyFilename }}
-    {{- if .Values.controlPlane.tls.certCAFilename }}
-    client_ca_cert: /bitnami/certs/{{ .Values.controlPlane.tls.certCAFilename }}
-    {{- end }}
-    {{- end }}
-  {{- end }}
-  admin:
-    {{- if .Values.controlPlane.tls.enabled }}
-    https_admin: true
-    admin_api_mtls:
-      admin_ssl_cert: /bitnami/certs/{{ .Values.controlPlane.tls.certFilename }}
-      admin_ssl_cert_key: /bitnami/certs/{{ .Values.controlPlane.tls.certKeyFilename }}
-    {{- end }}
-    allow_admin:
-      - 0.0.0.0/0
-    admin_key:
-      - name: admin
-        key: "{{ print "{{APISIX_ADMIN_API_TOKEN}}" }}"
-        role: admin
-      - name: viewer
-        key: "{{ print "{{APISIX_VIEWER_API_TOKEN}}" }}"
-        role: viewer
-    admin_listen:
-        port: {{ .Values.controlPlane.containerPorts.adminAPI }}
-    enable_admin_cors: true         # Admin API support CORS response headers.
-discovery:
-  kubernetes:
-    service:
-      schema: https #default https
-      # apiserver host, options [ipv4, ipv6, domain, environment variable]
-      host: ${KUBERNETES_SERVICE_HOST}
-      # apiserver port, options [port number, environment variable]
-      port: ${KUBERNETES_SERVICE_PORT}
-    client:
-      # serviceaccount token or token_file
-      token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-    default_weight: 50 # weight assigned to each discovered endpoint. default 50, minimum 0
-";
+  default = "";
 };
 "dnsPolicy" = mkOption {
   description = "DNS policy for controlPlane pods";
@@ -1362,7 +1272,7 @@ DataPlaneMetricsAnnotationsPrometheusModule = types.submodule {
 };
 "io/port" = mkOption {
   type = (types.nullOr types.str);
-  default = "{{ .Values.dataPlane.service.ports.metrics }}";
+  default = "";
 };
 "io/scrape" = mkOption {
   type = (types.nullOr types.str);
@@ -1496,73 +1406,7 @@ DataPlaneModule = types.submodule {
 "defaultConfig" = mkOption {
   description = "APISIX apisix configuration (evaluated as a template)";
   type = (types.nullOr types.str);
-  default = "{{- if .Values.dataPlane.metrics.enabled }}
-plugin_attr:
-  prometheus:
-    export_uri: /apisix/prometheus/metrics
-    metric_prefix: apisix_
-    enable_export_server: true
-    export_addr:
-      ip: 0.0.0.0
-      port: {{ .Values.dataPlane.containerPorts.metrics }}
-{{- end }}
-apisix:
-  node_listen: {{ .Values.dataPlane.containerPorts.http }}
-  enable_admin: false
-  {{- if .Values.dataPlane.tls.enabled }}
-  ssl:
-    enable: true
-    listen:
-      - port: {{ .Values.dataPlane.containerPorts.https }}
-    ssl_trusted_certificate: /bitnami/certs/{{ .Values.dataPlane.tls.certCAFilename }}
-  enable_http2: true
-  {{- end }}
-  control:
-    ip: 0.0.0.0
-    port: {{ .Values.dataPlane.containerPorts.control }}
-nginx_config:
-  error_log: /dev/stderr
-  stream:
-    access_log: /dev/stdout
-  http:
-    access_log: /dev/stdout
-  http_configuration_snippet: |
-    proxy_buffering off;
-deployment:
-  role: data_plane
-  role_data_plane:
-    config_provider: etcd
-    {{- if .Values.controlPlane.enabled }}
-    control_plane:
-      host:
-        - {{ ternary "https" "http" .Values.controlPlane.tls.enabled }}://{{ include "apisix.control-plane.fullname" . }}:{{ .Values.controlPlane.service.ports.configServer }}
-      prefix: /apisix
-      timeout: 30
-    {{- end }}
-  {{- if .Values.dataPlane.tls.enabled }}
-  certs:
-    {{- if .Values.dataPlane.tls.enabled }}
-    cert: /bitnami/certs/{{ .Values.dataPlane.tls.certFilename }}
-    cert_key: /bitnami/certs/{{ .Values.dataPlane.tls.certKeyFilename }}
-    {{- if .Values.dataPlane.tls.certCAFilename }}
-    client_ca_cert: /bitnami/certs/{{ .Values.dataPlane.tls.certCAFilename }}
-    {{- end }}
-    {{- end }}
-  {{- end }}
-discovery:
-  kubernetes:
-    service:
-      # apiserver schema, options [http, https]
-      schema: https #default https
-      # apiserver host, options [ipv4, ipv6, domain, environment variable]
-      host: ${KUBERNETES_SERVICE_HOST} #default ${KUBERNETES_SERVICE_HOST}
-      # apiserver port, options [port number, environment variable]
-      port: ${KUBERNETES_SERVICE_PORT}  #default ${KUBERNETES_SERVICE_PORT}
-    client:
-      # serviceaccount token or token_file
-      token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-    default_weight: 50 # weight assigned to each discovered endpoint. default 50, minimum 0
-";
+  default = "";
 };
 "dnsPolicy" = mkOption {
   description = "DNS policy for dataPlane pods";
@@ -2605,7 +2449,7 @@ IngressControllerMetricsAnnotationsPrometheusModule = types.submodule {
   options = {
     "io/port" = mkOption {
   type = (types.nullOr types.str);
-  default = "{{ .Values.ingressController.service.ports.http }}";
+  default = "";
 };
 "io/scrape" = mkOption {
   type = (types.nullOr types.str);
@@ -2739,35 +2583,7 @@ IngressControllerModule = types.submodule {
 "defaultConfig" = mkOption {
   description = "APISIX Dashboard configuration (evaluated as a template)";
   type = (types.nullOr types.str);
-  default = "# log options
-log_level: "info"
-log_output: "stderr"
-{{- if .Values.ingressController.tls.enabled }}
-https_listen: ":{{ .Values.ingressController.containerPorts.https }}"
-cert_file: "/bitnami/certs/{{ .Values.ingressController.tls.certFilename }}"
-key_file: "/bitnami/certs/{{ .Values.ingressController.tls.certKeyFilename }}"
-{{- end }}
-http_listen: ":{{ .Values.ingressController.containerPorts.http }}"
-ingress_publish_service: "{{ include "common.names.namespace" . }}/{{ ternary (include "apisix.data-plane.fullname" .) (include "apisix.control-plane.fullname" .) .Values.dataPlane.enabled }}"
-enable_profiling: true
-apisix-resource-sync-interval: 1h
-kubernetes:
-  kubeconfig: ""
-  resync_interval: "6h"
-  election_id: "{{ include "apisix.ingress-controller.fullname" . }}-leader"
-  ingress_class: "apisix"
-  ingress_version: "networking/v1"
-  watch_endpointslices: false
-  apisix_route_version: "apisix.apache.org/v2"
-  enable_gateway_api: false
-  apisix_version: "apisix.apache.org/v2"
-  plugin_metadata_cm: ""
-apisix:
-  admin_api_version: "v3"
-  default_cluster_base_url: {{ ternary "https" "http" .Values.controlPlane.tls.enabled }}://{{ include "apisix.control-plane.fullname" . }}:{{ .Values.controlPlane.service.ports.adminAPI }}/apisix/admin
-  default_cluster_admin_key: "{{ print "{{APISIX_ADMIN_API_TOKEN}}" }}"
-  default_cluster_name: "default"
-";
+  default = "";
 };
 "enabled" = mkOption {
   description = "Enable APISIX Ingress Controller";

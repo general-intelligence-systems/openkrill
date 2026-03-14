@@ -18,7 +18,12 @@ let
       "[ ${concatMapStringsSep " " toNixString value} ]"
     else if isAttrs value then
       "{ ${concatStringsSep " " (mapAttrsToList (k: v: ''"${k}" = ${toNixString v};'') value)} }"
-    else if isString value then ''"${value}"''
+    else if isString value then
+      # Helm template strings (containing {{ }}) are Go templates meant for
+      # the chart's `tpl` function — they have no meaning as Nix defaults and
+      # can contain ${} patterns that break Nix string interpolation.
+      if builtins.match ".*\\{\\{.*" value != null then ''""''
+      else ''"${value}"''
     else if value == null then "null"
     else if isBool value then (if value then "true" else "false")
     else builtins.toString value;
