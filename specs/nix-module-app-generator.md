@@ -68,7 +68,7 @@ Generated structure:
 with lib;
 let
   cfg = config.openkrill.apps."my-crd";
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
   # ... submodules, builders ...
 in
 {
@@ -96,7 +96,7 @@ the controller and then compose one fragment per CRD kind for the
 typed resource options.
 
 ```sh
-bin/create-module-crds --fragment gateway-api gateways.yaml > apps/gateway-api/gateways.nix
+bin/create-module-crds --fragment gateway-api gateways.yaml > apps/stable/gateway-api/gateways.nix
 ```
 
 Generated structure:
@@ -185,7 +185,7 @@ plumbing that fragments don't generate:
 with lib;
 let
   cfg = config.openkrill.apps.my-app;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   imports = [
@@ -310,7 +310,7 @@ kinds.  It does not deploy a controller — Traefik (bundled with k3s)
 provides the Gateway API implementation.
 
 ```
-apps/gateway-api/
+apps/stable/gateway-api/
   default.nix              # Composing module: enable, safeUpgrades VAP, ArgoCD App
   backendtlspolicies.nix   # Fragment: BackendTLSPolicy CRD
   gatewayclasses.nix       # Fragment: GatewayClass CRD
@@ -360,10 +360,10 @@ kinds), re-run the generator and review the diff:
 kubectl get crd gateways.gateway.networking.k8s.io -o yaml > gateways.yaml
 
 # Regenerate the fragment
-bin/create-module-crds --fragment gateway-api gateways.yaml > apps/gateway-api/gateways.nix
+bin/create-module-crds --fragment gateway-api gateways.yaml > apps/stable/gateway-api/gateways.nix
 
 # Review changes
-git diff apps/gateway-api/gateways.nix
+git diff apps/stable/gateway-api/gateways.nix
 ```
 
 Common diff patterns:

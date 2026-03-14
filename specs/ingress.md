@@ -265,7 +265,7 @@ route.  Each Certificate:
   (`<subdomain>.<domain>`).
 - Is automatically renewed by cert-manager before expiry.
 
-The CA chain (created by `apps/cert-manager/default.nix`):
+The CA chain (created by `apps/stable/cert-manager/default.nix`):
 
 ```
 ClusterIssuer/openkrill-origin-authority    (self-signed bootstrap)
@@ -468,10 +468,10 @@ cert-manager                    Provides ClusterIssuer/openkrill-signing-authori
 modules/routes.nix              Creates Certificates + Gateway + HTTPRoutes
     |
     v
-apps/gateway-api/               Provides typed CRD options for Gateway, HTTPRoute
+apps/stable/gateway-api/               Provides typed CRD options for Gateway, HTTPRoute
     |                            Provides safe-upgrades VAP
     v
-apps/traefik/                   Provides GatewayClass/traefik
+apps/stable/traefik/                   Provides GatewayClass/traefik
                                 Configures Traefik data-plane from Gateway API
 ```
 

@@ -39,7 +39,7 @@ let
   eval = lib.evalModules {
     modules = [
       manifestsStub
-      ../apps/traefik/default.nix
+      ../apps/stable/traefik/default.nix
       {
         config.openkrill.apps.traefik = {
           enable = true;

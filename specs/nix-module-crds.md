@@ -2,7 +2,7 @@
 
 For when you have a CRD specification and want a typed openkrill module that generates custom resource instances. No Helm chart involved -- the controller is assumed to be already running.
 
-Reference implementations: `apps/helm/default.nix`, `apps/traefik/default.nix`.
+Reference implementations: `apps/stable/helm/default.nix`, `apps/stable/traefik/default.nix`.
 
 ## Step 1: Read the CRD
 
@@ -54,9 +54,9 @@ Type the fields users will configure structurally -- routes, services, TLS block
 
 Use `types.attrsOf types.anything` for specs that are polymorphic -- where the CRD has many mutually exclusive keys and typing every variant is impractical. Examples:
 
-- **Typed:** Traefik IngressRoute routes, services, TLS (`apps/traefik/default.nix`)
+- **Typed:** Traefik IngressRoute routes, services, TLS (`apps/stable/traefik/default.nix`)
 - **Passthrough:** Traefik Middleware spec -- dozens of mutually exclusive middleware types (`spec.headers`, `spec.rateLimit`, `spec.forwardAuth`, etc.)
-- **Typed:** HelmChart spec -- every field is well-defined and commonly used (`apps/helm/default.nix`)
+- **Typed:** HelmChart spec -- every field is well-defined and commonly used (`apps/stable/helm/default.nix`)
 
 When in doubt, type it. Passthrough is a last resort for genuinely polymorphic specs.
 
@@ -69,7 +69,7 @@ When in doubt, type it. Passthrough is a last resort for genuinely polymorphic s
 with lib;
 let
   cfg = config.openkrill.apps.my-crd;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 
   # ── Sub-submodules ───────────────────────────────────────────────
 
@@ -184,7 +184,7 @@ Use `optionalAttrs` when mixing required and optional fields. Use `compact` for 
 ### Auto-discovery
 
 App modules are auto-discovered by `modules/module-list.nix` via `builtins.readDir`
--- no manual registration is needed. Just create your directory under `apps/`.
+-- no manual registration is needed. Just create your directory under `apps/stable/` or `apps/unstable/`.
 
 ### Write the smoke test
 

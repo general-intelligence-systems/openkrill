@@ -10,7 +10,7 @@ declarations in the module system.
 
 1. [Problem](#problem)
 2. [Architecture Overview](#architecture-overview)
-3. [Cilium Module (`apps/cilium/`)](#cilium-module)
+3. [Cilium Module (`apps/stable/cilium/`)](#cilium-module)
 4. [Declaring Network Policy in an App Module](#declaring-network-policy-in-an-app-module)
 5. [Policy Compilation](#policy-compilation)
 6. [Baseline Policies](#baseline-policies)
@@ -48,7 +48,7 @@ fragments for CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy:
 
 ```
 +---------------------------------+
-|  apps/cilium/                   |  Cilium CNI + policy generation
+|  apps/stable/cilium/                   |  Cilium CNI + policy generation
 |  - Helm chart deployment        |  - BPF-based enforcement
 |  - k3s CNI integration          |  - policyEnforcementMode: always
 |  - Hubble observability         |  - Typed CRD fragments
@@ -91,7 +91,7 @@ instances, and generating baseline infrastructure policies.
 ### Module Structure
 
 ```
-apps/cilium/
+apps/stable/cilium/
   default.nix                          # Helm chart + policy compiler
   ciliumnetworkpolicies.nix            # Auto-generated CRD fragment
   ciliumclusterwidenetworkpolicies.nix # Auto-generated CRD fragment
@@ -107,7 +107,7 @@ pkg/k8s/apis/cilium.io/client/crds/v2/ciliumnetworkpolicies.yaml" \
 
 bin/create-module-crds --fragment cilium \
   crds/cilium/ciliumnetworkpolicies.yaml \
-  > apps/cilium/ciliumnetworkpolicies.nix
+  > apps/stable/cilium/ciliumnetworkpolicies.nix
 ```
 
 ### k3s Integration
@@ -217,7 +217,7 @@ in its `config` block.  The pattern mirrors how apps already declare
 { config, lib, ... }:
 let
   cfg = config.openkrill.apps.<name>;
-  networkPolicyLib = import ../../modules/lib/network-policy.nix { inherit lib; };
+  networkPolicyLib = import ../../../modules/lib/network-policy.nix { inherit lib; };
 in
 {
   options.openkrill.apps.<name> = {
@@ -656,7 +656,7 @@ openkrill.apps.cilium.values.policyEnforcementMode = "default";
 
 ### Phase 1: Cilium CNI + Network Policy Module
 
-- [x] Create `apps/cilium/default.nix` with Helm chart deployment
+- [x] Create `apps/stable/cilium/default.nix` with Helm chart deployment
 - [x] Generate typed CRD fragments for CiliumNetworkPolicy and
       CiliumClusterwideNetworkPolicy via `bin/create-module-crds`
 - [x] Implement identifier resolution (per-app policy compiler)

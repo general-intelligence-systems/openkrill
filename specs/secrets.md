@@ -558,5 +558,5 @@ For cases where the convenience `secrets` option is insufficient, the
 full ExternalSecret CRD schema is available as NixOS options at
 `openkrill.apps."external-secrets".externalsecrets.<name>`. This provides
 complete control over `data`, `dataFrom`, `target.template`,
-`secretStoreRef`, `refreshPolicy`, etc. See `apps/external-secrets/externalsecrets.nix`
+`secretStoreRef`, `refreshPolicy`, etc. See `apps/stable/external-secrets/externalsecrets.nix`
 for the full type definition.

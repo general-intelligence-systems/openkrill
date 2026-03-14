@@ -42,8 +42,8 @@ auto-discovers both modules and application sets:
 ```
 flake.nix  (single sub-flake — auto-discovers everything)
   │
-   ├── Loads modules: ./modules (framework) + module-list.nix (auto-discovers app modules from ./apps/)
-  │     → all directories under ./apps/ are loaded via builtins.readDir
+   ├── Loads modules: ./modules (framework) + module-list.nix (auto-discovers app modules from ./apps/{stable,unstable}/)
+  │     → all directories under ./apps/{stable,unstable}/ are loaded via builtins.readDir
   │
   ├── Auto-discovers sets: builtins.readDir ./sets
   │     → [ "management", "tenant" ]
@@ -381,7 +381,7 @@ for management, `change.me` for tenant).
 
 ### 2. Auto-discovery (no registration needed)
 
-If the module is new, create the directory under `apps/` and
+If the module is new, create the directory under `apps/stable/` or `apps/unstable/` and
 stage it with `git add`.  If the module already exists, skip this step.
 
 ### 3. Add tenant config

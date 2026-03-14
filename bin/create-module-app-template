@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Generates modules/lib/app-template.nix from the bjw-s app-template
+# JSON schema in lib/helm-app-schema/.
+#
+# Usage:
+#   bin/create-module-app-template
+#
+# Output is printed to stdout. Typical usage:
+#   bin/create-module-app-template > modules/lib/app-template.nix
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCHEMA_DIR="${SCRIPT_DIR}/lib/helm-app-schema"
+
+# Resolve all $ref references and produce a single flat JSON object.
+# Ruby handles the cross-file $ref resolution since JSON schemas reference
+# other files via relative paths (e.g. "schemas/controllers.json#/instance").
+TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
+
+ruby -rjson -e '
+schema_dir = ARGV[0]
+
+# Load all schema files into a registry keyed by relative path
+registry = {}
+Dir.glob(File.join(schema_dir, "**/*.json")).each do |f|
+  rel = f.sub(schema_dir + "/", "")
+  registry[rel] = JSON.parse(File.read(f))
+end
+
+# The root schema
+root = registry["values.schema.json"]
+
+# Recursively resolve $ref pointers.
+# A $ref looks like "schemas/controllers.json#/instance" or "#/cronjob"
+# We resolve within-file refs (#/...) and cross-file refs (file#/...).
+def resolve(node, registry, current_file, seen = Set.new)
+  return node unless node.is_a?(Hash) || node.is_a?(Array)
+
+  if node.is_a?(Array)
+    return node.map { |item| resolve(item, registry, current_file, seen) }
+  end
+
+  if node.key?("$ref")
+    ref = node["$ref"]
+
+    # Guard against circular references
+    ref_key = "#{current_file}::#{ref}"
+    if seen.include?(ref_key)
+      # Return a passthrough for circular refs
+      other = node.reject { |k, _| k == "$ref" }
+      return other.merge({"type" => "object"})
+    end
+    seen = seen.dup.add(ref_key)
+
+    file_part, fragment = ref.split("#", 2)
+
+    if file_part.empty?
+      # Within-file reference
+      target_doc = registry[current_file]
+      target_file = current_file
+    else
+      # Cross-file reference — resolve relative to current file dir
+      base_dir = File.dirname(current_file)
+      target_path = base_dir == "." ? file_part : File.join(base_dir, file_part)
+      # Normalize
+      target_path = target_path.sub(%r{^\./}, "")
+      target_doc = registry[target_path]
+      target_file = target_path
+      unless target_doc
+        # Try from root
+        target_doc = registry[file_part]
+        target_file = file_part
+      end
+    end
+
+    unless target_doc
+      $stderr.puts "WARNING: Cannot resolve $ref #{ref} from #{current_file}"
+      other = node.reject { |k, _| k == "$ref" }
+      return other.merge({"type" => "object"})
+    end
+
+    # Navigate the fragment path (e.g. "/instance" -> ["instance"])
+    parts = fragment.sub(%r{^/}, "").split("/")
+    resolved = target_doc
+    parts.each do |p|
+      resolved = resolved[p]
+      unless resolved
+        $stderr.puts "WARNING: Cannot resolve fragment #{fragment} in #{target_file}"
+        other = node.reject { |k, _| k == "$ref" }
+        return other.merge({"type" => "object"})
+      end
+    end
+
+    # Merge any sibling keys (e.g. description alongside $ref)
+    other_keys = node.reject { |k, _| k == "$ref" }
+    resolved = resolve(resolved, registry, target_file, seen)
+    if other_keys.any?
+      resolved = resolved.merge(other_keys)
+    end
+    return resolved
+  end
+
+  # Recursively resolve all values
+  result = {}
+  node.each do |k, v|
+    result[k] = resolve(v, registry, current_file, seen)
+  end
+  result
+end
+
+require "set"
+resolved = resolve(root, registry, "values.schema.json")
+puts JSON.generate(resolved)
+' "$SCHEMA_DIR" > "$TMPFILE"
+
+# Run the Nix generator
+nix-instantiate --eval --strict --json -E "
+  let
+    pkgs = import <nixpkgs> {};
+    generator = import ${SCRIPT_DIR}/lib/generate-app-template.nix { inherit (pkgs) lib; };
+    schema = builtins.fromJSON (builtins.readFile ${TMPFILE});
+  in
+  generator.generateModule { inherit schema; }
+" | ruby -rjson -e 'puts JSON.parse(STDIN.read)' | nix run nixpkgs#nixfmt --

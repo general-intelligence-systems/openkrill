@@ -60,7 +60,7 @@ Three things work together to make an app's metrics visible:
 
 ```
 +--------------------------------------------+
-|  apps/victoriametrics/                     |  Central monitoring stack
+|  apps/stable/victoriametrics/                     |  Central monitoring stack
 |  - Helm chart (operator, VMSingle, etc.)   |  - Deploys VMAgent, VMAlert, Grafana
 |  - 8 CRD fragment imports                  |  - selectAllByDefault = true
 |  - Assembles all VM CRs into manifests     |  - VMAgent auto-discovers all CRs
@@ -86,8 +86,8 @@ This mirrors the network-policies pattern exactly:
 
 | Concern | Declares under | Assembled by |
 |---------|---------------|--------------|
-| Network policy | `openkrill.apps.<name>.networkPolicy` | `apps/cilium/` (policy compiler) |
-| Monitoring | `openkrill.apps.victoriametrics.vmservicescrapes.<name>` | `apps/victoriametrics/` (via fragments) |
+| Network policy | `openkrill.apps.<name>.networkPolicy` | `apps/stable/cilium/` (policy compiler) |
+| Monitoring | `openkrill.apps.victoriametrics.vmservicescrapes.<name>` | `apps/stable/victoriametrics/` (via fragments) |
 
 Both use a cross-cutting compilation approach: app modules declare
 their needs, and a central module assembles the results into typed
@@ -99,7 +99,7 @@ CRD instances.
 
 ### Composing Module
 
-`apps/victoriametrics/default.nix` is a standard Helm-based app module
+`apps/stable/victoriametrics/default.nix` is a standard Helm-based app module
 that also imports 8 CRD fragment files:
 
 ```nix
@@ -193,7 +193,7 @@ All three are declared in the app's `config` block, guarded by
 ### Full Annotated Example
 
 Using CloudNativePG as the reference implementation
-(`apps/cloudnative-pg/default.nix`):
+(`apps/stable/cloudnative-pg/default.nix`):
 
 ```nix
 { config, lib, ... }:
@@ -309,7 +309,7 @@ in
 For apps that expose metrics but don't need custom alerting rules:
 
 ```nix
-# apps/trust-manager/default.nix (excerpt)
+# apps/stable/trust-manager/default.nix (excerpt)
 openkrill.apps.victoriametrics.vmservicescrapes.trust-manager =
   mkIf config.openkrill.apps.victoriametrics.enable {
     namespace = config.openkrill.apps.victoriametrics.namespace;
@@ -435,7 +435,7 @@ Helm value changes.
 | `groups[].rules[].record` | str | no | Recording rule name (omit for alerts) |
 
 For the full option schema of all 8 CRD types, see the generated
-fragment files in `apps/victoriametrics/`.  The options mirror the
+fragment files in `apps/stable/victoriametrics/`.  The options mirror the
 upstream VictoriaMetrics operator CRD spec exactly.
 
 ---

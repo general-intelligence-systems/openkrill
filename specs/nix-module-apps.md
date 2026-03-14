@@ -1,7 +1,7 @@
 # HOW-TO: Creating an App Module
 
 This guide explains how to add a new application by creating a
-NixOS-style app module under `apps/`.
+NixOS-style app module under `apps/{stable,unstable}/`.
 
 ---
 
@@ -112,7 +112,7 @@ enabled, populates `openkrill.manifests.<name>.content` with a list of K8s
 resource attrsets (Deployments, Services, ConfigMaps, CRDs, etc.).
 
 Modules are **auto-discovered** by `modules/module-list.nix` via `builtins.readDir`.
-Every directory under `apps/` is loaded automatically into every NixOS evaluation,
+Every directory under `apps/stable/` and `apps/unstable/` is loaded automatically into every NixOS evaluation,
 but produces no resources unless explicitly enabled (guarded by `lib.mkIf cfg.enable`).
 
 ### Layer 3: Consumer Configuration
@@ -143,7 +143,7 @@ flake.nix
               ├── options.nix        → openkrill.domain
               ├── manifests.nix      → openkrill.manifests pipeline → bare git repo
               ├── custom.nix         → openkrill.apps.custom ad-hoc bundles
-              └── module-list.nix    → auto-discovers app modules (in ../apps/) via readDir
+              └── module-list.nix    → auto-discovers app modules (in ../apps/{stable,unstable}/) via readDir
                     │
                     └── Each app module:
                           options: openkrill.apps.<name> = { enable, namespace, values, extraManifests, ... }
@@ -162,7 +162,7 @@ from the output.
 
 ## Module Patterns
 
-There are five patterns used across the codebase. Pick the one that fits.
+There are six patterns used across the codebase. Pick the one that fits.
 
 ### Pattern 1: Helm-Only (simplest)
 
@@ -182,7 +182,7 @@ apps/my-app/
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-app;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.my-app = {
@@ -307,7 +307,7 @@ in `resources.nix` with no Helm chart involved)
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-policies;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.my-policies = {
@@ -349,7 +349,7 @@ openkrill.apps.my-policies = {
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-app;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.my-app = {
@@ -398,7 +398,7 @@ Use when: the module manages a dynamic collection of similar things
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-app;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 
   mkResource = name: sub: {
     apiVersion = "example.io/v1";
@@ -448,6 +448,69 @@ Useful submodule patterns:
 | `lib.filterAttrs (_: v: v.enable) cfg.things` | Filter to only enabled sub-items |
 | Default derived from key: `default = "${name}-pg"` | The `name` arg in the submodule function is the attrset key |
 
+### Pattern 6: App-Template (typed generic chart)
+
+Use when: the app is deployed via the bjw-s `app-template` Helm chart
+and you want typed values instead of `types.attrs`.
+
+**Examples:** theia-ide
+
+**`default.nix`:**
+```nix
+{ config, lib, kubelib, ... }:
+with lib;
+let
+  cfg = config.openkrill.apps.my-app;
+  helpers     = import ../../../modules/lib/helpers.nix { inherit lib; };
+  appTemplate = import ../../../modules/lib/app-template.nix { inherit lib; };
+
+  chart = kubelib.downloadHelmChart {
+    repo = "https://bjw-s-labs.github.io/helm-charts/";
+    chart = "app-template";
+    version = "4.6.2";
+    chartHash = "sha256-AAAA...";
+  };
+
+  defaults = {
+    controllers.main.containers.main.image = {
+      repository = "ghcr.io/example/my-app";
+      tag = "latest";
+    };
+    service.main = {
+      controller = "main";
+      ports.http.port = 8080;
+    };
+  };
+in
+{
+  options.openkrill.apps.my-app = {
+    enable = mkEnableOption "My App";
+    namespace = mkOption { type = types.str; default = "my-app"; };
+    values = mkOption {
+      type = appTemplate.valuesType;
+      default = {};
+      description = "app-template Helm chart values (typed).";
+    };
+    extraManifests = helpers.mkExtraManifestsOption;
+  };
+
+  config = mkIf cfg.enable {
+    openkrill.manifests.my-app.content = kubelib.fromHelm {
+      name = "my-app";
+      inherit chart;
+      namespace = cfg.namespace;
+      values = recursiveUpdate defaults cfg.values;
+    };
+  };
+}
+```
+
+The `appTemplate.valuesType` submodule provides typed options for
+controllers, services, persistence, ingress, etc. with `freeformType`
+passthrough so unknown keys still work.  See
+[nix-module-app-template.md](./nix-module-app-template.md) for full
+details and regeneration instructions.
+
 ---
 
 ## Step-by-Step: Creating a New Module
@@ -467,7 +530,7 @@ Start from the Helm-only skeleton (Pattern 1) and adjust:
 { config, lib, charts, kubelib, ... }:
 let
   cfg = config.openkrill.apps.my-app;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.my-app = {
@@ -557,7 +620,7 @@ kubelib.fromHelm {
 ### 4. Auto-discovery
 
 App modules are auto-discovered by `modules/module-list.nix` via `builtins.readDir`
--- no manual registration is needed. Just create your directory under `apps/` and it
+-- no manual registration is needed. Just create your directory under `apps/stable/` or `apps/unstable/` and it
 will be picked up automatically.
 
 Since the module is guarded by `lib.mkIf cfg.enable`, it produces no
@@ -788,7 +851,7 @@ The fan-out into `openkrill.manifests` is handled centrally by
 `modules/manifests.nix` — no per-module wiring needed:
 
 ```nix
-helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 
 # In options:
 extraManifests = helpers.mkExtraManifestsOption;

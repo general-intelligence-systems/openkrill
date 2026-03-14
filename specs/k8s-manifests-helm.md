@@ -17,7 +17,7 @@ Every helm module follows this exact structure:
 with lib;
 let
   cfg = config.openkrill.apps.myApp;
-  helpers = import ../../modules/lib/helpers.nix { inherit lib; };
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 in
 {
   options.openkrill.apps.myApp = {
@@ -72,7 +72,7 @@ in
 ## Step 3: Auto-discovery
 
 App modules are auto-discovered by `modules/module-list.nix` via `builtins.readDir`
--- no manual registration is needed. Just create your directory under `apps/` and it
+-- no manual registration is needed. Just create your directory under `apps/stable/` or `apps/unstable/` and it
 will be picked up automatically.
 
 ## Required elements
