@@ -92,12 +92,12 @@ let
   helpers     = import ../../../modules/lib/helpers.nix { inherit lib; };
   appTemplate = import ../../../modules/lib/app-template.nix { inherit lib; };
 
-  chart = kubelib.downloadHelmChart {
+  chart = kubelib.extractChart (kubelib.fetchChart {
     repo = "https://bjw-s-labs.github.io/helm-charts/";
     chart = "app-template";
     version = "4.6.2";
     chartHash = "sha256-AAAA...";
-  };
+  });
 
   defaults = {
     controllers.main.containers.main.image = {
@@ -396,7 +396,7 @@ Before using the app-template typed values in a new module:
 - [ ] `values` option uses `appTemplate.valuesType` instead of `types.attrs`
 - [ ] Module defaults defined in a `defaults` let-binding
 - [ ] `values = recursiveUpdate defaults cfg.values` passed to `kubelib.fromHelm`
-- [ ] Helm chart pinned with `kubelib.downloadHelmChart` (version + hash)
+- [ ] Helm chart pinned with `kubelib.fetchChart` + `kubelib.extractChart` (version + hash)
 - [ ] ArgoCD Application CR declared
 - [ ] `extraManifests` option declared via `helpers.mkExtraManifestsOption`
 - [ ] Files staged: `git add apps/<name>/`

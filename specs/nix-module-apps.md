@@ -464,12 +464,12 @@ let
   helpers     = import ../../../modules/lib/helpers.nix { inherit lib; };
   appTemplate = import ../../../modules/lib/app-template.nix { inherit lib; };
 
-  chart = kubelib.downloadHelmChart {
+  chart = kubelib.extractChart (kubelib.fetchChart {
     repo = "https://bjw-s-labs.github.io/helm-charts/";
     chart = "app-template";
     version = "4.6.2";
     chartHash = "sha256-AAAA...";
-  };
+  });
 
   defaults = {
     controllers.main.containers.main.image = {
@@ -597,17 +597,17 @@ kubelib.fromHelm {
 }
 ```
 
-For charts not in nixhelm, use `kubelib.downloadHelmChart`:
+For charts not in nixhelm, use `kubelib.fetchChart` + `kubelib.extractChart`:
 
 ```nix
 { lib, charts, kubelib, cfg }:
 let
-  chart = kubelib.downloadHelmChart {
+  chart = kubelib.extractChart (kubelib.fetchChart {
     repo = "https://example.com/charts";
     chart = "my-chart";
     version = "1.0.0";
     chartHash = "sha256-AAAA...";
-  };
+  });
 in
 kubelib.fromHelm {
   name = "my-app";
@@ -936,12 +936,14 @@ These are injected into every module via `_module.args` in `flake.nix`:
 
 ### `kubelib`
 
-From `lib/helm.nix` (inlined from `nix-kube-generators`). Key functions:
+From nixhelm2's `lib/default.nix`. Key functions:
 
 | Function | Returns | Use |
 |----------|---------|-----|
 | `kubelib.fromHelm { name, chart, namespace, values, extraOpts? }` | `listOf attrs` | Render a Helm chart to a list of K8s resource attrsets |
-| `kubelib.downloadHelmChart { repo, chart, version, chartHash }` | `derivation` | Download and extract a chart not tracked in nixhelm |
+| `kubelib.fetchChart { repo, chart, version, chartHash }` | `derivation` | Download a chart tarball (`.tgz`) not tracked in nixhelm |
+| `kubelib.extractChart tarball` | `derivation` | Extract a chart tarball into a directory for `helm template` |
+| `kubelib.applyValues { chart, name, namespace?, values?, ... }` | `derivation` | Run `helm template` on an extracted chart, producing rendered YAML |
 | `kubelib.fromYAML yamlString` | `listOf attrs` | Parse a multi-document YAML string into Nix attrsets |
 
 `kubelib.fromHelm` accepts an optional `extraOpts` parameter (list of
