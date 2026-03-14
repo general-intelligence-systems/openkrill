@@ -97,8 +97,6 @@
           collabora.domain = "office.${domain}";
         };
 
-        # ── Web IDE ─────────────────────────────────────────────────
-        openkrill.apps.theia-ide.enable = true;
 
         # ── Base system ─────────────────────────────────────────────
         # Fallback root filesystem — image modules override this at
