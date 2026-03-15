@@ -59,7 +59,8 @@ let
     description = "Generate ${name} secrets in secret-store namespace";
     after = [ "k3s.service" ]
       ++ map (dep: "openkrill-generate-${dep}.service") gen.after;
-    requires = [ "k3s.service" ];
+    requires = [ "k3s.service" ]
+      ++ map (dep: "openkrill-generate-${dep}.service") gen.after;
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       Type = "oneshot";

@@ -2,9 +2,11 @@
 # This file is never overwritten by the generator.
 #
 # Thin wrapper around the Bitnami Helm chart with Authelia OIDC and RBAC
-# defaults.  When trust-manager is enabled, automatically mounts the cluster
-# trust bundle into all ArgoCD components for outbound CA trust (OIDC, git
-# repos over HTTPS, webhooks, etc.).
+# defaults.  A cert-manager Certificate is created in the argo-cd namespace
+# so the server has a proper TLS cert signed by the cluster CA.  When
+# trust-manager is enabled, automatically mounts the cluster trust bundle
+# into all ArgoCD components for outbound CA trust (OIDC, git repos over
+# HTTPS, webhooks, etc.).
 { config, lib, ... }:
 with lib;
 let
@@ -46,50 +48,44 @@ in
 
   config = mkIf cfg.enable {
     # ── Default Helm values ──────────────────────────────────────────
+    # NOTE: The Bitnami chart uses server.config for argocd-cm data,
+    # NOT configs.cm.  server.url is a top-level value that the chart
+    # templates into server.config.url via {{ .Values.server.url }}.
     openkrill.apps.argo-cd.values = mkMerge [
       {
         fullnameOverride = mkDefault "argocd";
         controller.resourcesPreset = mkDefault "small";
         controller.metrics.enabled = mkDefault true;
-        server.certificate = mkDefault {
-          enabled = true;
-          domain = cfg.domain;
-          additionalHosts = [
-            "argocd-server"
-            "argocd-server.${cfg.namespace}"
-            "argocd-server.${cfg.namespace}.svc"
-            "argocd-server.${cfg.namespace}.svc.cluster.local"
-          ];
-          issuer = {
-            kind = "ClusterIssuer";
-            name = "openkrill-signing-authority";
-          };
-        };
+        server.url = mkDefault "https://${cfg.domain}";
         server.metrics.enabled = mkDefault true;
+        server.config = {
+          "oidc.config" = mkDefault ''
+            name: Authelia
+            issuer: ${cfg.oidc.issuer}
+            clientID: openkrill
+            clientSecret: $argocd-oidc-secret:oidc.authelia.clientSecret
+            requestedScopes:
+              - openid
+              - profile
+              - email
+              - groups
+            enableUserInfoGroups: true
+            userInfoPath: /api/oidc/userinfo
+          '';
+        };
         repoServer.metrics.enabled = mkDefault true;
         applicationSet.metrics.enabled = mkDefault true;
         notifications.metrics.enabled = mkDefault true;
         global.domain = mkDefault cfg.domain;
-        configs = {
-          cm."oidc.config" = mkDefault ''
-            name: 'Authelia'
-            issuer: '${cfg.oidc.issuer}'
-            clientID: 'openkrill'
-            clientSecret: '$argocd-oidc-secret:oidc.authelia.clientSecret'
-            cliClientID: 'argocd-cli'
-            clientAuthMethod: client_secret_basic
-            requestedScopes:
-              - 'openid'
-              - 'email'
-              - 'groups'
-            enableUserInfoGroups: true
-            userInfoPath: '/api/oidc/userinfo'
-          '';
-          rbac = {
-            "policy.csv" = mkDefault "g, argocd-admins, role:admin";
-            "policy.default" = mkDefault "role:readonly";
-            scopes = mkDefault "[email, groups]";
-          };
+        # Pin the Redis password so it doesn't regenerate on every Helm
+        # render.  Without this, kubelib.fromHelm produces a new random
+        # password each time, causing WRONGPASS errors when ArgoCD syncs
+        # the new secret but the server pods still have the old one.
+        redis.auth.password = mkDefault "argocd-redis";
+        config.rbac = {
+            "policy.csv" = mkDefault "g, lldap_admin, role:admin";
+          "policy.default" = mkDefault "role:readonly";
+          scopes = mkDefault "[email, groups]";
         };
       }
       # When trust-manager is enabled, mount the cluster trust bundle into
@@ -106,6 +102,33 @@ in
         repoServer.extraVolumeMounts = [ trustMount ];
       })
     ];
+
+    # ── cert-manager Certificate for ArgoCD server TLS ───────────────
+    # ArgoCD server automatically picks up a secret named
+    # "argocd-server-tls" in its namespace if it contains tls.crt and
+    # tls.key.  This replaces the runtime self-signed cert.
+    openkrill.apps.argo-cd.extraManifests.server-cert = {
+      apiVersion = "cert-manager.io/v1";
+      kind = "Certificate";
+      metadata = {
+        name = "argocd-server-tls";
+        namespace = cfg.namespace;
+      };
+      spec = {
+        secretName = "argocd-server-tls";
+        issuerRef = {
+          kind = "ClusterIssuer";
+          name = "openkrill-signing-authority";
+        };
+        dnsNames = [
+          cfg.domain
+          "argocd-server"
+          "argocd-server.${cfg.namespace}"
+          "argocd-server.${cfg.namespace}.svc"
+          "argocd-server.${cfg.namespace}.svc.cluster.local"
+        ];
+      };
+    };
 
     # ── Register ArgoCD redirect URI on the shared OIDC client ──────
     openkrill.apps.authelia.sharedClient.redirectUris =
@@ -155,8 +178,8 @@ in
     # The OIDC client secret is deterministic — it must match the value
     # in Authelia's oidcClients config (which defaults to
     # "$plaintext$<client_id>-oidc-client-secret-<domain>").
-    # ArgoCD's Helm chart reads it from a K8s Secret referenced in
-    # configs.cm."oidc.config" as $argocd-oidc-secret:oidc.authelia.clientSecret.
+    # ArgoCD reads it from a K8s Secret referenced in
+    # server.config."oidc.config" as $argocd-oidc-secret:oidc.authelia.clientSecret.
     openkrill.secrets.generators.argo-cd = {
       packages = [];
       script = ''
