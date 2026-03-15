@@ -43,11 +43,27 @@ in
       };
     };
 
-    openkrill.manifests.kamaji-console.content = kubelib.fromHelm {
-      name = "kamaji-console";
-      chart = charts.clastix.kamaji-console.latest;
-      namespace = cfg.namespace;
-      values = cfg.values;
-    };
+    openkrill.manifests.kamaji-console.content = let
+      clusterScopedKinds = [
+        "ClusterRole" "ClusterRoleBinding" "Namespace"
+        "CustomResourceDefinition" "PersistentVolume"
+        "StorageClass" "IngressClass" "PriorityClass"
+      ];
+      raw = kubelib.fromHelm {
+        name = "kamaji-console";
+        chart = charts.clastix.kamaji-console.latest;
+        namespace = cfg.namespace;
+        values = cfg.values;
+      };
+      # The kamaji-console chart omits metadata.namespace on all
+      # namespace-scoped resources, so helm template output lacks it.
+      # Without explicit namespaces the k3s auto-deploy bootstrap puts
+      # everything into `default`.  Inject cfg.namespace on all
+      # namespace-scoped resources to ensure they land in the right place.
+      ensureNs = res:
+        if builtins.elem (res.kind or "") clusterScopedKinds then res
+        else if (res.metadata.namespace or null) != null then res
+        else res // { metadata = res.metadata // { namespace = cfg.namespace; }; };
+    in map ensureNs raw;
   };
 }
