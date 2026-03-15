@@ -7,7 +7,7 @@
 # trust-manager is enabled, automatically mounts the cluster trust bundle
 # into all ArgoCD components for outbound CA trust (OIDC, git repos over
 # HTTPS, webhooks, etc.).
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.argo-cd;
@@ -219,7 +219,7 @@ in
     # ArgoCD reads it from a K8s Secret referenced in
     # server.config."oidc.config" as $argocd-oidc-secret:oidc.authelia.clientSecret.
     openkrill.secrets.generators.argo-cd = {
-      packages = [];
+      packages = with pkgs; [ openssl ];
       script = ''
         create_secret openkrill-argocd-oidc-secret \
           --from-literal=oidc.authelia.clientSecret="openkrill-oidc-client-secret-$DOMAIN"
