@@ -54,7 +54,7 @@ in
     openkrill.apps.argo-cd.values = mkMerge [
       {
         fullnameOverride = mkDefault "argocd";
-        controller.resourcesPreset = mkDefault "small";
+        controller.resourcesPreset = mkDefault "large";
         controller.metrics.enabled = mkDefault true;
         server.url = mkDefault "https://${cfg.domain}";
         server.metrics.enabled = mkDefault true;
