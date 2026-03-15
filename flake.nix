@@ -45,6 +45,10 @@
       #   }
       #
       # See examples/ for complete usage patterns.
+      # Lightweight module for worker nodes that only need git-daemon
+      # (no charts, kubelib, or app modules required).
+      nixosModules.git-daemon = ./modules/git-daemon.nix;
+
       nixosModules.default = { pkgs, ... }:
         let
           charts = nixhelm.charts.${pkgs.system};

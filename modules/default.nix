@@ -32,6 +32,7 @@
     ./openkrill.nix
     ./options.nix
     ./manifests.nix
+    ./git-daemon.nix
     ./routes.nix
     ./custom.nix
     ./secret-generators.nix
