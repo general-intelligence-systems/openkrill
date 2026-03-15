@@ -129,6 +129,45 @@ in
       };
     };
 
+    # ── Cleanup k3s bootstrap manifests ─────────────────────────────
+    # openkrill.manifests fans out into k3s auto-deploy files at
+    # /var/lib/rancher/k3s/server/manifests/openkrill-*.  Once ArgoCD
+    # is running, those files are redundant — and k3s re-applies them
+    # on every restart, causing spurious drift.  This DaemonSet runs
+    # on every server node and periodically removes them.
+    openkrill.apps.argo-cd.extraManifests.cleanup-manifests = {
+      apiVersion = "apps/v1";
+      kind = "DaemonSet";
+      metadata = {
+        name = "cleanup-bootstrap-manifests";
+        namespace = cfg.namespace;
+      };
+      spec = {
+        selector.matchLabels.app = "cleanup-bootstrap-manifests";
+        template = {
+          metadata.labels.app = "cleanup-bootstrap-manifests";
+          spec = {
+            containers = [{
+              name = "cleanup";
+              image = "busybox:stable";
+              command = [ "sh" "-c" "while true; do rm -rf /host-manifests/openkrill*; sleep 300; done" ];
+              volumeMounts = [{
+                name = "manifests";
+                mountPath = "/host-manifests";
+              }];
+            }];
+            volumes = [{
+              name = "manifests";
+              hostPath = {
+                path = "/var/lib/rancher/k3s/server/manifests";
+                type = "DirectoryOrCreate";
+              };
+            }];
+          };
+        };
+      };
+    };
+
     # ── Register ArgoCD redirect URI on the shared OIDC client ──────
     openkrill.apps.authelia.sharedClient.redirectUris =
       mkIf config.openkrill.apps.authelia.enable
