@@ -15,8 +15,12 @@ let
   # ── Helm chart defaults ──────────────────────────────────────────────
   defaults = {
     # -- k3s integration --
-    k8sServiceHost = "localhost";
+    k8sServiceHost = "127.0.0.1";
     k8sServicePort = 6443;
+
+    # -- kube-proxy replacement (eBPF service routing) --
+    kubeProxyReplacement = true;
+    bpf.masquerade = true;
 
     # -- CNI --
     ipam.mode = "kubernetes";
@@ -28,6 +32,7 @@ let
     hubble = {
       enabled = true;
       relay.enabled = true;
+      ui.enabled = true;
       tls.auto = {
         enabled = true;
         method = "cronJob";
