@@ -77,11 +77,10 @@ in
         applicationSet.metrics.enabled = mkDefault true;
         notifications.metrics.enabled = mkDefault true;
         global.domain = mkDefault cfg.domain;
-        # Pin the Redis password so it doesn't regenerate on every Helm
-        # render.  Without this, kubelib.fromHelm produces a new random
-        # password each time, causing WRONGPASS errors when ArgoCD syncs
-        # the new secret but the server pods still have the old one.
-        redis.auth.password = mkDefault "argocd-redis";
+        # Use an ExternalSecret-managed secret for Redis auth so the
+        # password is generated once and never changes between renders.
+        redis.auth.existingSecret = mkDefault "argocd-redis-secret";
+        redis.auth.existingSecretPasswordKey = mkDefault "redis-password";
         config.rbac = {
             "policy.csv" = mkDefault "g, lldap_admin, role:admin";
           "policy.default" = mkDefault "role:readonly";
@@ -185,6 +184,9 @@ in
       script = ''
         create_secret openkrill-argocd-oidc-secret \
           --from-literal=oidc.authelia.clientSecret="openkrill-oidc-client-secret-$DOMAIN"
+
+        create_secret openkrill-argocd-redis \
+          --from-literal=redis-password="$(openssl rand -hex 24)"
       '';
     };
 
@@ -195,6 +197,15 @@ in
       keys = [ "oidc.authelia.clientSecret" ];
       # ArgoCD only resolves $secret:key refs from secrets with this label.
       labels."app.kubernetes.io/part-of" = "argocd";
+    };
+
+    # ── ExternalSecret for Redis auth ────────────────────────────────
+    # Generated once by the secret generator, synced into argo-cd
+    # namespace.  The Bitnami chart reads it via redis.auth.existingSecret.
+    openkrill.apps.external-secrets.secrets.argocd-redis-secret = {
+      namespace = cfg.namespace;
+      remoteSecretName = "openkrill-argocd-redis";
+      keys = [ "redis-password" ];
     };
 
     # ── Ingress route ────────────────────────────────────────────────
