@@ -152,6 +152,24 @@ in
       port = 80;
     };
 
-    openkrill.manifests.cilium.content = helmResources;
+    # Patch the hubble-relay Deployment to use hostNetwork.
+    # The relay must reach Cilium agents on each node's WireGuard IP
+    # (10.1.0.x:4244).  Without hostNetwork, pod-to-host hairpin
+    # traffic on the local node's wg0 interface is unreachable.
+    openkrill.manifests.cilium.content = map (res:
+      if (res.kind or "") == "Deployment"
+         && (res.metadata.name or "") == "hubble-relay"
+      then res // {
+        spec = res.spec // {
+          template = res.spec.template // {
+            spec = res.spec.template.spec // {
+              hostNetwork = true;
+              dnsPolicy = "ClusterFirstWithHostNet";
+            };
+          };
+        };
+      }
+      else res
+    ) helmResources;
   };
 }
