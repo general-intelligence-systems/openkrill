@@ -14,16 +14,27 @@ let
 
   # ── Helm chart defaults ──────────────────────────────────────────────
   defaults = {
-    # -- k3s integration --
     k8sServiceHost = "127.0.0.1";
     k8sServicePort = 6443;
 
-    # -- kube-proxy replacement (eBPF service routing) --
-    kubeProxyReplacement = true;
-    bpf.masquerade = true;
+    kubeProxyReplacement = false;
+    bpf.masquerade = false;
+    encryption.enabled = false;
+    bandwidthManager.enabled = false;
+    l7Proxy = false;
 
     # -- CNI --
     ipam.mode = "kubernetes";
+
+    # -- Device selection --
+    # Exclude wg0 from Cilium's BPF datapath.  Cilium auto-detects all
+    # non-virtual interfaces and attaches BPF programs to them.  On wg0
+    # these programs intercept TCP SYN-ACK replies (at the tc layer, after
+    # tcpdump but before the kernel TCP stack) and silently drop them,
+    # breaking all TCP over WireGuard — including etcd peer communication.
+    devices = "enp+";
+    directRoutingDevice = "enp2s0f0np0";
+    operator.replicas = 1;
 
     # -- Policy enforcement --
     policyEnforcementMode = "never";
@@ -40,11 +51,8 @@ let
     };
 
     # -- Metrics --
-    prometheus.enabled = true;
-    operator.prometheus.enabled = true;
-
-    # -- Operator --
-    operator.replicas = 1;
+    #prometheus.enabled = true;
+    #operator.prometheus.enabled = true;
   };
 
   helmResources = kubelib.fromHelm {
