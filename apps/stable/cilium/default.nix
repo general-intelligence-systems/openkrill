@@ -26,14 +26,6 @@ let
     # -- CNI --
     ipam.mode = "kubernetes";
 
-    # -- Device selection --
-    # Exclude wg0 from Cilium's BPF datapath.  Cilium auto-detects all
-    # non-virtual interfaces and attaches BPF programs to them.  On wg0
-    # these programs intercept TCP SYN-ACK replies (at the tc layer, after
-    # tcpdump but before the kernel TCP stack) and silently drop them,
-    # breaking all TCP over WireGuard — including etcd peer communication.
-    devices = "enp+";
-    directRoutingDevice = "enp2s0f0np0";
     operator.replicas = 1;
 
     # -- Policy enforcement --
