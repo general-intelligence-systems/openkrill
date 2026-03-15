@@ -4,6 +4,9 @@ with lib;
 let
   cfg = config.openkrill.apps.kamaji-console;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
+  defaults = {
+    credentialsSecret.nextAuthUrl = "https://${cfg.domain}/";
+  };
 in
 {
   options.openkrill.apps.kamaji-console = {
@@ -12,6 +15,12 @@ in
     namespace = mkOption {
       type = types.str;
       default = "kamaji-system";
+    };
+
+    domain = mkOption {
+      type = types.str;
+      default = "kamaji.${config.openkrill.domain}";
+      description = "FQDN for the Kamaji Console (e.g. kamaji.example.com).";
     };
 
     values = mkOption {
@@ -24,6 +33,13 @@ in
   };
 
   config = mkIf cfg.enable {
+    openkrill.ingress.routes.kamaji-console = {
+      subdomain = "kamaji";
+      namespace = cfg.namespace;
+      service = "kamaji-console";
+      port = 80;
+    };
+
     openkrill.apps.argo-cd.applications.kamaji-console = {
       namespace = "argo-cd";
       project = "default";
@@ -53,7 +69,7 @@ in
         name = "kamaji-console";
         chart = charts.clastix.kamaji-console.latest;
         namespace = cfg.namespace;
-        values = cfg.values;
+        values = recursiveUpdate defaults cfg.values;
       };
       # The kamaji-console chart omits metadata.namespace on all
       # namespace-scoped resources, so helm template output lacks it.
