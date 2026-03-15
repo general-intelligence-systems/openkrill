@@ -41,6 +41,30 @@ in
       port = 80;
     };
 
+    # ── Redirect / → /ui (Next.js base path) ────────────────────
+    openkrill.apps."gateway-api".httproutes.kamaji-console-redirect = {
+      namespace = "kube-system";
+      hostnames = [ cfg.domain ];
+      parentRefs = [{
+        name = "main";
+        namespace = "kube-system";
+        sectionName = "kamaji-https";
+      }];
+      rules = [{
+        matches = [{ path = { type = "Exact"; value = "/"; }; }];
+        filters = [{
+          type = "RequestRedirect";
+          requestRedirect = {
+            path = {
+              type = "ReplaceFullPath";
+              replaceFullPath = "/ui";
+            };
+            statusCode = 302;
+          };
+        }];
+      }];
+    };
+
     openkrill.apps.argo-cd.applications.kamaji-console = {
       namespace = "argo-cd";
       project = "default";

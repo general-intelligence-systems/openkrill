@@ -145,6 +145,6 @@ in
       };
     };
 
-    openkrill.manifests.trust-manager.content = [ (k8s.mkNamespace cfg.namespace) ] ++ helmResources ++ [ bundle ];
+    openkrill.manifests.trust-manager.content = helmResources ++ [ bundle ];
   };
 }
