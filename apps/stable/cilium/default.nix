@@ -145,6 +145,13 @@ in
       };
     };
 
+    openkrill.ingress.routes.hubble = {
+      subdomain = "hubble";
+      namespace = cfg.namespace;
+      service = "hubble-ui";
+      port = 80;
+    };
+
     openkrill.manifests.cilium.content = helmResources;
   };
 }
