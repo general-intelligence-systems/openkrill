@@ -1,4 +1,7 @@
-# apps/unstable/metrics-server — Bitnami metrics-server
+# apps/metrics-server — Kubernetes Metrics Server (Bitnami)
+#
+# Deploys metrics-server via the Bitnami Helm chart with hostNetwork
+# enabled.  See custom.nix for the rationale behind hostNetwork.
 {
   config,
   lib,
@@ -20,7 +23,7 @@ in
 
     namespace = mkOption {
       type = types.str;
-      default = "metrics-server";
+      default = "kube-system";
     };
 
     values = mkOption {
@@ -65,9 +68,8 @@ in
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests.metrics-server.content = [
-      (k8s.mkNamespace cfg.namespace)
-    ]
+    openkrill.manifests.metrics-server.content =
+    optionals (cfg.namespace != "kube-system") [ (k8s.mkNamespace cfg.namespace) ]
     ++ kubelib.fromHelm {
       name = "metrics-server";
       chart = charts.bitnami.metrics-server.latest;

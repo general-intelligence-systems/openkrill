@@ -164,7 +164,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argocd.applications.${MODULE_NAME} = {
+    openkrill.apps.argo-cd.applications.${MODULE_NAME} = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

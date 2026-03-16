@@ -136,6 +136,17 @@ in
           Defaults to the host-gateway Service provided by the core-dns module.
         '';
       };
+
+      generateApplications = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Generate standalone ArgoCD Application CRs for each enabled app.
+          Set to false when this evaluation is used solely to render
+          manifests for ApplicationSet-managed deployments (e.g. tenant
+          clusters provisioned via Kamaji).
+        '';
+      };
     };
   };
 
