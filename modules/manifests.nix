@@ -196,8 +196,11 @@ in
     # so the full stack is running before ArgoCD begins syncing.
     # Each module still has an ArgoCD Application CR for ongoing
     # self-management (same pattern ArgoCD itself uses).
+    #
+    # Tenant manifests (tenants/*) are excluded — they live in the git
+    # repo only, for ApplicationSets to deploy to tenant clusters.
     services.k3s.manifests = mapAttrs' (name: manifest:
       nameValuePair "openkrill-${name}" { content = manifest.content; }
-    ) cfg.manifests;
+    ) (filterAttrs (name: _: !(hasPrefix "tenants/" name)) cfg.manifests);
   };
 }
