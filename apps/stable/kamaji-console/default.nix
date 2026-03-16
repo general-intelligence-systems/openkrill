@@ -1,8 +1,9 @@
 # apps/kamaji-console — Kamaji Console web UI for multi-tenant control planes
-{ config, lib, charts, kubelib, ... }:
+{ config, lib, pkgs, charts, kubelib, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.kamaji-console;
+  lldapCfg = config.openkrill.apps.lldap;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
   defaults = {
     credentialsSecret.nextAuthUrl = "https://${cfg.domain}/";
@@ -40,6 +41,30 @@ in
       port = 80;
     };
 
+    # ── Redirect / → /ui (Next.js base path) ────────────────────
+    openkrill.apps."gateway-api".httproutes.kamaji-console-redirect = {
+      namespace = "kube-system";
+      hostnames = [ cfg.domain ];
+      parentRefs = [{
+        name = "main";
+        namespace = "kube-system";
+        sectionName = "kamaji-https";
+      }];
+      rules = [{
+        matches = [{ path = { type = "Exact"; value = "/"; }; }];
+        filters = [{
+          type = "RequestRedirect";
+          requestRedirect = {
+            path = {
+              type = "ReplaceFullPath";
+              replaceFullPath = "/ui";
+            };
+            statusCode = 302;
+          };
+        }];
+      }];
+    };
+
     openkrill.apps.argo-cd.applications.kamaji-console = {
       namespace = "argo-cd";
       project = "default";
@@ -57,6 +82,37 @@ in
         automated = { prune = true; selfHeal = true; };
         syncOptions = [ "CreateNamespace=true" ];
       };
+    };
+
+    # ── ExternalSecret for Kamaji Console credentials ───────────────
+    openkrill.apps.external-secrets.secrets.kamaji-console = {
+      namespace = cfg.namespace;
+      remoteSecretName = "openkrill-kamaji-console";
+      keys = [
+        "NEXTAUTH_URL"
+        "JWT_SECRET"
+        "ADMIN_EMAIL"
+        "ADMIN_PASSWORD"
+      ];
+    };
+
+    # ── Secret generator (reads LLDAP admin password) ─────────────
+    openkrill.secrets.generators.kamaji-console = {
+      packages = with pkgs; [ openssl ];
+      after = [ "lldap" ];
+      script = ''
+        LLDAP_PASS=""
+        if kubectl -n "$NS" get secret openkrill-lldap >/dev/null 2>&1; then
+          LLDAP_PASS=$(kubectl -n "$NS" get secret openkrill-lldap \
+            -o jsonpath='{.data.LLDAP_LDAP_USER_PASS}' | base64 -d)
+        fi
+
+        create_secret openkrill-kamaji-console \
+          --from-literal=NEXTAUTH_URL="${defaults.credentialsSecret.nextAuthUrl}" \
+          --from-literal=JWT_SECRET="$(openssl rand -hex 32)" \
+          --from-literal=ADMIN_EMAIL="${lldapCfg.adminUser}@${config.openkrill.domain}" \
+          --from-literal=ADMIN_PASSWORD="''${LLDAP_PASS:-$(openssl rand -hex 16)}"
+      '';
     };
 
     openkrill.manifests.kamaji-console.content = let
