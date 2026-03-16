@@ -127,19 +127,20 @@ let
     secret = {
       existingSecret = "authelia";
       additionalSecrets = {
-        authelia = {
-          items = [
-            {
-              key = "identity_providers.oidc.jwks.0.key";
-              path = "identity_providers.oidc.jwks.0.key";
-            }
-          ];
-        };
         ${dbSecretName} = {
           items = [
             {
               key = "password";
               path = "password";
+            }
+          ];
+        };
+      } // optionalAttrs (cfg.oidcClients != []) {
+        authelia = {
+          items = [
+            {
+              key = "identity_providers.oidc.jwks.0.key";
+              path = "identity_providers.oidc.jwks.0.key";
             }
           ];
         };
@@ -191,7 +192,7 @@ let
         rules = cfg.accessControlRules;
       } else {});
 
-      identity_providers = {
+      identity_providers = optionalAttrs (cfg.oidcClients != []) {
         oidc = {
           enabled = true;
 
