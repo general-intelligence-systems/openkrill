@@ -9,14 +9,15 @@
 #
 # Database: a CNPG Database CRD creates the "mathesar_django" database
 # inside the shared CloudNativePG cluster.  The secret generator reads
-# CNPG credentials at boot for the MATHESAR_DATABASES connection string,
-# and cross-references LLDAP for admin credentials (POSTGRES_USER and
-# POSTGRES_PASSWORD).
+# CNPG credentials at boot for POSTGRES_USER/POSTGRES_PASSWORD (Django
+# internal DB) and the MATHESAR_DATABASES connection string.  LLDAP
+# admin credentials are used for DJANGO_SUPERUSER_USERNAME/PASSWORD.
 #
 # Bootstrap workflow:
 #   1. openkrill-generate-mathesar systemd oneshot (after lldap) creates
-#      openkrill-mathesar in the secret-store namespace with LLDAP admin
-#      credentials, CNPG connection vars, SECRET_KEY, and MATHESAR_DATABASES.
+#      openkrill-mathesar in the secret-store namespace with CNPG
+#      connection vars, LLDAP-based Django superuser creds, SECRET_KEY,
+#      and MATHESAR_DATABASES.
 #   2. ESO syncs openkrill-mathesar into "mathesar" in the mathesar
 #      namespace.
 #   3. The app-template deployment mounts the "mathesar" secret as env
@@ -58,6 +59,10 @@ let
         env = {
           DOMAIN_NAME = "https://mathesar.${domain}";
           ALLOWED_HOSTS = "mathesar.${domain}";
+          # Point Python requests/urllib at the cluster CA bundle so
+          # OIDC discovery to auth.${domain} passes TLS verification.
+          REQUESTS_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
+          SSL_CERT_FILE      = "/etc/ssl/certs/ca-certificates.crt";
         };
         envFrom = [
           { secretRef.name = targetSecretName; }
@@ -110,6 +115,18 @@ let
           limits   = { memory = "512Mi"; };
         };
       };
+    };
+
+    persistence.ca-bundle = {
+      type = "configMap";
+      name = "openkrill-ca-bundle";
+      advancedMounts.main.main = [
+        {
+          path    = "/etc/ssl/certs/ca-certificates.crt";
+          subPath = "bundle.pem";
+          readOnly = true;
+        }
+      ];
     };
 
     service.main = {
@@ -168,14 +185,17 @@ in
         "POSTGRES_HOST"
         "POSTGRES_PORT"
         "MATHESAR_DATABASES"
+        "DJANGO_SUPERUSER_USERNAME"
+        "DJANGO_SUPERUSER_PASSWORD"
         "OIDC_CONFIG_DICT"
       ];
     };
 
     # ── Secret generator ──────────────────────────────────────────
-    # Cross-references LLDAP admin credentials for POSTGRES_USER and
-    # POSTGRES_PASSWORD.  Reads CNPG credentials for the
-    # MATHESAR_DATABASES connection string.
+    # Reads CNPG credentials for POSTGRES_USER/POSTGRES_PASSWORD (Django
+    # internal DB connection) and MATHESAR_DATABASES (user-facing DB).
+    # LLDAP admin credentials are used for DJANGO_SUPERUSER_PASSWORD so
+    # the Mathesar admin login matches the LLDAP admin password.
     openkrill.secrets.generators.mathesar = {
       packages = with pkgs; [ openssl ];
       after = [ "lldap" ];
@@ -191,7 +211,7 @@ in
         DB_PASS=$(kubectl -n ${cnpgCfg.namespace} get secret ${cnpgCfg.clusterName}-app \
           -o jsonpath='{.data.password}' | base64 -d)
 
-        # Read LLDAP admin password for Mathesar admin credentials
+        # Read LLDAP admin password for Mathesar Django superuser
         LLDAP_PASS=""
         if kubectl -n "$NS" get secret openkrill-lldap >/dev/null 2>&1; then
           LLDAP_PASS=$(kubectl -n "$NS" get secret openkrill-lldap \
@@ -210,11 +230,13 @@ in
         create_secret ${sourceSecretName} \
           --from-literal=SECRET_KEY="$(openssl rand -hex 32)" \
           --from-literal=POSTGRES_DB="mathesar_django" \
-          --from-literal=POSTGRES_USER="${lldapCfg.adminUser}" \
-          --from-literal=POSTGRES_PASSWORD="''${LLDAP_PASS:-$(openssl rand -hex 16)}" \
+          --from-literal=POSTGRES_USER="''${DB_USER}" \
+          --from-literal=POSTGRES_PASSWORD="''${DB_PASS}" \
           --from-literal=POSTGRES_HOST="${dbHost}" \
           --from-literal=POSTGRES_PORT="5432" \
           --from-literal=MATHESAR_DATABASES="(mathesar_tables|postgresql://''${DB_USER}:''${DB_PASS}@${dbHost}:5432/mathesar_tables)" \
+          --from-literal=DJANGO_SUPERUSER_USERNAME="${lldapCfg.adminUser}" \
+          --from-literal=DJANGO_SUPERUSER_PASSWORD="''${LLDAP_PASS:-$(openssl rand -hex 16)}" \
           --from-literal=OIDC_CONFIG_DICT="''${OIDC_CONFIG_DICT}"
       '';
     };
