@@ -37,12 +37,20 @@ let
 
   dbHost = "${cnpgCfg.clusterName}-rw.${cnpgCfg.namespace}.svc.cluster.local";
 
+  # appTemplate.valuesType fills unset options with null defaults.
+  # recursiveUpdate treats null as a leaf, so cfg.values.global = null
+  # would stomp defaults.global.  Strip nulls before merging.
+  removeNulls = attrs:
+    filterAttrs (_: v: v != null) (mapAttrs (_: v:
+      if isAttrs v then removeNulls v else v
+    ) attrs);
+
   defaults = {
     global.nameOverride = "mathesar";
     controllers.main = {
       containers.main = {
         image = {
-          repository = "mathesar/mathesar-prod-db";
+          repository = "mathesar/mathesar";
           tag = "0.9.0";
         };
         env = {
@@ -60,6 +68,7 @@ let
               httpGet = {
                 path = "/";
                 port = 8000;
+                httpHeaders = [{ name = "Host"; value = "mathesar.${domain}"; }];
               };
               initialDelaySeconds = 30;
               periodSeconds = 15;
@@ -73,6 +82,7 @@ let
               httpGet = {
                 path = "/";
                 port = 8000;
+                httpHeaders = [{ name = "Host"; value = "mathesar.${domain}"; }];
               };
               initialDelaySeconds = 15;
               periodSeconds = 10;
@@ -85,6 +95,7 @@ let
               httpGet = {
                 path = "/";
                 port = 8000;
+                httpHeaders = [{ name = "Host"; value = "mathesar.${domain}"; }];
               };
               initialDelaySeconds = 10;
               periodSeconds = 5;
@@ -221,7 +232,7 @@ in
         name      = "mathesar";
         chart     = charts.bjw-s-labs.app-template.latest;
         namespace = cfg.namespace;
-        values    = recursiveUpdate defaults cfg.values;
+        values    = recursiveUpdate defaults (removeNulls cfg.values);
         extraOpts = [ "--skip-schema-validation" ];
       };
   };

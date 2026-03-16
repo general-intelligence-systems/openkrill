@@ -143,10 +143,13 @@ let
 
       failurePolicy = mkOption {
         type = types.enum [ "reinstall" "abort" ];
-        default = "reinstall";
+        default = "abort";
         description = ''
           How to handle failed chart installation or upgrades.
-          - reinstall: clean uninstall and reinstall.
+          - reinstall: clean uninstall and reinstall.  DANGEROUS for charts
+            that bundle CRDs — the uninstall deletes the CRDs (and all CRs),
+            and the reinstall often races against CRD re-registration,
+            creating a destructive loop.
           - abort: leave the chart in a failed state for manual resolution.
         '';
       };
@@ -224,7 +227,7 @@ let
 
       failurePolicy = mkOption {
         type = types.enum [ "reinstall" "abort" ];
-        default = "reinstall";
+        default = "abort";
         description = "How to handle failed chart installation or upgrades.";
       };
     };
