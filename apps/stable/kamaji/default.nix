@@ -69,6 +69,7 @@ in
         targetRevision = "rendered-manifests";
         path = ".";
         directory.include = "{kamaji.yaml,kamaji/*.yaml}";
+        directory.recurse = true;
       };
       destination = {
         server = "https://kubernetes.default.svc";
