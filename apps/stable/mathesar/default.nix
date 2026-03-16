@@ -9,13 +9,13 @@
 #
 # Database: a CNPG Database CRD creates the "mathesar_django" database
 # inside the shared CloudNativePG cluster.  The secret generator reads
-# CNPG credentials at boot and writes a SECRET_KEY + DATABASE_URL into
-# openkrill-mathesar alongside other required env vars.
+# CNPG credentials at boot and writes the POSTGRES_* connection vars
+# and SECRET_KEY into openkrill-mathesar.
 #
 # Bootstrap workflow:
 #   1. openkrill-generate-mathesar systemd oneshot creates
-#      openkrill-mathesar in the secret-store namespace with DATABASE_URL
-#      and SECRET_KEY.
+#      openkrill-mathesar in the secret-store namespace with POSTGRES_*
+#      vars, SECRET_KEY, and MATHESAR_DATABASES.
 #   2. ESO syncs openkrill-mathesar into "mathesar" in the mathesar
 #      namespace.
 #   3. The app-template deployment mounts the "mathesar" secret as env
@@ -35,7 +35,10 @@ let
   # In-namespace secret name (synced by ESO).
   targetSecretName = "mathesar";
 
+  dbHost = "${cnpgCfg.clusterName}-rw.${cnpgCfg.namespace}.svc.cluster.local";
+
   defaults = {
+    global = {};
     controllers.main = {
       containers.main = {
         image = {
@@ -43,9 +46,8 @@ let
           tag = "0.9.0";
         };
         env = {
-          ALLOWED_HOSTS = "*";
-          MATHESAR_DATABASES = "(mathesar_tables|postgresql://${cnpgCfg.clusterName}-rw.${cnpgCfg.namespace}.svc.cluster.local:5432/mathesar_tables)";
-          DJANGO_SUPERUSER_PASSWORD = "";
+          DOMAIN_NAME = "https://mathesar.${domain}";
+          ALLOWED_HOSTS = "mathesar.${domain}";
         };
         envFrom = [
           { secretRef.name = targetSecretName; }
@@ -147,13 +149,18 @@ in
       remoteSecretName = sourceSecretName;
       keys = [
         "SECRET_KEY"
-        "DATABASE_URL"
+        "POSTGRES_DB"
+        "POSTGRES_USER"
+        "POSTGRES_PASSWORD"
+        "POSTGRES_HOST"
+        "POSTGRES_PORT"
+        "MATHESAR_DATABASES"
       ];
     };
 
     # ── Secret generator ──────────────────────────────────────────
-    # Reads CNPG credentials at boot and writes DATABASE_URL +
-    # SECRET_KEY into the source secret.
+    # Reads CNPG credentials at boot and writes POSTGRES_* vars,
+    # SECRET_KEY, and MATHESAR_DATABASES into the source secret.
     openkrill.secrets.generators.mathesar = {
       packages = with pkgs; [ openssl ];
       script = ''
@@ -167,11 +174,15 @@ in
           -o jsonpath='{.data.username}' | base64 -d)
         DB_PASS=$(kubectl -n ${cnpgCfg.namespace} get secret ${cnpgCfg.clusterName}-app \
           -o jsonpath='{.data.password}' | base64 -d)
-        DATABASE_URL="postgresql://''${DB_USER}:''${DB_PASS}@${cnpgCfg.clusterName}-rw.${cnpgCfg.namespace}.svc.cluster.local:5432/mathesar_django"
 
         create_secret ${sourceSecretName} \
           --from-literal=SECRET_KEY="$(openssl rand -hex 32)" \
-          --from-literal=DATABASE_URL="$DATABASE_URL"
+          --from-literal=POSTGRES_DB="mathesar_django" \
+          --from-literal=POSTGRES_USER="''${DB_USER}" \
+          --from-literal=POSTGRES_PASSWORD="''${DB_PASS}" \
+          --from-literal=POSTGRES_HOST="${dbHost}" \
+          --from-literal=POSTGRES_PORT="5432" \
+          --from-literal=MATHESAR_DATABASES="(mathesar_tables|postgresql://''${DB_USER}:''${DB_PASS}@${dbHost}:5432/mathesar_tables)"
       '';
     };
 
@@ -211,6 +222,7 @@ in
         chart     = charts.bjw-s-labs.app-template.latest;
         namespace = cfg.namespace;
         values    = recursiveUpdate defaults cfg.values;
+        extraOpts = [ "--skip-schema-validation" ];
       };
   };
 }
