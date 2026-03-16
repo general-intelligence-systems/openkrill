@@ -322,7 +322,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.argo-cd.applications.helm = {
+    openkrill.apps.argo-cd.applications.helm = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

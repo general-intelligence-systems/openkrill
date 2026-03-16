@@ -42,7 +42,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argo-cd.applications.owncloud = {
+    openkrill.apps.argo-cd.applications.owncloud = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

@@ -42,7 +42,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argo-cd.applications.kibana = {
+    openkrill.apps.argo-cd.applications.kibana = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

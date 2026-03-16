@@ -42,7 +42,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argo-cd.applications.haproxy-intel = {
+    openkrill.apps.argo-cd.applications.haproxy-intel = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

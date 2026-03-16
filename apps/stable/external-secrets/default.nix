@@ -260,7 +260,7 @@ in
         }];
       };
 
-    openkrill.apps.argo-cd.applications.external-secrets = {
+    openkrill.apps.argo-cd.applications.external-secrets = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

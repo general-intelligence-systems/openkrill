@@ -42,7 +42,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argo-cd.applications.rabbitmq-cluster-operator = {
+    openkrill.apps.argo-cd.applications.rabbitmq-cluster-operator = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

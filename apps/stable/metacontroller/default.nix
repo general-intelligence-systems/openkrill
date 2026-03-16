@@ -74,7 +74,7 @@ in
         }];
       };
 
-    openkrill.apps.argo-cd.applications.metacontroller = {
+    openkrill.apps.argo-cd.applications.metacontroller = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

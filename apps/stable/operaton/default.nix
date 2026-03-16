@@ -39,7 +39,7 @@ in
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argo-cd.applications.operaton = {
+    openkrill.apps.argo-cd.applications.operaton = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

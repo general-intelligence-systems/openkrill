@@ -149,7 +149,7 @@ in
     };
 
     # ── ArgoCD Application CR ────────────────────────────────────────
-    openkrill.apps.argo-cd.applications.lldap = {
+    openkrill.apps.argo-cd.applications.lldap = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

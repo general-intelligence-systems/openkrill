@@ -641,7 +641,7 @@ in
       };
     };
 
-    openkrill.apps.argo-cd.applications.traefik = {
+    openkrill.apps.argo-cd.applications.traefik = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

@@ -416,7 +416,7 @@ in
       auth = false;  # Authelia itself must not go through ForwardAuth
     };
 
-    openkrill.apps.argo-cd.applications.authelia = {
+    openkrill.apps.argo-cd.applications.authelia = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

@@ -161,7 +161,7 @@ in
       }
     ) cfg.runners);
 
-    openkrill.apps.argo-cd.applications.forgejo-runner = {
+    openkrill.apps.argo-cd.applications.forgejo-runner = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

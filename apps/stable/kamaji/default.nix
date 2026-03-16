@@ -61,7 +61,7 @@ in
         }];
       };
 
-    openkrill.apps.argo-cd.applications.kamaji = {
+    openkrill.apps.argo-cd.applications.kamaji = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

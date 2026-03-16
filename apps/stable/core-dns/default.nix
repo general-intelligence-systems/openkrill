@@ -130,7 +130,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    openkrill.apps.argo-cd.applications.core-dns = {
+    openkrill.apps.argo-cd.applications.core-dns = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

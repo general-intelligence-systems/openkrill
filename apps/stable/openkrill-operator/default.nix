@@ -174,7 +174,7 @@ in
 
   config = mkIf cfg.enable {
     # ── ArgoCD Application ─────────────────────────────────────────────
-    openkrill.apps.argo-cd.applications.openkrill-operator = {
+    openkrill.apps.argo-cd.applications.openkrill-operator = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

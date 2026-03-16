@@ -42,7 +42,7 @@ in
     # };
 
     # ── ArgoCD Application ──────────────────────────────────────────
-    openkrill.apps.argo-cd.applications.wavefront-prometheus-storage-adapter = {
+    openkrill.apps.argo-cd.applications.wavefront-prometheus-storage-adapter = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

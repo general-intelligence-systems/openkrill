@@ -126,7 +126,7 @@ in
         }];
       };
 
-    openkrill.apps.argo-cd.applications.cilium = {
+    openkrill.apps.argo-cd.applications.cilium = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

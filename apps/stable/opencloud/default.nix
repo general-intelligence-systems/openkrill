@@ -322,7 +322,7 @@ in
       port = 9980;
     };
 
-    openkrill.apps.argo-cd.applications.opencloud = {
+    openkrill.apps.argo-cd.applications.opencloud = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

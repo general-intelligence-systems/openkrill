@@ -126,7 +126,7 @@ in
         endpoints = [{ port = "http-metrics"; }];
       };
 
-    openkrill.apps.argo-cd.applications.trust-manager = {
+    openkrill.apps.argo-cd.applications.trust-manager = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {

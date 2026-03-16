@@ -168,7 +168,7 @@ in
       port = 80;
     };
 
-    openkrill.apps.argo-cd.applications.victoriametrics = {
+    openkrill.apps.argo-cd.applications.victoriametrics = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
       source = {
