@@ -1,12 +1,16 @@
 # Custom overrides for this module.
 # This file is never overwritten by the generator.
 #
-# Thin wrapper around the Bitnami Helm chart with Authelia OIDC and RBAC
-# defaults.  A cert-manager Certificate is created in the argo-cd namespace
-# so the server has a proper TLS cert signed by the cluster CA.  When
+# Thin wrapper around the Bitnami Helm chart with Dex authproxy and RBAC
+# defaults.  Authelia ForwardAuth authenticates users at the ingress
+# layer and sets Remote-User / Remote-Groups headers.  Dex trusts these
+# headers via the authproxy connector and maps them to ArgoCD identities.
+#
+# A cert-manager Certificate is created in the argo-cd namespace so the
+# server has a proper TLS cert signed by the cluster CA.  When
 # trust-manager is enabled, automatically mounts the cluster trust bundle
-# into all ArgoCD components for outbound CA trust (OIDC, git repos over
-# HTTPS, webhooks, etc.).
+# into all ArgoCD components for outbound CA trust (git repos over HTTPS,
+# webhooks, etc.).
 { config, lib, pkgs, ... }:
 with lib;
 let
@@ -38,12 +42,6 @@ in
       default = "argocd.${domain}";
       description = "FQDN for the ArgoCD web UI (e.g. argocd.example.com).";
     };
-
-    oidc.issuer = mkOption {
-      type = types.str;
-      default = "https://auth.${domain}";
-      description = "OIDC issuer URL for Authelia (e.g. https://auth.example.com).";
-    };
   };
 
   config = mkIf cfg.enable {
@@ -58,19 +56,18 @@ in
         controller.metrics.enabled = mkDefault true;
         server.url = mkDefault "https://${cfg.domain}";
         server.metrics.enabled = mkDefault true;
+        # Dex authproxy connector — trusts Remote-User / Remote-Groups
+        # headers set by Authelia ForwardAuth at the ingress layer.
+        dex.enabled = mkDefault true;
         server.config = {
-          "oidc.config" = mkDefault ''
-            name: Authelia
-            issuer: ${cfg.oidc.issuer}
-            clientID: openkrill
-            clientSecret: $argocd-oidc-secret:oidc.authelia.clientSecret
-            requestedScopes:
-              - openid
-              - profile
-              - email
-              - groups
-            enableUserInfoGroups: true
-            userInfoPath: /api/oidc/userinfo
+          "dex.config" = mkDefault ''
+            connectors:
+              - type: authproxy
+                id: authelia
+                name: Authelia
+                config:
+                  userHeader: Remote-User
+                  groupHeader: Remote-Groups
           '';
         };
         repoServer.metrics.enabled = mkDefault true;
@@ -168,11 +165,6 @@ in
       };
     };
 
-    # ── Register ArgoCD redirect URI on the shared OIDC client ──────
-    openkrill.apps.authelia.sharedClient.redirectUris =
-      mkIf config.openkrill.apps.authelia.enable
-        [ "https://${cfg.domain}/auth/callback" ];
-
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.argo-cd =
       mkIf config.openkrill.apps.victoriametrics.enable {
@@ -212,30 +204,13 @@ in
         }];
       };
 
-    # ── Secret generator ─────────────────────────────────────────────
-    # The OIDC client secret is deterministic — it must match the value
-    # in Authelia's oidcClients config (which defaults to
-    # "$plaintext$<client_id>-oidc-client-secret-<domain>").
-    # ArgoCD reads it from a K8s Secret referenced in
-    # server.config."oidc.config" as $argocd-oidc-secret:oidc.authelia.clientSecret.
+    # ── Secret generator (Redis only) ────────────────────────────────
     openkrill.secrets.generators.argo-cd = {
       packages = with pkgs; [ openssl ];
       script = ''
-        create_secret openkrill-argocd-oidc-secret \
-          --from-literal=oidc.authelia.clientSecret="openkrill-oidc-client-secret-$DOMAIN"
-
         create_secret openkrill-argocd-redis \
           --from-literal=redis-password="$(openssl rand -hex 24)"
       '';
-    };
-
-    # ── ExternalSecret for the OIDC client secret ────────────────────
-    openkrill.apps.external-secrets.secrets.argocd-oidc-secret = {
-      namespace = cfg.namespace;
-      remoteSecretName = "openkrill-argocd-oidc-secret";
-      keys = [ "oidc.authelia.clientSecret" ];
-      # ArgoCD only resolves $secret:key refs from secrets with this label.
-      labels."app.kubernetes.io/part-of" = "argocd";
     };
 
     # ── ExternalSecret for Redis auth ────────────────────────────────
