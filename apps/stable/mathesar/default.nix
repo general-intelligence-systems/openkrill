@@ -38,7 +38,7 @@ let
   dbHost = "${cnpgCfg.clusterName}-rw.${cnpgCfg.namespace}.svc.cluster.local";
 
   defaults = {
-    global = {};
+    global.nameOverride = "mathesar";
     controllers.main = {
       containers.main = {
         image = {
