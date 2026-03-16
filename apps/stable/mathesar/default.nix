@@ -9,13 +9,14 @@
 #
 # Database: a CNPG Database CRD creates the "mathesar_django" database
 # inside the shared CloudNativePG cluster.  The secret generator reads
-# CNPG credentials at boot and writes the POSTGRES_* connection vars
-# and SECRET_KEY into openkrill-mathesar.
+# CNPG credentials at boot for the MATHESAR_DATABASES connection string,
+# and cross-references LLDAP for admin credentials (POSTGRES_USER and
+# POSTGRES_PASSWORD).
 #
 # Bootstrap workflow:
-#   1. openkrill-generate-mathesar systemd oneshot creates
-#      openkrill-mathesar in the secret-store namespace with POSTGRES_*
-#      vars, SECRET_KEY, and MATHESAR_DATABASES.
+#   1. openkrill-generate-mathesar systemd oneshot (after lldap) creates
+#      openkrill-mathesar in the secret-store namespace with LLDAP admin
+#      credentials, CNPG connection vars, SECRET_KEY, and MATHESAR_DATABASES.
 #   2. ESO syncs openkrill-mathesar into "mathesar" in the mathesar
 #      namespace.
 #   3. The app-template deployment mounts the "mathesar" secret as env
@@ -23,8 +24,9 @@
 { config, lib, pkgs, charts, kubelib, k8s, ... }:
 with lib;
 let
-  cfg     = config.openkrill.apps.mathesar;
-  cnpgCfg = config.openkrill.apps.cloudnative-pg;
+  cfg      = config.openkrill.apps.mathesar;
+  cnpgCfg  = config.openkrill.apps.cloudnative-pg;
+  lldapCfg = config.openkrill.apps.lldap;
   helpers     = import ../../../modules/lib/helpers.nix { inherit lib; };
   appTemplate = import ../../../modules/lib/app-template.nix { inherit lib; };
   domain  = config.openkrill.domain;
@@ -171,10 +173,12 @@ in
     };
 
     # ── Secret generator ──────────────────────────────────────────
-    # Reads CNPG credentials at boot and writes POSTGRES_* vars,
-    # SECRET_KEY, and MATHESAR_DATABASES into the source secret.
+    # Cross-references LLDAP admin credentials for POSTGRES_USER and
+    # POSTGRES_PASSWORD.  Reads CNPG credentials for the
+    # MATHESAR_DATABASES connection string.
     openkrill.secrets.generators.mathesar = {
       packages = with pkgs; [ openssl ];
+      after = [ "lldap" ];
       script = ''
         # Wait for CNPG cluster secret to exist
         echo "Waiting for CNPG app secret..."
@@ -186,6 +190,13 @@ in
           -o jsonpath='{.data.username}' | base64 -d)
         DB_PASS=$(kubectl -n ${cnpgCfg.namespace} get secret ${cnpgCfg.clusterName}-app \
           -o jsonpath='{.data.password}' | base64 -d)
+
+        # Read LLDAP admin password for Mathesar admin credentials
+        LLDAP_PASS=""
+        if kubectl -n "$NS" get secret openkrill-lldap >/dev/null 2>&1; then
+          LLDAP_PASS=$(kubectl -n "$NS" get secret openkrill-lldap \
+            -o jsonpath='{.data.LLDAP_LDAP_USER_PASS}' | base64 -d)
+        fi
 
         # Build OIDC_CONFIG_DICT for Mathesar SSO with Authelia.
         # The client secret is deterministic (matches Authelia's oidcClientModule default).
@@ -199,8 +210,8 @@ in
         create_secret ${sourceSecretName} \
           --from-literal=SECRET_KEY="$(openssl rand -hex 32)" \
           --from-literal=POSTGRES_DB="mathesar_django" \
-          --from-literal=POSTGRES_USER="''${DB_USER}" \
-          --from-literal=POSTGRES_PASSWORD="''${DB_PASS}" \
+          --from-literal=POSTGRES_USER="${lldapCfg.adminUser}" \
+          --from-literal=POSTGRES_PASSWORD="''${LLDAP_PASS:-$(openssl rand -hex 16)}" \
           --from-literal=POSTGRES_HOST="${dbHost}" \
           --from-literal=POSTGRES_PORT="5432" \
           --from-literal=MATHESAR_DATABASES="(mathesar_tables|postgresql://''${DB_USER}:''${DB_PASS}@${dbHost}:5432/mathesar_tables)" \
