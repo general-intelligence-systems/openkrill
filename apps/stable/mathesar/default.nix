@@ -147,6 +147,34 @@ in
       default = "mathesar";
     };
 
+    oidc = {
+      enable = mkEnableOption "OIDC SSO via Authelia for Mathesar";
+
+      issuer = mkOption {
+        type = types.str;
+        default = "https://auth.${domain}";
+        description = "OIDC issuer URL (Authelia).";
+      };
+
+      providerKey = mkOption {
+        type = types.str;
+        default = "openid_connect";
+        description = "django-allauth provider key for the OIDC IdP.";
+      };
+
+      providerLabel = mkOption {
+        type = types.str;
+        default = "authelia";
+        description = "Label used in the OIDC config dict and callback URL path.";
+      };
+
+      clientId = mkOption {
+        type = types.str;
+        default = "mathesar";
+        description = "OIDC client ID registered in Authelia.";
+      };
+    };
+
     values = mkOption {
       type = appTemplate.valuesType;
       default = {};
@@ -185,6 +213,8 @@ in
         "POSTGRES_HOST"
         "POSTGRES_PORT"
         "MATHESAR_DATABASES"
+      ] ++ optionals cfg.oidc.enable [
+        "OIDC_CONFIG_DICT"
       ];
     };
 
@@ -192,11 +222,12 @@ in
     # Cross-references LLDAP admin credentials for POSTGRES_USER and
     # POSTGRES_PASSWORD.  Reads CNPG credentials for the
     # MATHESAR_DATABASES connection string.
-    # Auth is handled at the ingress layer by Authelia ForwardAuth;
-    # Mathesar manages its own users internally.
+    # When OIDC is enabled, also generates OIDC_CONFIG_DICT pointing
+    # Mathesar at the Authelia OIDC provider, and stores the plaintext
+    # client secret so Authelia's hashed copy can verify it.
     openkrill.secrets.generators.mathesar = {
-      packages = with pkgs; [ openssl ];
-      after = [ "lldap" ];
+      packages = with pkgs; [ openssl jq ];
+      after = [ "lldap" ] ++ optionals cfg.oidc.enable [ "authelia" ];
       script = ''
         # Wait for CNPG cluster secret to exist
         echo "Waiting for CNPG app secret..."
@@ -216,6 +247,37 @@ in
             -o jsonpath='{.data.LLDAP_LDAP_USER_PASS}' | base64 -d)
         fi
 
+        EXTRA_ARGS=()
+      '' + optionalString cfg.oidc.enable ''
+        # Build OIDC_CONFIG_DICT JSON for Mathesar's django-allauth SSO.
+        # The client secret uses the same deterministic value that the
+        # Authelia oidcClientModule defaults to ($plaintext$ prefix is
+        # stripped — Authelia sees the hashed version in its config,
+        # Mathesar sends the raw string).
+        OIDC_SECRET="${cfg.oidc.clientId}-oidc-client-secret-${domain}"
+
+        OIDC_CONFIG=$(jq -n \
+          --arg provider_name "${cfg.oidc.providerKey}" \
+          --arg server_url "${cfg.oidc.issuer}" \
+          --arg client_id "${cfg.oidc.clientId}" \
+          --arg secret "$OIDC_SECRET" \
+          '{
+            version: 1,
+            oidc_providers: {
+              "${cfg.oidc.providerLabel}": {
+                provider_name: $provider_name,
+                server_url: $server_url,
+                client_id: $client_id,
+                secret: $secret
+              }
+            }
+          }')
+
+        EXTRA_ARGS+=(
+          --from-literal=OIDC_CONFIG_DICT="$OIDC_CONFIG"
+        )
+      '' + ''
+
         create_secret ${sourceSecretName} \
           --from-literal=SECRET_KEY="$(openssl rand -hex 32)" \
           --from-literal=POSTGRES_DB="mathesar_django" \
@@ -223,9 +285,21 @@ in
           --from-literal=POSTGRES_PASSWORD="''${DB_PASS}" \
           --from-literal=POSTGRES_HOST="${dbHost}" \
           --from-literal=POSTGRES_PORT="5432" \
-          --from-literal=MATHESAR_DATABASES="(mathesar_tables|postgresql://''${DB_USER}:''${DB_PASS}@${dbHost}:5432/mathesar_tables)"
+          --from-literal=MATHESAR_DATABASES="(mathesar_tables|postgresql://''${DB_USER}:''${DB_PASS}@${dbHost}:5432/mathesar_tables)" \
+          "''${EXTRA_ARGS[@]}"
       '';
     };
+
+    # ── OIDC: register Mathesar as an Authelia client ─────────────
+    openkrill.apps.authelia.oidcClients = mkIf cfg.oidc.enable [
+      {
+        name     = "Mathesar";
+        redirect_uris = [
+          "https://mathesar.${domain}/auth/oidc/${cfg.oidc.providerKey}/login/callback/"
+        ];
+        scopes = [ "openid" "profile" "email" ];
+      }
+    ];
 
     # ── Route ─────────────────────────────────────────────────────
     openkrill.ingress.routes.mathesar = {
@@ -234,10 +308,6 @@ in
       service   = "mathesar";
       port      = 8000;
     };
-
-    # Auth is handled at the ingress layer by Authelia ForwardAuth
-    # (auth = true is the default on all routes).  Mathesar manages
-    # its own users/sessions internally behind the auth gate.
 
     # ── ArgoCD Application CR ─────────────────────────────────────
     openkrill.apps.argo-cd.applications.mathesar = mkIf config.openkrill.gitops.generateApplications {

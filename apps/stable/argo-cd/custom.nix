@@ -71,6 +71,12 @@ in
           '';
         };
         repoServer.metrics.enabled = mkDefault true;
+        repoServer.resourcesPreset = mkDefault "large";
+        repoServer.livenessProbe.enabled = mkDefault true;
+        repoServer.livenessProbe.initialDelaySeconds = mkDefault 30;
+        repoServer.livenessProbe.periodSeconds = mkDefault 10;
+        repoServer.livenessProbe.timeoutSeconds = mkDefault 5;
+        repoServer.livenessProbe.failureThreshold = mkDefault 6;
         applicationSet.metrics.enabled = mkDefault true;
         notifications.metrics.enabled = mkDefault true;
         global.domain = mkDefault cfg.domain;
