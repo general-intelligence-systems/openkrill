@@ -6,20 +6,21 @@ with lib;
 let
   cfg = config.openkrill.apps.forgejo-runner;
   helpers          = import ../../../modules/lib/helpers.nix { inherit lib; };
-  runnerModule = types.submodule {
+  runnerModule = types.submodule ({ name, ... }: {
     options = {
       labels = mkOption {
         type = types.listOf types.str;
         default = [ "docker:docker://node:20-bookworm" ];
-        description = "Runner capability labels.";
+        description = "Runner capability labels (e.g. 'nix:docker://nixos/nix:latest').";
       };
 
       secretName = mkOption {
         type = types.str;
+        default = "${name}-secret";
         description = "Name of the K8s Secret containing the runner registration secret.";
       };
     };
-  };
+  });
 
   # ── mkRunner ────────────────────────────────────────────────────────────
   # Produces [ConfigMap, Deployment] for a single runner.
@@ -77,6 +78,7 @@ let
                   command = [ "/bin/sh" "-c" ];
                   args = [
                     ''
+                      set -e
                       sleep 5
                       forgejo-runner create-runner-file \
                         --instance "''${FORGEJO_URL}" \
