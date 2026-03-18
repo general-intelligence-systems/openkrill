@@ -26,11 +26,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1773807159,
-        "narHash": "sha256-USEdYH2UJdyrq0tQ0TlTPkeE3TgPVUscMGHR0rxdwl8=",
+        "lastModified": 1773843892,
+        "narHash": "sha256-PdMHswPyqef3He2KBT640LmKjQj+tN1hHV0Yfqq2s6Q=",
         "owner": "general-intelligence-systems",
         "repo": "nixhelm2",
-        "rev": "1b7afab44224719ecaad25b62bf8f540c6fe0827",
+        "rev": "948f4c697bb348ccd5a5b3ae1779af40aa4d7fa7",
         "type": "github"
       },
       "original": {
