@@ -115,11 +115,71 @@ in
       };
 
     # ── Route ───────────────────────────────────────────────────────
+    # Browser traffic — protected by Authelia ForwardAuth (reverse-proxy SSO).
     openkrill.ingress.routes.forgejo = {
       subdomain = "git";
       namespace = cfg.namespace;
       service = "forgejo-http";
       port = 3000;
+    };
+
+    # ── Git smart HTTP + API bypass ──────────────────────────────────
+    # Git CLI transport (info/refs, git-upload-pack, git-receive-pack) and
+    # the Forgejo API use token / basic auth — they must NOT go through
+    # Authelia's ForwardAuth or the auth redirect breaks them.
+    # This HTTPRoute shares the same Gateway listener as the main route
+    # but matches only the relevant paths and carries no auth filter.
+    openkrill.apps."gateway-api".httproutes.forgejo-git = {
+      namespace = "kube-system";
+      hostnames = [ cfg.domain ];
+      parentRefs = [{
+        name = "main";
+        namespace = "kube-system";
+        sectionName = "git-https";
+      }];
+      rules = [
+        {
+          matches = [
+            # Git smart HTTP transport (e.g. /<owner>/<repo>.git/info/refs)
+            { path = { type = "RegularExpression"; value = "/.+/info/refs"; }; }
+            { path = { type = "RegularExpression"; value = "/.+/git-upload-pack"; }; }
+            { path = { type = "RegularExpression"; value = "/.+/git-receive-pack"; }; }
+            # Forgejo REST API (CI runners, webhooks, token-authed clients)
+            { path = { type = "PathPrefix"; value = "/api"; }; }
+          ];
+          backendRefs = [{
+            namespace = cfg.namespace;
+            port = 3000;
+            name = "forgejo-http";
+          }];
+          # No filters — deliberately no ForwardAuth
+        }
+      ];
+    };
+
+    openkrill.apps."gateway-api".httproutes.forgejo-git-http = {
+      namespace = "kube-system";
+      hostnames = [ cfg.domain ];
+      parentRefs = [{
+        name = "main";
+        namespace = "kube-system";
+        sectionName = "git-http";
+      }];
+      rules = [
+        {
+          matches = [
+            { path = { type = "RegularExpression"; value = "/.+/info/refs"; }; }
+            { path = { type = "RegularExpression"; value = "/.+/git-upload-pack"; }; }
+            { path = { type = "RegularExpression"; value = "/.+/git-receive-pack"; }; }
+            { path = { type = "PathPrefix"; value = "/api"; }; }
+          ];
+          backendRefs = [{
+            namespace = cfg.namespace;
+            port = 3000;
+            name = "forgejo-http";
+          }];
+        }
+      ];
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────
