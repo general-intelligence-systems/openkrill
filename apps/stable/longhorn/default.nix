@@ -26,6 +26,22 @@ in
   };
 
   config = mkIf cfg.enable {
+    ### ── NixOS host prerequisites ────────────────────────────────────
+    # Longhorn requires open-iscsi (iscsiadm) and the iscsi_tcp kernel
+    # module on every node.  NixOS doesn't place binaries at FHS paths,
+    # so Longhorn's nsenter-based probe can't find iscsiadm — we add a
+    # symlink at /usr/bin/iscsiadm to fix that.
+    boot.kernelModules = [ "iscsi_tcp" ];
+
+    services.openiscsi = {
+      enable = true;
+      name = "iqn.2025-01.openkrill.longhorn:${config.networking.hostName}";
+    };
+
+    systemd.tmpfiles.rules = [
+      "L+ /usr/bin/iscsiadm - - - - /run/current-system/sw/bin/iscsiadm"
+    ];
+
     # ── VictoriaMetrics scrape + alerts ────────────────────────────────
     openkrill.apps.victoriametrics.vmservicescrapes.longhorn =
       mkIf config.openkrill.apps.victoriametrics.enable {
