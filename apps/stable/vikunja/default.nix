@@ -15,7 +15,7 @@ let
   ];
 
   defaults = {
-    ingress.enabled = false;
+    ingress.main.enabled = false;
   };
 
   raw = kubelib.fromHelm {
