@@ -19,9 +19,16 @@ let
     ingress.enabled = false;
   };
 
+  persesChart = kubelib.extractChart (kubelib.fetchChart {
+    repo = "https://perses.github.io/helm-charts";
+    chart = "perses";
+    version = "0.20.0";
+    chartHash = "sha256-OtAg/MrnfGEyX/aTwYjGgV5A4NZ5D9nV7A0bcBcT0Ag=";
+  });
+
   raw = kubelib.fromHelm {
     name      = "perses";
-    chart     = charts.contrib.perses.latest;
+    chart     = persesChart;
     namespace = cfg.namespace;
     values    = recursiveUpdate defaults cfg.values;
   };
