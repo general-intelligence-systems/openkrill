@@ -44,6 +44,7 @@ Design documentation for Openkrill.
 
 | Spec | Code | Lines | Purpose |
 |------|------|------:|---------|
+| [auth.md](./auth.md) | [modules/routes.nix](../modules/routes.nix), [apps/stable/authelia/](../apps/stable/authelia/) | 228 | Route authentication: auth types, path-based rules, and the provider injection pattern |
 | [network-policies.md](./network-policies.md) | — | 688 | How network segmentation is enforced with Cilium CNI and per-app CiliumNetworkPolicy declarations |
 
 ## Secrets

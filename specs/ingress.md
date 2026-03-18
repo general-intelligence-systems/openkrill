@@ -292,45 +292,63 @@ self-signed certificates.
 
 ---
 
-## Filters
+## Filters and Authentication
 
-Gateway API HTTPRoute filters can be passed via the `filters` option.
-These are inserted directly into the HTTPRoute rule alongside the
-`backendRefs`.
+Gateway API HTTPRoute filters can be passed via the `filters` option
+on both routes and individual paths.  These are inserted directly into
+the HTTPRoute rule alongside the `backendRefs`.
 
-The most common use case is Traefik's ForwardAuth middleware for
-Authelia-based authentication:
+Authentication is handled declaratively through the `auth` option on
+routes and paths.  See [auth.md](./auth.md) for the full specification.
+
+### Auth Types
+
+Each route (or path within a route) declares an auth type:
+
+| Value     | Meaning                          |
+|-----------|----------------------------------|
+| `forward` | ForwardAuth SSO (default)        |
+| `token`   | App handles token/API-key auth   |
+| `basic`   | App handles HTTP Basic auth      |
+| `oauth`   | App handles its own OAuth/OIDC   |
+| `none`    | No authentication                |
+
+Auth provider modules (e.g. Authelia) register their HTTPRoute filters
+under `openkrill.ingress.authFilters.<type>`.  The ingress module
+applies registered filters to matching rules automatically.
+
+### Path-Based Rules
+
+Routes can define per-path rules with different auth types and
+optional backend overrides:
 
 ```nix
-let
-  authFilters = if config.openkrill.apps.authelia.enable
-                && config.openkrill.apps.traefik.enable
-    then [
-      {
-        type = "ExtensionRef";
-        extensionRef = {
-          group = "traefik.io";
-          kind = "Middleware";
-          name = "forwardauth-authelia";
-        };
-      }
-    ]
-    else [];
-in
-{
-  config = lib.mkIf cfg.enable {
-    openkrill.ingress.routes.my-app = {
-      subdomain = "app";
-      namespace = cfg.namespace;
-      port = 8080;
-      filters = authFilters;
-    };
+openkrill.ingress.routes.my-app = {
+  subdomain = "app";
+  namespace = cfg.namespace;
+  service   = "frontend";
+  port      = 80;
+
+  paths."/" = {
+    auth = "forward";   # SSO protected
   };
-}
+
+  paths."/api" = {
+    auth    = "token";  # app handles token auth
+    service = "api";    # different backend
+    port    = 8080;
+  };
+};
 ```
 
-When `filters` is non-empty, the generated HTTPRoute rule includes
-both `backendRefs` and `filters`:
+When `paths` is empty (the default), a single catch-all rule is
+created using the route-level `auth`, `service`, and `port`.
+
+### Additional Filters
+
+The `filters` option on routes and paths allows passing arbitrary
+Gateway API HTTPRoute filters.  These are appended after any
+auth-provider filters:
 
 ```yaml
 rules:
@@ -346,8 +364,8 @@ rules:
           name: forwardauth-authelia
 ```
 
-When `filters` is empty (the default), the `filters` key is omitted
-from the rule entirely.
+When no filters apply (auth type has no registered provider and
+`filters` is empty), the `filters` key is omitted from the rule.
 
 ---
 
@@ -368,9 +386,21 @@ from the rule entirely.
 | `subdomain` | `str` | *(required)* | Subdomain prefix.  Full hostname: `<subdomain>.<domain>`. |
 | `domain` | `str` | `openkrill.domain` | Domain suffix.  Override for routes on external domains (e.g. `tradecrm.pro`). |
 | `namespace` | `str` | *(required)* | Kubernetes namespace where the backend Service lives. |
-| `service` | `str` | `<name>` | Backend Service name.  Defaults to the route's attrset key. |
-| `port` | `port` | *(required)* | Port on the backend Service. |
-| `filters` | `listOf attrs` | `[]` | Gateway API HTTPRoute filters (e.g. ForwardAuth).  Passed directly into the HTTPRoute rule. |
+| `service` | `str` | `<name>` | Default backend Service name.  Defaults to the route's attrset key. |
+| `port` | `port` | *(required)* | Default port on the backend Service. |
+| `auth` | `enum` | `"forward"` | Default auth type.  One of: `forward`, `token`, `basic`, `oauth`, `none`.  See [auth.md](./auth.md). |
+| `paths` | `attrsOf pathSubmodule` | `{}` | Per-path rules.  When empty, a single catch-all rule uses route-level defaults. |
+| `filters` | `listOf attrs` | `[]` | Additional Gateway API HTTPRoute filters applied to all rules. |
+
+### `openkrill.ingress.routes.<name>.paths.<path>`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `auth` | `enum` | `"forward"` | Auth type for this path. |
+| `pathType` | `enum` | `"PathPrefix"` | Gateway API path match type: `PathPrefix`, `Exact`, or `RegularExpression`. |
+| `service` | `nullOr str` | `null` | Backend Service override.  Inherits from route level when null. |
+| `port` | `nullOr port` | `null` | Backend port override.  Inherits from route level when null. |
+| `filters` | `listOf attrs` | `[]` | Additional HTTPRoute filters for this path. |
 
 ### Assertions
 

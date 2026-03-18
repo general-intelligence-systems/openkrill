@@ -414,8 +414,22 @@ in
       service = "authelia";
       #port = 443;
       port = 80; # only exposes port 80 and metrics port.
-      auth = false;  # Authelia itself must not go through ForwardAuth
+      auth = "none";  # Authelia itself must not go through ForwardAuth
     };
+
+    # ── Auth filter registration ─────────────────────────────────────
+    # When Authelia and Traefik are both enabled, register the
+    # ForwardAuth filter under the "forward" auth type.  routes.nix
+    # applies this filter to any route path with auth = "forward".
+    openkrill.ingress.authFilters.forward =
+      mkIf config.openkrill.apps.traefik.enable [{
+        type = "ExtensionRef";
+        extensionRef = {
+          group = "traefik.io";
+          kind  = "Middleware";
+          name  = "forwardauth-authelia";
+        };
+      }];
 
     openkrill.apps.argo-cd.applications.authelia = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";

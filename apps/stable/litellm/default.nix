@@ -194,7 +194,7 @@ in
       namespace = cfg.namespace;
       service   = "litellm-helm";
       port      = 4000;
-      auth      = false;  # LiteLLM handles its own SSO — no ForwardAuth
+      auth      = "none";  # LiteLLM handles its own SSO — no ForwardAuth
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────

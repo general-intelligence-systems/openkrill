@@ -18,6 +18,13 @@
 #
 # The Gateway uses gatewayClassName "traefik" — the GatewayClass
 # created by the traefik module.
+#
+# Authentication is decoupled from this module.  Routes declare an
+# auth type per path (forward, token, basic, oauth, none).  Auth
+# provider modules (e.g. Authelia) register their HTTPRoute filters
+# under openkrill.ingress.authFilters.<type>.  This module applies
+# registered filters to matching rules — it has no knowledge of any
+# specific auth provider.
 
 { config, lib, ... }:
 with lib;
@@ -25,24 +32,40 @@ let
   cfg    = config.openkrill.ingress;
   domain = config.openkrill.domain;
 
-  # When both Authelia and Traefik are enabled, automatically protect
-  # routes with ForwardAuth unless the route opts out (auth = false).
-  autheliaEnabled = config.openkrill.apps.authelia.enable
-                 && config.openkrill.apps.traefik.enable;
+  authTypes = [ "forward" "token" "basic" "oauth" "none" ];
 
-  authFilter = {
-    type = "ExtensionRef";
-    extensionRef = {
-      group = "traefik.io";
-      kind = "Middleware";
-      name = "forwardauth-authelia";
-    };
-  };
+  # Look up registered filters for an auth type.
+  # Returns [] if no provider has registered filters for this type.
+  filtersForAuth = authType:
+    optionals (cfg.authFilters ? ${authType}) cfg.authFilters.${authType};
 
-  # Merge automatic auth filter with any user-specified filters
-  effectiveFilters = route:
-    (optionals (autheliaEnabled && route.auth) [ authFilter ])
-    ++ route.filters;
+  # Merge auth-provider filters with any user-specified filters
+  effectiveFilters = authType: extraFilters:
+    (filtersForAuth authType) ++ extraFilters;
+
+  # Resolve paths for a route.  When paths is empty, produce a single
+  # catch-all entry from the route-level defaults.
+  resolvedPaths = route:
+    if route.paths == {} then
+      [{
+        path      = "/";
+        pathType  = "PathPrefix";
+        isCatchAll = true;  # omit matches block for catch-all
+        auth      = route.auth;
+        service   = route.service;
+        port      = route.port;
+        filters   = route.filters;
+      }]
+    else
+      mapAttrsToList (path: pcfg: {
+        inherit path;
+        pathType   = pcfg.pathType;
+        isCatchAll = (path == "/" && pcfg.pathType == "PathPrefix");
+        auth       = pcfg.auth;
+        service    = if pcfg.service != null then pcfg.service else route.service;
+        port       = if pcfg.port != null then pcfg.port else route.port;
+        filters    = pcfg.filters ++ route.filters;
+      }) route.paths;
 
   # Collect all enabled route definitions
   routes = filterAttrs (_: r: r.enable) cfg.routes;
@@ -100,11 +123,36 @@ let
     };
   };
 
+  # Build a single HTTPRoute rule from a resolved path entry
+  mkRule = route: pathEntry:
+    let
+      filters = effectiveFilters pathEntry.auth pathEntry.filters;
+    in
+    ({
+      backendRefs = [{
+        namespace = route.namespace;
+        port = pathEntry.port;
+        name = pathEntry.service;
+      }];
+    }
+    # Omit matches for catch-all "/" PathPrefix (Gateway API default matches all)
+    // optionalAttrs (!pathEntry.isCatchAll) {
+      matches = [{
+        path = {
+          type = pathEntry.pathType;
+          value = pathEntry.path;
+        };
+      }];
+    }
+    // optionalAttrs (filters != []) {
+      inherit filters;
+    });
+
   # Build the app-traffic HTTPRoute (HTTPS listener)
   #
-  # All HTTPRoutes live in kube-system so they share the namespace with the
-  # forwardauth-authelia Middleware (Traefik resolves extensionRef relative
-  # to the HTTPRoute's own namespace).  Backend services are referenced
+  # All HTTPRoutes live in kube-system so they share the namespace with
+  # auth middleware (Traefik resolves extensionRef relative to the
+  # HTTPRoute's own namespace).  Backend services are referenced
   # cross-namespace via backendRefs.
   mkAppRoute = name: route: {
     name = name;
@@ -116,17 +164,7 @@ let
         namespace = "kube-system";
         sectionName = "${route.subdomain}-https";
       }];
-      rules = [
-        ({
-          backendRefs = [{
-            namespace = route.namespace;
-            port = route.port;
-            name = route.service;
-          }];
-        } // optionalAttrs (effectiveFilters route != []) {
-          filters = effectiveFilters route;
-        })
-      ];
+      rules = map (mkRule route) (resolvedPaths route);
     };
   };
 
@@ -141,17 +179,7 @@ let
         namespace = "kube-system";
         sectionName = "${route.subdomain}-http";
       }];
-      rules = [
-        ({
-          backendRefs = [{
-            namespace = route.namespace;
-            port = route.port;
-            name = route.service;
-          }];
-        } // optionalAttrs (effectiveFilters route != []) {
-          filters = effectiveFilters route;
-        })
-      ];
+      rules = map (mkRule route) (resolvedPaths route);
     };
   };
 
@@ -184,6 +212,57 @@ let
       }];
     };
   }) backendNamespaces);
+
+  # Per-path option submodule
+  pathSubmodule = types.submodule ({ ... }: {
+    options = {
+      auth = mkOption {
+        type = types.enum authTypes;
+        default = "forward";
+        description = ''
+          Auth type for this path.  Determines which auth provider
+          filters (if any) are applied to the HTTPRoute rule.
+          See specs/auth.md for details on each type.
+        '';
+      };
+
+      pathType = mkOption {
+        type = types.enum [ "PathPrefix" "Exact" "RegularExpression" ];
+        default = "PathPrefix";
+        description = ''
+          Gateway API path match type.  Maps directly to the
+          HTTPRouteMatch path.type field.
+        '';
+      };
+
+      service = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = ''
+          Backend Service name override.  When null, inherits
+          from the route-level service option.
+        '';
+      };
+
+      port = mkOption {
+        type = types.nullOr types.port;
+        default = null;
+        description = ''
+          Backend Service port override.  When null, inherits
+          from the route-level port option.
+        '';
+      };
+
+      filters = mkOption {
+        type = with types; listOf attrs;
+        default = [];
+        description = ''
+          Additional Gateway API HTTPRoute filters for this path.
+          These are appended after any auth-provider filters.
+        '';
+      };
+    };
+  });
 
   # Per-route option submodule
   routeSubmodule = types.submodule ({ name, ... }: {
@@ -219,22 +298,41 @@ let
       service = mkOption {
         type = types.str;
         default = name;
-        description = "Name of the backend Service. Defaults to the route name.";
+        description = "Name of the default backend Service. Defaults to the route name.";
       };
 
       port = mkOption {
         type = types.port;
-        description = "Port on the backend Service.";
+        description = "Default port on the backend Service.";
       };
 
       auth = mkOption {
-        type = types.bool;
-        default = true;
+        type = types.enum authTypes;
+        default = "forward";
         description = ''
-          Whether to protect this route with Authelia ForwardAuth.
-          Only effective when both authelia and traefik are enabled.
-          Set to false for routes that handle their own auth (e.g. OIDC)
-          or must remain unprotected (e.g. Authelia itself).
+          Default auth type for this route.  Used when paths is empty
+          (catch-all) or as the default for path entries that don't
+          specify their own auth type.
+
+          Auth types:
+            forward - ForwardAuth SSO (e.g. Authelia)
+            token   - App handles token/API-key auth
+            basic   - App handles HTTP Basic auth
+            oauth   - App handles its own OAuth/OIDC
+            none    - No authentication
+        '';
+      };
+
+      paths = mkOption {
+        type = types.attrsOf pathSubmodule;
+        default = {};
+        description = ''
+          Per-path rules.  Keys are URL paths (e.g. "/", "/api").
+          Each path can specify its own auth type, path match type,
+          and optional backend service/port override.
+
+          When empty, a single catch-all rule is created using the
+          route-level auth, service, and port.
         '';
       };
 
@@ -242,9 +340,8 @@ let
         type = with types; listOf attrs;
         default = [];
         description = ''
-          Additional Gateway API HTTPRoute filters.
-          Passed directly into the HTTPRoute rule alongside any
-          automatic auth filters.
+          Additional Gateway API HTTPRoute filters applied to all
+          rules in this route, alongside any auth-provider filters.
         '';
       };
     };
@@ -263,6 +360,22 @@ in
           - A listener pair (HTTPS + HTTP) on the default Gateway
           - A cert-manager Certificate for TLS termination
           - An HTTPRoute per listener for app traffic
+      '';
+    };
+
+    authFilters = mkOption {
+      type = types.attrsOf (with types; listOf attrs);
+      default = {};
+      internal = true;
+      description = ''
+        Auth type → list of Gateway API HTTPRoute filters.
+        Populated by auth provider modules (e.g. Authelia).
+
+        Example: authFilters.forward = [{ type = "ExtensionRef"; ... }]
+
+        routes.nix reads this when building HTTPRoute rules and applies
+        the filters matching each path's auth type.  This keeps the
+        ingress module completely auth-provider-agnostic.
       '';
     };
   };
