@@ -191,7 +191,7 @@ let
         rules = cfg.accessControlRules;
       } else {});
 
-      identity_providers = {
+      identity_providers = optionalAttrs (cfg.oidcClients != []) {
         oidc = {
           enabled = true;
 
