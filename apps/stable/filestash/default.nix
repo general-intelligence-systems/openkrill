@@ -14,6 +14,12 @@
 # via the admin UI at https://<subdomain>.<domain>/admin
 # (password = LLDAP admin password).
 #
+# TLS: The custom image uses plg_starter_httpsfs which reads a signed
+# cert + key from /app/data/state/certs/.  A cert-manager Certificate
+# is provisioned in the filestash namespace and mounted into the pod.
+# Traefik's ServersTransport uses the internal CA for backend
+# verification (no insecureSkipVerify).
+#
 # Bootstrap workflow:
 #   1. openkrill-generate-filestash systemd oneshot (after lldap)
 #      creates openkrill-filestash secret with admin password
@@ -32,6 +38,7 @@ let
   domain  = config.openkrill.domain;
 
   secretName = "filestash";
+  tlsSecretName = "filestash-server-tls";
 
   removeNulls = attrs:
     filterAttrs (_: v: v != null) (mapAttrs (_: v:
@@ -160,6 +167,21 @@ let
       size = cfg.filesSize;
       advancedMounts.main = {
         main = [{ path = "/data"; }];
+      };
+    };
+
+    # Mount cert-manager TLS secret as cert.pem / key.pem for
+    # plg_starter_httpsfs.  The secret keys (tls.crt, tls.key) are
+    # remapped to the filenames Filestash expects.
+    persistence.tls = {
+      type = "secret";
+      name = tlsSecretName;
+      items = [
+        { key = "tls.crt"; path = "cert.pem"; }
+        { key = "tls.key"; path = "key.pem"; }
+      ];
+      advancedMounts.main = {
+        main = [{ path = "/app/data/state/certs"; readOnly = true; }];
       };
     };
 
@@ -295,8 +317,31 @@ in
         };
       in
       [ (k8s.mkNamespace cfg.namespace) ]
-      # ServersTransport: skip TLS verification for the self-signed
-      # backend cert (plg_starter_https generates certs at boot).
+      # Certificate: internal TLS cert for plg_starter_httpsfs,
+      # signed by the cluster CA (openkrill-signing-authority).
+      ++ [{
+        apiVersion = "cert-manager.io/v1";
+        kind = "Certificate";
+        metadata = {
+          name = tlsSecretName;
+          namespace = cfg.namespace;
+        };
+        spec = {
+          secretName = tlsSecretName;
+          dnsNames = [
+            "filestash"
+            "filestash.${cfg.namespace}"
+            "filestash.${cfg.namespace}.svc"
+            "filestash.${cfg.namespace}.svc.cluster.local"
+          ];
+          issuerRef = {
+            name = "openkrill-signing-authority";
+            kind = "ClusterIssuer";
+          };
+        };
+      }]
+      # ServersTransport: verify the backend TLS cert against the
+      # internal CA (trust-manager distributes the CA bundle).
       ++ [{
         apiVersion = "traefik.io/v1alpha1";
         kind = "ServersTransport";
