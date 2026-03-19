@@ -1010,7 +1010,7 @@ let
       "syncOptions" = mkOption {
         description = "Options allow you to specify whole app sync-options";
         type = (types.listOf types.str);
-        default = [ ];
+        default = [ "ServerSideApply=true" ];
       };
     };
   };

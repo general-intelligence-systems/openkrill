@@ -21,7 +21,6 @@ usage() {
   echo "  --port <port>           Port for the commented-out ingress route (default: 8080)"
   echo "  --subdomain <sub>       Subdomain for ingress route (default: module-name)"
   echo "  --service <svc>         Service name for ingress route (default: module-name)"
-  echo "  --server-side-apply     Add ServerSideApply=true to ArgoCD syncOptions"
   echo ""
   echo "Example:"
   echo "  bin/create-module-helm my-app jetstack cert-manager"
@@ -41,8 +40,6 @@ DESCRIPTION="$MODULE_NAME"
 PORT="8080"
 SUBDOMAIN="$MODULE_NAME"
 SERVICE="$MODULE_NAME"
-SERVER_SIDE_APPLY=false
-
 # Parse optional flags
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -51,7 +48,6 @@ while [[ $# -gt 0 ]]; do
     --port)         PORT="$2"; shift 2 ;;
     --subdomain)    SUBDOMAIN="$2"; shift 2 ;;
     --service)      SERVICE="$2"; shift 2 ;;
-    --server-side-apply) SERVER_SIDE_APPLY=true; shift ;;
     *) echo "Unknown option: $1" >&2; usage ;;
   esac
 done
@@ -63,12 +59,7 @@ if [[ -d "$MODULE_DIR" ]]; then
   exit 1
 fi
 
-# Build syncOptions line
-if $SERVER_SIDE_APPLY; then
-  SYNC_OPTIONS='[ "CreateNamespace=true" "ServerSideApply=true" ]'
-else
-  SYNC_OPTIONS='[ "CreateNamespace=true" ]'
-fi
+SYNC_OPTIONS='[ "CreateNamespace=true" ]'
 
 mkdir -p "$MODULE_DIR"
 

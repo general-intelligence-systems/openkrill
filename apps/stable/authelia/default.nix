@@ -11,6 +11,7 @@ let
   cfg          = config.openkrill.apps.authelia;
   lldapCfg     = config.openkrill.apps.lldap;
   cnpgCfg      = config.openkrill.apps.cloudnative-pg;
+  valkeyCfg    = config.openkrill.apps.valkey;
   domain       = config.openkrill.domain;
   helpers          = import ../../../modules/lib/helpers.nix { inherit lib; };
 
@@ -160,7 +161,15 @@ let
       };
 
       session = {
+        expiration = "12h";
+        inactivity = "4h";
+        remember_me = "1M";
         cookies = cfg.sessionCookies;
+      } // optionalAttrs valkeyCfg.enable {
+        redis = {
+          host = "valkey-master.${valkeyCfg.namespace}.svc.cluster.local";
+          port = 6379;
+        };
       };
 
       storage = {

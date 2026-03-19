@@ -228,7 +228,7 @@ in
       };
       syncPolicy = {
         automated = { prune = true; selfHeal = true; };
-        syncOptions = [ "CreateNamespace=true" "ServerSideApply=true" ];
+        syncOptions = [ "CreateNamespace=true" ];
       };
     };
 
@@ -471,7 +471,7 @@ Before submitting a module with generated CRD fragments:
 - [ ] Composing `default.nix` written with `enable`, `extraManifests`, ArgoCD Application
 - [ ] Namespace resource created explicitly in `default.nix`
 - [ ] All fragments imported in `default.nix`
-- [ ] `ServerSideApply=true` in ArgoCD `syncOptions` (required for CRD-heavy modules)
+- [ ] `ServerSideApply=true` is applied by default via `syncOptions` (no action needed)
 - [ ] App module auto-discovered via `modules/module-list.nix` (no manual registration needed)
 - [ ] Files staged: `git add apps/<name>/`
 - [ ] `bin/test` passes

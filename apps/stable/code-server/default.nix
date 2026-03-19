@@ -15,6 +15,10 @@ let
   ];
 
   defaults = {
+    image = {
+      repository = "ghcr.io/general-intelligence-systems/code-server-nix";
+      tag        = "latest";
+    };
     ingress.enabled = false;
     persistence = {
       enabled      = true;

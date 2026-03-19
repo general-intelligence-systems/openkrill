@@ -662,7 +662,7 @@ config = lib.mkIf cfg.enable {
 };
 ```
 
-Add `"ServerSideApply=true"` to `syncOptions` if the module includes CRDs.
+`"ServerSideApply=true"` is included in `syncOptions` by default for all ArgoCD applications.
 
 ### 7. Stage files for flake visibility
 
