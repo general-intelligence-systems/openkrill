@@ -10,11 +10,11 @@
 #
 # Build:
 #   nix build .#source
-#   docker build -f docker/Dockerfile result/
+#   docker build -f Dockerfile $(nix build .#source --print-out-paths)
 #
-# Or in one shot:
-#   docker build -f <(nix build .#source --print-out-paths)/docker/Dockerfile \
-#     $(nix build .#source --print-out-paths)
+# The custom Dockerfile (not the upstream docker/Dockerfile) is used so
+# that overlays are compiled into the binary.  The upstream Dockerfile
+# re-clones from GitHub which would discard our changes.
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
