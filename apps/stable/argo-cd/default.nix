@@ -63,7 +63,7 @@ in
           prune = true;
           selfHeal = true;
         };
-        syncOptions = [ "CreateNamespace=true" ];
+        syncOptions = [ "CreateNamespace=true" "ServerSideApply=true" ];
       };
     };
 

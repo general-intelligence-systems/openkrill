@@ -84,6 +84,7 @@ in
       namespace = cfg.namespace;
       instances = 1;
       storage.size = "5Gi";
+      imageName = "ghcr.io/general-intelligence-systems/postgresql:17-custom";
     };
 
     # ── VictoriaMetrics scrape + alerts (when VM is enabled) ──────────
