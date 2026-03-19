@@ -7,8 +7,11 @@
 # headers, Filestash creates the session directly from headers +
 # attribute mapping — no login form is ever rendered.
 #
-# Storage backends and attribute mapping are configured by the
-# consumer via the Filestash admin UI at https://<subdomain>.<domain>/admin
+# A local filesystem backend is pre-configured out of the box.
+# Each authenticated user gets their own directory under /data/<user>.
+# The attribute mapping resolves the proxy auth Remote-User header
+# to the local backend path.  Additional backends can be added
+# via the admin UI at https://<subdomain>.<domain>/admin
 # (password = LLDAP admin password).
 #
 # Bootstrap workflow:
@@ -17,10 +20,9 @@
 #      (bcrypt hash of the LLDAP admin password) and config secrets.
 #   2. ESO syncs the secret into the filestash namespace.
 #   3. Init container writes config.json on first boot if absent,
-#      pre-seeding the proxy auth identity_provider type.
+#      pre-seeding proxy auth + local backend + attribute mapping.
 #   4. Filestash reads ADMIN_PASSWORD + CONFIG_SECRET from env,
 #      encrypts middleware params on first save.
-#   5. Consumer configures storage backends via the admin UI.
 { config, lib, pkgs, charts, kubelib, k8s, ... }:
 with lib;
 let
@@ -37,9 +39,9 @@ let
     ) attrs);
 
   # Shell script for the init container: writes config.json if absent.
-  # Sets identity_provider.type = "proxy" so the frontend knows to
-  # redirect through the auth middleware endpoint where our modified
-  # session.go reads the Remote-User header.
+  # Pre-seeds proxy auth (identity_provider type "proxy"), a local
+  # filesystem backend connection, and attribute mapping that resolves
+  # the Remote-User header to /data/<user>.
   configSeedScript = ''
     CONFIG=/app/data/state/config/config.json
     if [ -f "$CONFIG" ]; then
@@ -47,19 +49,28 @@ let
       exit 0
     fi
     mkdir -p /app/data/state/config
-    cat > "$CONFIG" << 'SEED'
+    cat > "$CONFIG" <<'SEED'
     {
       "general": {},
       "middleware": {
         "identity_provider": {
           "type": "proxy",
           "params": "{}"
+        },
+        "attribute_mapping": {
+          "related_backend": "local",
+          "params": "{\"local\":{\"type\":\"local\",\"path\":\"/data/{{.user}}\"}}"
         }
       },
-      "connections": []
+      "connections": [
+        {
+          "type": "local",
+          "path": "/data/"
+        }
+      ]
     }
     SEED
-    echo "seeded config.json with proxy auth"
+    echo "seeded config.json with local backend"
   '';
 
   defaults = {
@@ -74,6 +85,7 @@ let
           tag = "stable";
         };
         command = [ "sh" "-c" configSeedScript ];
+        securityContext.runAsUser = 1000;
       };
 
       containers.main = {
@@ -95,7 +107,7 @@ let
             enabled = true;
             custom = true;
             spec = {
-              httpGet = { path = "/healthz"; port = 8334; };
+              httpGet = { path = "/healthz"; port = 8334; scheme = "HTTPS"; };
               initialDelaySeconds = 15;
               periodSeconds = 15;
               failureThreshold = 3;
@@ -105,7 +117,7 @@ let
             enabled = true;
             custom = true;
             spec = {
-              httpGet = { path = "/healthz"; port = 8334; };
+              httpGet = { path = "/healthz"; port = 8334; scheme = "HTTPS"; };
               initialDelaySeconds = 10;
               periodSeconds = 10;
             };
@@ -114,7 +126,7 @@ let
             enabled = true;
             custom = true;
             spec = {
-              httpGet = { path = "/healthz"; port = 8334; };
+              httpGet = { path = "/healthz"; port = 8334; scheme = "HTTPS"; };
               initialDelaySeconds = 5;
               periodSeconds = 5;
               failureThreshold = 20;
@@ -131,6 +143,7 @@ let
 
     persistence.data = {
       type = "persistentVolumeClaim";
+      storageClass = "local-path";
       accessMode = "ReadWriteOnce";
       size = "5Gi";
       advancedMounts.main = {
@@ -139,11 +152,25 @@ let
       };
     };
 
+    persistence.files = {
+      type = "persistentVolumeClaim";
+      storageClass = "local-path";
+      accessMode = "ReadWriteOnce";
+      size = cfg.filesSize;
+      advancedMounts.main = {
+        main = [{ path = "/data"; }];
+      };
+    };
+
     service.main = {
       controller = "main";
-      ports.http = {
+      annotations = {
+        "traefik.ingress.kubernetes.io/service.serversscheme" = "https";
+      };
+      ports.https = {
         port = 8334;
-        protocol = "HTTP";
+        protocol = "HTTPS";
+        appProtocol = "https";
       };
     };
   };
@@ -181,6 +208,12 @@ in
       type = types.str;
       default = "5Gi";
       description = "Size of the PersistentVolumeClaim for Filestash state.";
+    };
+
+    filesSize = mkOption {
+      type = types.str;
+      default = "50Gi";
+      description = "Size of the PersistentVolumeClaim for user file storage (/data).";
     };
 
     values = mkOption {
