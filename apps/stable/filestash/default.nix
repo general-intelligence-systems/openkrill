@@ -92,6 +92,7 @@ let
         image = {
           repository = cfg.image.repository;
           tag = cfg.image.tag;
+          pullPolicy = "Always";
         };
 
         env = {
@@ -164,13 +165,9 @@ let
 
     service.main = {
       controller = "main";
-      annotations = {
-        "traefik.ingress.kubernetes.io/service.serversscheme" = "https";
-      };
-      ports.https = {
+      ports.http = {
         port = 8334;
-        protocol = "HTTPS";
-        appProtocol = "https";
+        protocol = "HTTP";
       };
     };
   };
@@ -298,6 +295,19 @@ in
         };
       in
       [ (k8s.mkNamespace cfg.namespace) ]
+      # ServersTransport: skip TLS verification for the self-signed
+      # backend cert (plg_starter_https generates certs at boot).
+      ++ [{
+        apiVersion = "traefik.io/v1alpha1";
+        kind = "ServersTransport";
+        metadata = {
+          name = "filestash-transport";
+          namespace = cfg.namespace;
+        };
+        spec = {
+          insecureSkipVerify = true;
+        };
+      }]
       ++ kubelib.fromHelm {
         name      = "filestash";
         chart     = charts.bjw-s-labs.app-template.latest;
