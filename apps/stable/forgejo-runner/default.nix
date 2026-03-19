@@ -5,6 +5,7 @@
 with lib;
 let
   cfg = config.openkrill.apps.forgejo-runner;
+  trustCfg = config.openkrill.apps.trust-manager;
   helpers          = import ../../../modules/lib/helpers.nix { inherit lib; };
   runnerModule = types.submodule ({ name, ... }: {
     options = {
@@ -28,6 +29,10 @@ let
     let
       configMapName = "${name}-config";
       labelLines = builtins.concatStringsSep "\n" (map (l: "    - \"${l}\"") runner.labels);
+      # DinD has the CA bundle at /etc/ssl/certs/ca-certificates.crt (subPath mount).
+      # Job containers get it at /openkrill-ca-bundle.crt to avoid shadowing the image's own CA bundle.
+      dindCaBundlePath = "/etc/ssl/certs/ca-certificates.crt";
+      jobCaBundlePath = "/openkrill-ca-bundle.crt";
       configYaml = builtins.concatStringsSep "\n" [
         "runner:"
         "  labels:"
@@ -37,6 +42,7 @@ let
         "container:"
         "  network: \"host\""
         "  docker_host: \"tcp://localhost:2375\""
+        "  options: \"-v ${dindCaBundlePath}:${jobCaBundlePath}:ro\""
         "  valid_volumes:"
         "    - \"**\""
         ""
@@ -71,6 +77,9 @@ let
                   image = "docker:dind";
                   securityContext.privileged = true;
                   command = [ "dockerd" "-H" "tcp://0.0.0.0:2375" "--tls=false" ];
+                  volumeMounts = [
+                    { name = "ca-bundle"; mountPath = "/etc/ssl/certs/ca-certificates.crt"; subPath = trustCfg.bundleKey; }
+                  ];
                 }
                 {
                   name = "runner";
@@ -100,11 +109,13 @@ let
                   ];
                   volumeMounts = [
                     { name = "config"; mountPath = "/etc/runner/config.yaml"; subPath = "config.yaml"; }
+                    { name = "ca-bundle"; mountPath = "/etc/ssl/certs/ca-certificates.crt"; subPath = trustCfg.bundleKey; }
                   ];
                 }
               ];
               volumes = [
                 { name = "config"; configMap.name = configMapName; }
+                { name = "ca-bundle"; configMap.name = trustCfg.bundleConfigMapName; }
               ];
             };
           };
