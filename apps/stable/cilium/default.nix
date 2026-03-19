@@ -141,7 +141,7 @@ in
       };
       syncPolicy = {
         automated = { prune = true; selfHeal = true; };
-        syncOptions = [ "ServerSideApply=true" ];
+        syncOptions = [ ];
       };
     };
 

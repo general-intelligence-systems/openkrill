@@ -65,14 +65,12 @@ in
     };
 
     # ── Manifests ───────────────────────────────────────────────────
-    openkrill.manifests.valkey.content = [
-      (k8s.mkNamespace cfg.namespace)
-    ]
-    ++ kubelib.fromHelm {
-      name = "valkey";
-      chart = charts.bitnami.valkey.latest;
-      namespace = cfg.namespace;
-      values = cfg.values;
-    };
+    openkrill.manifests.valkey.content =
+      kubelib.fromHelm {
+        name = "valkey";
+        chart = charts.bitnami.valkey.latest;
+        namespace = cfg.namespace;
+        values = cfg.values;
+      };
   };
 }

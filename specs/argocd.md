@@ -128,19 +128,10 @@ repo root.
 
 ## ServerSideApply
 
-Modules with CRDs or large resources that exceed the annotation size
-limit need server-side apply.  Add `"ServerSideApply=true"` to
-`syncOptions`:
-
-```nix
-syncPolicy = {
-  automated = { prune = true; selfHeal = true; };
-  syncOptions = [ "CreateNamespace=true" "ServerSideApply=true" ];
-};
-```
-
-Modules that use this: argocd, external-secrets, kamaji,
-metacontroller, victoriametrics.
+`"ServerSideApply=true"` is included in `syncOptions` by default for
+all ArgoCD applications.  This avoids the 262144-byte annotation size
+limit that affects CRDs and other large resources when using
+client-side apply.  No per-module opt-in is needed.
 
 ---
 
@@ -200,6 +191,6 @@ When adding a new app module:
 1. Add an ArgoCD Application CR in the `config` block (see template)
 2. Set `directory.include` to `"<name>.yaml"` matching the manifest key
 3. Set `destination.namespace` to `cfg.namespace` (or omit for cluster-scoped)
-4. Add `"ServerSideApply=true"` if the module includes CRDs
-5. Add `"CreateNamespace=true"` if the module targets a specific namespace
+4. Add `"CreateNamespace=true"` if the module targets a specific namespace
+   (`"ServerSideApply=true"` is already included by default)
 6. The Application CR goes **before** the `openkrill.manifests` block in the config

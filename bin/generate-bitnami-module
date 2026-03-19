@@ -123,7 +123,6 @@ sync_options='[ "CreateNamespace=true" ]'
 
 if $GENERATE_CRD; then
   imports_line=$'\n  imports = [ ./crds.nix ./custom.nix ];\n'
-  sync_options='[ "CreateNamespace=true" "ServerSideApply=true" ]'
 else
   imports_line=$'\n  imports = [ ./custom.nix ];\n'
 fi

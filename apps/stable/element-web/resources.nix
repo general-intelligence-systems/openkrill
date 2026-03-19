@@ -81,6 +81,12 @@ in
       template = {
         metadata.labels = labels;
         spec = {
+          # Disable Kubernetes service-link env vars.  The element-web
+          # image runs envsubst on its nginx template at startup;
+          # K8s-injected vars like ELEMENT_WEB_PORT=tcp://… clobber
+          # the template's $PORT variable, producing an invalid
+          # "listen" directive that crashes nginx.
+          enableServiceLinks = false;
           containers = [{
             name = "element-web";
             inherit image;

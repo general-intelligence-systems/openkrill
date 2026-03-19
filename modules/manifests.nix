@@ -89,6 +89,16 @@ in
       '';
     };
 
+    bootstrapManifestDir = mkOption {
+      type = types.package;
+      readOnly = true;
+      description = ''
+        A directory containing every enabled manifest as a YAML
+        file, applied by the openkrill-apply-manifests oneshot
+        after k3s starts.
+      '';
+    };
+
     gitops = {
       # mkEnableOption defaults to false, but openkrill.nix sets this to
       # mkDefault true so gitops serving is active whenever the module is imported.
@@ -192,15 +202,42 @@ in
       "L+ ${gitopsCfg.basePath}/${gitopsCfg.repoName} - - - - ${cfg.renderedManifestRepo}"
     ];
 
-    # Bootstrap every enabled module into the cluster via k3s auto-deploy
-    # so the full stack is running before ArgoCD begins syncing.
-    # Each module still has an ArgoCD Application CR for ongoing
-    # self-management (same pattern ArgoCD itself uses).
+    # Bootstrap manifests directory — rendered YAML written to the Nix
+    # store directory, then applied by a systemd oneshot after k3s is
+    # ready.  This replaces the old services.k3s.manifests auto-deploy
+    # which conflicted with ArgoCD's ongoing management.
     #
     # Tenant manifests (tenants/*) are excluded — they live in the git
     # repo only, for ApplicationSets to deploy to tenant clusters.
-    services.k3s.manifests = mapAttrs' (name: manifest:
-      nameValuePair "openkrill-${name}" { content = manifest.content; }
-    ) (filterAttrs (name: _: !(hasPrefix "tenants/" name)) cfg.manifests);
+    openkrill.bootstrapManifestDir = pkgs.runCommand "openkrill-bootstrap-manifests" {} ''
+      mkdir -p $out
+      ${concatStringsSep "\n" (mapAttrsToList (name: manifest:
+        let file = mkManifestFile name manifest;
+        in "mkdir -p \"$out/$(dirname '${name}')\" && cp ${file} \"$out/${name}.yaml\""
+      ) (filterAttrs (name: _: !(hasPrefix "tenants/" name)) cfg.manifests))}
+    '';
+
+    systemd.services.openkrill-apply-manifests = {
+      description = "Apply openkrill bootstrap manifests to k3s";
+      after = [ "k3s.service" ];
+      requires = [ "k3s.service" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        Environment = "KUBECONFIG=/etc/rancher/k3s/k3s.yaml";
+      };
+      path = [ pkgs.kubectl ];
+      script = ''
+        until kubectl get ns >/dev/null 2>&1; do sleep 2; done
+        kubectl apply --server-side --force-conflicts -R -f ${cfg.bootstrapManifestDir}/ 2>&1 \
+          | while IFS= read -r line; do
+              echo "$line"
+            done
+        # Always succeed — individual resources may fail (e.g. immutable
+        # Job fields) but ArgoCD will reconcile them.
+        exit 0
+      '';
+    };
   };
 }
