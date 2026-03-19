@@ -152,6 +152,12 @@ in
             port = 3000;
             name = "forgejo-http";
           }];
+          # 10 min timeout — large git pushes (150 MB+) need more than the
+          # default 60 s Traefik backend timeout.
+          timeouts = {
+            request = "600s";
+            backendRequest = "600s";
+          };
           # No filters — deliberately no ForwardAuth
         }
       ];
@@ -178,6 +184,10 @@ in
             port = 3000;
             name = "forgejo-http";
           }];
+          timeouts = {
+            request = "600s";
+            backendRequest = "600s";
+          };
         }
       ];
     };

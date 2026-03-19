@@ -601,6 +601,17 @@ in
         providers:
           kubernetesGateway:
             enabled: true
+        # Raise the default 60 s backend read-timeout so large git pushes
+        # and other long-running uploads don't get 504'd.
+        ports:
+          websecure:
+            transport:
+              respondingTimeouts:
+                readTimeout: 600s
+          web:
+            transport:
+              respondingTimeouts:
+                readTimeout: 600s
   '' + optionalString trustCfg.enable ''
     # Mount the cluster CA trust bundle so Traefik can verify
     # backend TLS certs signed by the internal CA.
