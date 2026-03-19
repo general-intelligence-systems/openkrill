@@ -24,7 +24,7 @@ func init() {
 			Handler:      r,
 			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 			TLSConfig:    &DefaultTLSConfig,
-			ErrorLog:     NewNilLogger(),
+			ErrorLog:     nil, // use default logger so TLS errors are visible
 		}
 
 		go func() {

@@ -17,8 +17,6 @@
 # TLS: The custom image uses plg_starter_httpsfs which reads a signed
 # cert + key from /app/data/state/certs/.  A cert-manager Certificate
 # is provisioned in the filestash namespace and mounted into the pod.
-# Traefik's ServersTransport uses the internal CA for backend
-# verification (no insecureSkipVerify).
 #
 # Bootstrap workflow:
 #   1. openkrill-generate-filestash systemd oneshot (after lldap)
@@ -187,9 +185,9 @@ let
 
     service.main = {
       controller = "main";
-      ports.http = {
+      ports.https = {
         port = 8334;
-        protocol = "HTTP";
+        appProtocol = "https";
       };
     };
   };
@@ -289,6 +287,26 @@ in
       port      = 8334;
     };
 
+    # ── BackendTLSPolicy for filestash server ────────────────────
+    # Traefik connects to filestash on port 8334 (HTTPS).  Without
+    # this policy Traefik uses the pod IP for TLS verification, which
+    # fails because the cert has DNS SANs but no IP SANs.  The policy
+    # tells Traefik to use the service FQDN as the SNI hostname and to
+    # trust the system CAs (the openkrill trust bundle is already
+    # mounted at /etc/ssl/certs in the Traefik pod).
+    openkrill.apps."gateway-api".backendtlspolicies.filestash = {
+      namespace = cfg.namespace;
+      targetRefs = [{
+        group = "";
+        kind = "Service";
+        name = "filestash";
+      }];
+      validation = {
+        hostname = "filestash.${cfg.namespace}.svc";
+        wellKnownCACertificates = "System";
+      };
+    };
+
     # ── ArgoCD Application CR ─────────────────────────────────────
     openkrill.apps.argo-cd.applications.filestash = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
@@ -338,19 +356,6 @@ in
             name = "openkrill-signing-authority";
             kind = "ClusterIssuer";
           };
-        };
-      }]
-      # ServersTransport: verify the backend TLS cert against the
-      # internal CA (trust-manager distributes the CA bundle).
-      ++ [{
-        apiVersion = "traefik.io/v1alpha1";
-        kind = "ServersTransport";
-        metadata = {
-          name = "filestash-transport";
-          namespace = cfg.namespace;
-        };
-        spec = {
-          insecureSkipVerify = true;
         };
       }]
       ++ kubelib.fromHelm {
