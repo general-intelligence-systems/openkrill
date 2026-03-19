@@ -1,0 +1,276 @@
+# apps/filestash — Filestash web file manager
+#
+# Filestash is a self-hosted web client for managing files across
+# storage backends (SFTP, S3, FTP, SMB, WebDAV, etc.).  The custom
+# image (built from images/filestash/) adds reverse-proxy auth:
+# when Authelia sets Remote-User / Remote-Email / Remote-Groups
+# headers, Filestash creates the session directly from headers +
+# attribute mapping — no login form is ever rendered.
+#
+# Storage backends and attribute mapping are configured by the
+# consumer via the Filestash admin UI at https://<subdomain>.<domain>/admin
+# (password = LLDAP admin password).
+#
+# Bootstrap workflow:
+#   1. openkrill-generate-filestash systemd oneshot (after lldap)
+#      creates openkrill-filestash secret with admin password
+#      (bcrypt hash of the LLDAP admin password) and config secrets.
+#   2. ESO syncs the secret into the filestash namespace.
+#   3. Init container writes config.json on first boot if absent,
+#      pre-seeding the proxy auth identity_provider type.
+#   4. Filestash reads ADMIN_PASSWORD + CONFIG_SECRET from env,
+#      encrypts middleware params on first save.
+#   5. Consumer configures storage backends via the admin UI.
+{ config, lib, pkgs, charts, kubelib, k8s, ... }:
+with lib;
+let
+  cfg     = config.openkrill.apps.filestash;
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
+  appTemplate = import ../../../modules/lib/app-template.nix { inherit lib; };
+  domain  = config.openkrill.domain;
+
+  secretName = "filestash";
+
+  removeNulls = attrs:
+    filterAttrs (_: v: v != null) (mapAttrs (_: v:
+      if isAttrs v then removeNulls v else v
+    ) attrs);
+
+  # Shell script for the init container: writes config.json if absent.
+  # Sets identity_provider.type = "proxy" so the frontend knows to
+  # redirect through the auth middleware endpoint where our modified
+  # session.go reads the Remote-User header.
+  configSeedScript = ''
+    CONFIG=/app/data/state/config/config.json
+    if [ -f "$CONFIG" ]; then
+      echo "config.json exists, skipping seed"
+      exit 0
+    fi
+    mkdir -p /app/data/state/config
+    cat > "$CONFIG" << 'SEED'
+    {
+      "general": {},
+      "middleware": {
+        "identity_provider": {
+          "type": "proxy",
+          "params": "{}"
+        }
+      },
+      "connections": []
+    }
+    SEED
+    echo "seeded config.json with proxy auth"
+  '';
+
+  defaults = {
+    global.nameOverride = "filestash";
+
+    controllers.main = {
+      strategy = "Recreate";
+
+      initContainers.config-seed = {
+        image = {
+          repository = "busybox";
+          tag = "stable";
+        };
+        command = [ "sh" "-c" configSeedScript ];
+      };
+
+      containers.main = {
+        image = {
+          repository = cfg.image.repository;
+          tag = cfg.image.tag;
+        };
+
+        env = {
+          APPLICATION_URL = "https://${cfg.subdomain}.${domain}";
+        };
+
+        envFrom = [
+          { secretRef.name = secretName; }
+        ];
+
+        probes = {
+          liveness = {
+            enabled = true;
+            custom = true;
+            spec = {
+              httpGet = { path = "/healthz"; port = 8334; };
+              initialDelaySeconds = 15;
+              periodSeconds = 15;
+              failureThreshold = 3;
+            };
+          };
+          readiness = {
+            enabled = true;
+            custom = true;
+            spec = {
+              httpGet = { path = "/healthz"; port = 8334; };
+              initialDelaySeconds = 10;
+              periodSeconds = 10;
+            };
+          };
+          startup = {
+            enabled = true;
+            custom = true;
+            spec = {
+              httpGet = { path = "/healthz"; port = 8334; };
+              initialDelaySeconds = 5;
+              periodSeconds = 5;
+              failureThreshold = 20;
+            };
+          };
+        };
+
+        resources = {
+          requests = { cpu = "50m"; memory = "128Mi"; };
+          limits   = { memory = "512Mi"; };
+        };
+      };
+    };
+
+    persistence.data = {
+      type = "persistentVolumeClaim";
+      accessMode = "ReadWriteOnce";
+      size = "5Gi";
+      advancedMounts.main = {
+        config-seed = [{ path = "/app/data/state"; }];
+        main        = [{ path = "/app/data/state"; }];
+      };
+    };
+
+    service.main = {
+      controller = "main";
+      ports.http = {
+        port = 8334;
+        protocol = "HTTP";
+      };
+    };
+  };
+in
+{
+  options.openkrill.apps.filestash = {
+    enable = mkEnableOption "Filestash web file manager";
+
+    namespace = mkOption {
+      type = types.str;
+      default = "filestash";
+      description = "Kubernetes namespace for Filestash.";
+    };
+
+    subdomain = mkOption {
+      type = types.str;
+      default = "files";
+      description = "Subdomain for the Filestash web UI (e.g. files.<domain>).";
+    };
+
+    image = {
+      repository = mkOption {
+        type = types.str;
+        default = "ghcr.io/general-intelligence-systems/filestash";
+        description = "Filestash container image repository (custom build with proxy auth from images/filestash/).";
+      };
+      tag = mkOption {
+        type = types.str;
+        default = "latest";
+        description = "Filestash container image tag.";
+      };
+    };
+
+    storageSize = mkOption {
+      type = types.str;
+      default = "5Gi";
+      description = "Size of the PersistentVolumeClaim for Filestash state.";
+    };
+
+    values = mkOption {
+      type = appTemplate.valuesType;
+      default = {};
+      description = "app-template Helm chart values (typed), deep-merged with module defaults.";
+    };
+
+    extraManifests = helpers.mkExtraManifestsOption;
+  };
+
+  config = mkIf cfg.enable {
+    # ── Secret generator (after lldap) ────────────────────────────
+    openkrill.secrets.generators.filestash = {
+      packages = with pkgs; [ openssl apacheHttpd ];
+      after = [ "lldap" ];
+      script = ''
+        # Read LLDAP admin password for the Filestash admin panel.
+        LLDAP_PASS=""
+        if kubectl -n "$NS" get secret openkrill-lldap >/dev/null 2>&1; then
+          LLDAP_PASS=$(kubectl -n "$NS" get secret openkrill-lldap \
+            -o jsonpath='{.data.LLDAP_LDAP_USER_PASS}' | base64 -d)
+        fi
+
+        # Bcrypt hash for Filestash's ADMIN_PASSWORD env var.
+        ADMIN_HASH=""
+        if [ -n "$LLDAP_PASS" ]; then
+          ADMIN_HASH=$(htpasswd -nbBC 10 "" "$LLDAP_PASS" | cut -d: -f2)
+        else
+          ADMIN_HASH=$(htpasswd -nbBC 10 "" "$(openssl rand -hex 16)" | cut -d: -f2)
+        fi
+
+        create_secret openkrill-filestash \
+          --from-literal=ADMIN_PASSWORD="$ADMIN_HASH" \
+          --from-literal=CONFIG_SECRET="$(openssl rand -hex 16)"
+      '';
+    };
+
+    # ── ESO: sync secrets into filestash namespace ────────────────
+    openkrill.apps.external-secrets.secrets.${secretName} = {
+      namespace = cfg.namespace;
+      remoteSecretName = "openkrill-filestash";
+      keys = [
+        "ADMIN_PASSWORD"
+        "CONFIG_SECRET"
+      ];
+    };
+
+    # ── Route (default forward auth via Authelia) ─────────────────
+    openkrill.ingress.routes.filestash = {
+      subdomain = cfg.subdomain;
+      namespace = cfg.namespace;
+      service   = "filestash";
+      port      = 8334;
+    };
+
+    # ── ArgoCD Application CR ─────────────────────────────────────
+    openkrill.apps.argo-cd.applications.filestash = mkIf config.openkrill.gitops.generateApplications {
+      namespace = "argo-cd";
+      project   = "default";
+      source = {
+        repoURL          = config.openkrill.gitops.repoURL;
+        targetRevision   = "rendered-manifests";
+        path             = ".";
+        directory.include = "filestash.yaml";
+      };
+      destination = {
+        server    = "https://kubernetes.default.svc";
+        namespace = cfg.namespace;
+      };
+      syncPolicy = {
+        automated   = { prune = true; selfHeal = true; };
+        syncOptions = [ "CreateNamespace=true" ];
+      };
+    };
+
+    # ── Manifests ─────────────────────────────────────────────────
+    openkrill.manifests.filestash.content =
+      let
+        effectiveDefaults = recursiveUpdate defaults {
+          persistence.data.size = cfg.storageSize;
+        };
+      in
+      [ (k8s.mkNamespace cfg.namespace) ]
+      ++ kubelib.fromHelm {
+        name      = "filestash";
+        chart     = charts.bjw-s-labs.app-template.latest;
+        namespace = cfg.namespace;
+        values    = recursiveUpdate effectiveDefaults (removeNulls cfg.values);
+        extraOpts = [ "--skip-schema-validation" ];
+      };
+  };
+}

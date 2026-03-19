@@ -97,6 +97,8 @@
           collabora.domain = "office.${domain}";
         };
 
+        # ── Filestash ────────────────────────────────────────────────
+        openkrill.apps.filestash.enable = true;
 
         # ── Base system ─────────────────────────────────────────────
         # Fallback root filesystem — image modules override this at
