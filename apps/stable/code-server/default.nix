@@ -18,6 +18,7 @@ let
     image = {
       repository = "ghcr.io/general-intelligence-systems/code-server-nix";
       tag        = "latest";
+      pullPolicy = "Always";
     };
     ingress.enabled = false;
     persistence = {

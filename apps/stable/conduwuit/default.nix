@@ -4,13 +4,11 @@
 # Helm chart.  The server_name option is required — it determines the
 # domain suffix on all Matrix user IDs (@user:server_name).
 #
-# Secrets: a registration_token is generated at boot by the secret
-# generator and distributed via ESO into the conduwuit namespace.
-# The chart picks it up through extraEnv / secretKeyRef.
+# Registration is disabled — all authentication goes through LDAP.
 #
-# LDAP: when lldap is enabled, the LDAP backend is auto-wired.  The
-# LLDAP admin password is cross-referenced from the lldap generator
-# and injected via env var so the config file stays secret-free.
+# LDAP: when lldap is enabled, the LDAP backend is auto-wired with
+# ldap_only=true.  The LLDAP admin password is cross-referenced from
+# the lldap generator and mounted as a file for bind_password_file.
 { config, lib, pkgs, charts, kubelib, k8s, ... }:
 with lib;
 let
@@ -50,35 +48,30 @@ in
 
   config = mkIf cfg.enable {
     # ── Secret generator ─────────────────────────────────────────────
-    # When lldap is enabled, run after it so we can cross-reference
-    # the LLDAP admin password for the LDAP bind credential.
-    openkrill.secrets.generators.conduwuit = {
+    # When lldap is enabled, cross-reference the LLDAP admin password
+    # for the LDAP bind credential.  Registration is disabled so no
+    # registration token is generated.
+    openkrill.secrets.generators.conduwuit = mkIf lldapEnabled {
       packages = with pkgs; [ openssl ];
-      after = optionals lldapEnabled [ "lldap" ];
+      after = [ "lldap" ];
       script = ''
-        ${optionalString lldapEnabled ''
-          # Read LLDAP admin password for LDAP bind credential.
-          LLDAP_PASS=""
-          if kubectl -n "$NS" get secret openkrill-lldap >/dev/null 2>&1; then
-            LLDAP_PASS=$(kubectl -n "$NS" get secret openkrill-lldap \
-              -o jsonpath='{.data.LLDAP_LDAP_USER_PASS}' | base64 -d)
-          fi
-        ''}
+        # Read LLDAP admin password for LDAP bind credential.
+        LLDAP_PASS=""
+        if kubectl -n "$NS" get secret openkrill-lldap >/dev/null 2>&1; then
+          LLDAP_PASS=$(kubectl -n "$NS" get secret openkrill-lldap \
+            -o jsonpath='{.data.LLDAP_LDAP_USER_PASS}' | base64 -d)
+        fi
 
         create_secret openkrill-conduwuit \
-          --from-literal=CONDUWUIT_REGISTRATION_TOKEN="$(openssl rand -hex 32)"${
-            optionalString lldapEnabled '' \
-          --from-literal=CONDUWUIT_LDAP_BIND_PASSWORD="''${LLDAP_PASS:-$(openssl rand -hex 16)}"''
-          }
+          --from-literal=CONDUWUIT_LDAP_BIND_PASSWORD="''${LLDAP_PASS:-$(openssl rand -hex 16)}"
       '';
     };
 
     # ── ExternalSecret ───────────────────────────────────────────────
-    openkrill.apps.external-secrets.secrets.conduwuit = {
+    openkrill.apps.external-secrets.secrets.conduwuit = mkIf lldapEnabled {
       namespace = cfg.namespace;
       remoteSecretName = "openkrill-conduwuit";
-      keys = [ "CONDUWUIT_REGISTRATION_TOKEN" ]
-        ++ optionals lldapEnabled [ "CONDUWUIT_LDAP_BIND_PASSWORD" ];
+      keys = [ "CONDUWUIT_LDAP_BIND_PASSWORD" ];
     };
 
     # ── Route ────────────────────────────────────────────────────────────
@@ -87,6 +80,11 @@ in
       namespace = cfg.namespace;
       service = "conduwuit";
       port = 80;
+      # Matrix homeservers handle their own auth (access tokens,
+      # registration tokens, etc.).  ForwardAuth (Authelia) would
+      # intercept /_matrix API calls and redirect them to the SSO
+      # login page, breaking all Matrix client connectivity.
+      auth = "none";
     };
 
     # ── ArgoCD Application CR ──────────────────────────────────────────

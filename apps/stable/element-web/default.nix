@@ -85,6 +85,7 @@ in
       namespace = cfg.namespace;
       service = "element-web";
       port = 80;
+      auth = "none";
     };
 
     # ── ArgoCD Application CR ──────────────────────────────────────────
