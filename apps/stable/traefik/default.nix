@@ -517,6 +517,17 @@ in
   options.openkrill.apps.traefik = {
     enable = mkEnableOption "Traefik CRD resources (IngressRoute, Middleware, etc.)";
 
+    externalIPs = mkOption {
+      type = types.listOf types.str;
+      default = [];
+      description = ''
+        Additional IPs to add to the Traefik LoadBalancer service as
+        externalIPs.  This causes kube-proxy to create DNAT rules for
+        these IPs on every node, allowing traffic arriving on non-public
+        interfaces (e.g. WireGuard) to reach Traefik.
+      '';
+    };
+
     ingressRoutes = mkOption {
       type = types.attrsOf ingressRouteModule;
       default = {};
@@ -588,7 +599,14 @@ in
     # When gateway-api is also enabled, configure Traefik as the
     # Gateway API controller and register its GatewayClass.
     openkrill.apps.helm.chartConfigs.traefik = mkIf config.openkrill.apps."gateway-api".enable (
-      let trustCfg = config.openkrill.apps.trust-manager; in {
+      let
+        trustCfg = config.openkrill.apps.trust-manager;
+        externalIPs = cfg.externalIPs;
+        externalIPsYaml = optionalString (externalIPs != []) (
+          "service:\n  spec:\n    externalIPs:\n"
+          + concatMapStringsSep "" (ip: "      - ${ip}\n") externalIPs
+        );
+      in {
       valuesContent = ''
         gatewayClass:
           # Disable the Helm chart's built-in GatewayClass creation.
@@ -627,7 +645,7 @@ in
       - name: trust-bundle
         mountPath: /etc/ssl/certs
         readOnly: true
-  '';
+  '' + externalIPsYaml;
     });
 
     openkrill.apps."gateway-api".gatewayclasses.traefik = mkIf config.openkrill.apps."gateway-api".enable {

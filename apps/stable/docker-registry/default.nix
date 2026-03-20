@@ -135,6 +135,7 @@ in
       namespace = cfg.namespace;
       service   = "docker-registry";
       port      = 5000;
+      auth      = "none";  # containerd pulls with TLS — no ForwardAuth
     };
 
     # ── ArgoCD Application CR ─────────────────────────────────────
