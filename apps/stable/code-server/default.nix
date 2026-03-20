@@ -14,6 +14,16 @@ let
     "StorageClass" "IngressClass" "PriorityClass"
   ];
 
+  # ── Host aliases — derived from config.networking.extraHosts ─────
+  lines = filter (l: l != "") (splitString "\n" config.networking.extraHosts);
+  parseLine = line: let
+    parts = filter (p: p != "") (splitString " " line);
+  in {
+    ip        = head parts;
+    hostnames = tail parts;
+  };
+  hostAliases = map parseLine lines;
+
   defaults = {
     image = {
       repository = "ghcr.io/general-intelligence-systems/code-server-nix";
@@ -21,6 +31,7 @@ let
       pullPolicy = "Always";
     };
     ingress.enabled = false;
+    hostAliases = hostAliases;
     persistence = {
       enabled      = true;
       size         = cfg.persistence.size;
