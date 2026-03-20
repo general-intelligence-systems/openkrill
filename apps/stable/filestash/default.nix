@@ -14,6 +14,10 @@
 # via the admin UI at https://<subdomain>.<domain>/admin
 # (password = LLDAP admin password).
 #
+# TLS: The custom image uses plg_starter_httpsfs which reads a signed
+# cert + key from /app/data/state/certs/.  A cert-manager Certificate
+# is provisioned in the filestash namespace and mounted into the pod.
+#
 # Bootstrap workflow:
 #   1. openkrill-generate-filestash systemd oneshot (after lldap)
 #      creates openkrill-filestash secret with admin password
@@ -32,6 +36,7 @@ let
   domain  = config.openkrill.domain;
 
   secretName = "filestash";
+  tlsSecretName = "filestash-server-tls";
 
   removeNulls = attrs:
     filterAttrs (_: v: v != null) (mapAttrs (_: v:
@@ -51,7 +56,9 @@ let
     mkdir -p /app/data/state/config
     cat > "$CONFIG" <<'SEED'
     {
-      "general": {},
+      "general": {
+        "force_ssl": true
+      },
       "middleware": {
         "identity_provider": {
           "type": "proxy",
@@ -92,10 +99,13 @@ let
         image = {
           repository = cfg.image.repository;
           tag = cfg.image.tag;
+          pullPolicy = "Always";
         };
 
         env = {
-          APPLICATION_URL = "https://${cfg.subdomain}.${domain}";
+          APPLICATION_URL = "${cfg.subdomain}.${domain}";
+          TLS_CERT = "/app/data/state/certs/cert.pem";
+          TLS_KEY  = "/app/data/state/certs/key.pem";
         };
 
         envFrom = [
@@ -162,14 +172,25 @@ let
       };
     };
 
+    # Mount cert-manager TLS secret as cert.pem / key.pem for
+    # plg_starter_httpsfs.  The secret keys (tls.crt, tls.key) are
+    # remapped to the filenames Filestash expects.
+    persistence.tls = {
+      type = "secret";
+      name = tlsSecretName;
+      items = [
+        { key = "tls.crt"; path = "cert.pem"; }
+        { key = "tls.key"; path = "key.pem"; }
+      ];
+      advancedMounts.main = {
+        main = [{ path = "/app/data/state/certs"; readOnly = true; }];
+      };
+    };
+
     service.main = {
       controller = "main";
-      annotations = {
-        "traefik.ingress.kubernetes.io/service.serversscheme" = "https";
-      };
       ports.https = {
         port = 8334;
-        protocol = "HTTPS";
         appProtocol = "https";
       };
     };
@@ -270,6 +291,26 @@ in
       port      = 8334;
     };
 
+    # ── BackendTLSPolicy for filestash server ────────────────────
+    # Traefik connects to filestash on port 8334 (HTTPS).  Without
+    # this policy Traefik uses the pod IP for TLS verification, which
+    # fails because the cert has DNS SANs but no IP SANs.  The policy
+    # tells Traefik to use the service FQDN as the SNI hostname and to
+    # trust the system CAs (the openkrill trust bundle is already
+    # mounted at /etc/ssl/certs in the Traefik pod).
+    openkrill.apps."gateway-api".backendtlspolicies.filestash = {
+      namespace = cfg.namespace;
+      targetRefs = [{
+        group = "";
+        kind = "Service";
+        name = "filestash";
+      }];
+      validation = {
+        hostname = "filestash.${cfg.namespace}.svc";
+        wellKnownCACertificates = "System";
+      };
+    };
+
     # ── ArgoCD Application CR ─────────────────────────────────────
     openkrill.apps.argo-cd.applications.filestash = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
@@ -298,6 +339,29 @@ in
         };
       in
       [ (k8s.mkNamespace cfg.namespace) ]
+      # Certificate: internal TLS cert for plg_starter_httpsfs,
+      # signed by the cluster CA (openkrill-signing-authority).
+      ++ [{
+        apiVersion = "cert-manager.io/v1";
+        kind = "Certificate";
+        metadata = {
+          name = tlsSecretName;
+          namespace = cfg.namespace;
+        };
+        spec = {
+          secretName = tlsSecretName;
+          dnsNames = [
+            "filestash"
+            "filestash.${cfg.namespace}"
+            "filestash.${cfg.namespace}.svc"
+            "filestash.${cfg.namespace}.svc.cluster.local"
+          ];
+          issuerRef = {
+            name = "openkrill-signing-authority";
+            kind = "ClusterIssuer";
+          };
+        };
+      }]
       ++ kubelib.fromHelm {
         name      = "filestash";
         chart     = charts.bjw-s-labs.app-template.latest;

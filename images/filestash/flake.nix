@@ -1,17 +1,20 @@
-# images/filestash — Custom Filestash image with reverse-proxy auth.
+# images/filestash — Custom Filestash image with reverse-proxy auth + httpsfs.
 #
 # Clones the upstream Filestash source and overlays our modified files
-# on top.  The only change is server/ctrl/session.go which adds proxy
-# auth support: when Authelia sets Remote-User headers the session is
-# created directly from headers + attribute mapping — no login form.
+# on top.  Changes:
+#   - server/ctrl/session.go — proxy auth support (Remote-User headers)
+#   - server/plugin/index.go — swaps plg_starter_http for plg_starter_httpsfs
+#   - server/plugin/plg_starter_httpsfs/ — HTTPS server that reads
+#     cert.pem + key.pem from /app/data/state/certs/ (filesystem certs
+#     provisioned by cert-manager, not self-signed)
 #
 # Build:
 #   nix build .#source
-#   docker build -f docker/Dockerfile result/
+#   docker build -f Dockerfile $(nix build .#source --print-out-paths)
 #
-# Or in one shot:
-#   docker build -f <(nix build .#source --print-out-paths)/docker/Dockerfile \
-#     $(nix build .#source --print-out-paths)
+# The custom Dockerfile (not the upstream docker/Dockerfile) is used so
+# that overlays are compiled into the binary.  The upstream Dockerfile
+# re-clones from GitHub which would discard our changes.
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
