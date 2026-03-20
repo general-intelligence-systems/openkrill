@@ -56,7 +56,9 @@ let
     mkdir -p /app/data/state/config
     cat > "$CONFIG" <<'SEED'
     {
-      "general": {},
+      "general": {
+        "force_ssl": true
+      },
       "middleware": {
         "identity_provider": {
           "type": "proxy",
@@ -101,7 +103,7 @@ let
         };
 
         env = {
-          APPLICATION_URL = "https://${cfg.subdomain}.${domain}";
+          APPLICATION_URL = "${cfg.subdomain}.${domain}";
           TLS_CERT = "/app/data/state/certs/cert.pem";
           TLS_KEY  = "/app/data/state/certs/key.pem";
         };
