@@ -102,6 +102,8 @@ let
 
         env = {
           APPLICATION_URL = "https://${cfg.subdomain}.${domain}";
+          TLS_CERT = "/app/data/state/certs/cert.pem";
+          TLS_KEY  = "/app/data/state/certs/key.pem";
         };
 
         envFrom = [
