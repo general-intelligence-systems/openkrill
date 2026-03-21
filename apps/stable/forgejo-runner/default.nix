@@ -76,7 +76,7 @@ let
                   name = "dind";
                   image = "docker:dind";
                   securityContext.privileged = true;
-                  command = [ "dockerd" "-H" "tcp://0.0.0.0:2375" "--tls=false" ];
+                  command = [ "dockerd" "-H" "tcp://0.0.0.0:2375" "--tls=false" "--insecure-registry=forgejo-http.forgejo.svc.cluster.local:3000" "--insecure-registry=docker-registry.docker-registry.svc.cluster.local:5000" ];
                   volumeMounts = [
                     { name = "ca-bundle"; mountPath = "/etc/ssl/certs/ca-certificates.crt"; subPath = trustCfg.bundleKey; }
                   ];

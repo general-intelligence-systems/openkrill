@@ -87,6 +87,7 @@ let
 
     persistence.data = {
       type = "persistentVolumeClaim";
+      storageClass = "local-path";
       accessMode = "ReadWriteOnce";
       size = "20Gi";
       advancedMounts.main.main = [
