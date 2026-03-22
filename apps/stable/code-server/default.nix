@@ -14,10 +14,42 @@ let
     "StorageClass" "IngressClass" "PriorityClass"
   ];
 
+  # ── Docker integration ───────────────────────────────────────────────
+  dockerValues =
+    if cfg.docker.mode == "host" then {
+      extraVolumeMounts = [{
+        name      = "docker-sock";
+        mountPath = "/var/run/docker.sock";
+        readOnly  = false;
+        hostPath  = "/var/run/docker.sock";
+      }];
+    }
+    else if cfg.docker.mode == "dind" then {
+      extraContainers = builtins.toJSON [
+        {
+          name  = "docker-dind";
+          image = cfg.docker.dind.image;
+          imagePullPolicy = "IfNotPresent";
+          securityContext.privileged = true;
+          env = [{ name = "DOCKER_TLS_CERTDIR"; value = ""; }];
+          command = [
+            "dockerd"
+            "--host=unix:///var/run/docker.sock"
+            "--host=tcp://0.0.0.0:2376"
+          ];
+        }
+      ];
+      extraVars = [
+        { name = "DOCKER_HOST"; value = "tcp://localhost:2376"; }
+      ];
+    }
+    else {}; # "none"
+
   defaults = {
     image = {
       repository = "ghcr.io/general-intelligence-systems/code-server-nix";
       tag        = "latest";
+      pullPolicy = "Always";
     };
     ingress.enabled = false;
     persistence = {
@@ -31,7 +63,7 @@ let
     name      = "code-server";
     chart     = charts.general-intelligence-systems.code-server.latest;
     namespace = cfg.namespace;
-    values    = recursiveUpdate defaults cfg.values;
+    values    = foldl' recursiveUpdate defaults [ dockerValues cfg.values ];
   };
 
   ensureNs = res:
@@ -62,6 +94,23 @@ in
     persistence.storageClass = mkOption {
       type = types.str;
       default = "local-path";
+    };
+
+    docker.mode = mkOption {
+      type = types.enum [ "none" "host" "dind" ];
+      default = "none";
+      description = ''
+        Docker integration mode:
+        - "none" — no Docker access (default).
+        - "host" — mount the host's Docker socket (/var/run/docker.sock).
+        - "dind" — run a Docker-in-Docker sidecar container.
+      '';
+    };
+
+    docker.dind.image = mkOption {
+      type = types.str;
+      default = "docker:dind";
+      description = "Container image for the DinD sidecar (only used when docker.mode = \"dind\").";
     };
 
     values = mkOption {
