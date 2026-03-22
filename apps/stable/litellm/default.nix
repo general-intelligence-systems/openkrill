@@ -192,7 +192,7 @@ in
     openkrill.ingress.routes.litellm = {
       subdomain = "litellm";
       namespace = cfg.namespace;
-      service   = "litellm-helm";
+      service   = "litellm";
       port      = 4000;
       auth      = "none";  # LiteLLM handles its own SSO — no ForwardAuth
     };

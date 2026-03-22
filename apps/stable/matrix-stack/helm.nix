@@ -33,19 +33,19 @@ let
 
     # ── Element Web client ────────────────────────────────────────────
     elementWeb = {
-      ingress.host = "web.chat.${domain}";
+      ingress.host = "web-chat.${domain}";
       ingress.enabled = false;
     };
 
     # ── Matrix Authentication Service ─────────────────────────────────
     matrixAuthenticationService = {
-      ingress.host = "matrix-auth.${domain}";
+      ingress.host = "auth-chat.${domain}";
       ingress.enabled = false;
     };
 
     # ── Element Admin console ────────────────────────────────────────
     elementAdmin = {
-      ingress.host = "admin.chat.${domain}";
+      ingress.host = "admin-chat.${domain}";
       ingress.enabled = false;
     };
 

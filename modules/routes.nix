@@ -89,7 +89,7 @@ let
   listenerPrefix = route:
     if route.issuerRef.name == defaultIssuer
     then sanitizeDomain route.domain
-    else route.subdomain;
+    else "${route.subdomain}-${sanitizeDomain route.domain}";
 
   # Build the HTTPS + HTTP listener pair for a single route.
   #
@@ -101,10 +101,11 @@ let
   mkListeners = name: route:
     let
       hostname = "${route.subdomain}.${route.domain}";
-      secretName = "${route.subdomain}-tls";
+      prefix = listenerPrefix route;
+      secretName = "${prefix}-tls";
     in [
       {
-        name = "${route.subdomain}-https";
+        name = "${prefix}-https";
         port = 8443;   # Traefik "websecure" entrypoint
         protocol = "HTTPS";
         inherit hostname;
@@ -118,7 +119,7 @@ let
         allowedRoutes.namespaces.from = "All";
       }
       {
-        name = "${route.subdomain}-http";
+        name = "${prefix}-http";
         port = 8000;   # Traefik "web" entrypoint
         protocol = "HTTP";
         inherit hostname;
@@ -171,15 +172,17 @@ let
   };
 
   # Build a per-host cert-manager Certificate (custom-issuer routes only)
-  mkCertificate = name: route: {
+  mkCertificate = name: route:
+    let prefix = listenerPrefix route;
+    in {
     apiVersion = "cert-manager.io/v1";
     kind = "Certificate";
     metadata = {
-      name = "${route.subdomain}-tls";
+      name = "${prefix}-tls";
       namespace = "kube-system";
     };
     spec = {
-      secretName = "${route.subdomain}-tls";
+      secretName = "${prefix}-tls";
       dnsNames = [ "${route.subdomain}.${route.domain}" ];
       issuerRef = {
         inherit (route.issuerRef) name kind;
@@ -237,7 +240,7 @@ let
   # When httpRedirect is true (the default), the HTTP HTTPRoute returns
   # a 301 redirect to HTTPS instead of forwarding to the backend.
   mkHttpAppRoute = name: route: {
-    name = "${route.subdomain}-http";
+    name = "${listenerPrefix route}-http";
     value = {
       namespace = "kube-system";
       hostnames = [ "${route.subdomain}.${route.domain}" ];

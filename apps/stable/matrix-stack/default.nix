@@ -71,7 +71,7 @@ in
 
     # Element Admin console
     openkrill.ingress.routes.chat-admin = {
-      subdomain  = "admin.chat";
+      subdomain  = "admin-chat";
       namespace  = cfg.namespace;
       service    = "matrix-stack-element-admin";
       port       = 8080;
@@ -81,13 +81,39 @@ in
 
     # Element Web client — handles its own auth via Matrix login
     openkrill.ingress.routes.chat-web = {
-      subdomain  = "web.chat";
+      subdomain  = "web-chat";
       namespace  = cfg.namespace;
       service    = "matrix-stack-element-web";
       port       = 80;
       auth       = "none";
       issuerRef.name = "letsencrypt";
     };
+
+    # MAS auth service — handles OIDC flows, must not go through ForwardAuth
+    openkrill.ingress.routes.chat-auth = {
+      subdomain  = "auth-chat";
+      namespace  = cfg.namespace;
+      service    = "matrix-stack-matrix-authentication-service";
+      port       = 8080;
+      auth       = "none";
+      issuerRef.name = "letsencrypt";
+    };
+
+    # ── OIDC: register MAS as an Authelia client ────────────────────────
+    openkrill.apps.authelia.oidcClients = [
+      {
+        name = "Matrix Authentication Service";
+        client_id = "matrix-authentication-service";
+        # Override default secret (which uses openkrill.domain = cia.net) to
+        # match the MAS-side secret that uses the Matrix serverName domain.
+        client_secret = "$plaintext$matrix-authentication-service-oidc-client-secret-kremlin.email";
+        redirect_uris = [
+          "https://auth-chat.kremlin.email/upstream/callback/01KMB6NHWFQQ3QDGG583YTDR21"
+        ];
+        scopes = [ "openid" "profile" "email" ];
+        token_endpoint_auth_method = "client_secret_basic";
+      }
+    ];
 
     # ── ArgoCD Application CR ──────────────────────────────────────────
     openkrill.apps.argo-cd.applications.matrix-stack = mkIf config.openkrill.gitops.generateApplications {
