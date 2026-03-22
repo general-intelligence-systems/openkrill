@@ -58,6 +58,16 @@ in
         server = "https://kubernetes.default.svc";
         namespace = cfg.namespace;
       };
+      ignoreDifferences = [
+        {
+          group = "apps";
+          kind = "StatefulSet";
+          jsonPointers = [
+            "/spec/volumeClaimTemplates/0/status"
+            "/spec/persistentVolumeClaimRetentionPolicy"
+          ];
+        }
+      ];
       syncPolicy = {
         automated = {
           prune = true;

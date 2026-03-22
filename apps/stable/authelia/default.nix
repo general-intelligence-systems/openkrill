@@ -462,7 +462,7 @@ in
     openkrill.manifests.authelia.content =
       kubelib.fromHelm {
         name = "authelia";
-        chart = charts.authelia.authelia.latest;
+        chart = charts.authelia.authelia.versions."0.10.49";
         namespace = cfg.namespace;
         extraOpts = [ "--skip-schema-validation" ];
         values = recursiveUpdate defaults cfg.values;
