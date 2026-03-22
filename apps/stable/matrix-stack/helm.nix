@@ -23,6 +23,12 @@ let
     # ── Synapse homeserver ────────────────────────────────────────────
     synapse = {
       ingress.host = "matrix.${domain}";
+      persistence.storageClass = "local-path";
+    };
+
+    # ── PostgreSQL (built-in) ─────────────────────────────────────────
+    postgres = {
+      persistence.storageClass = "local-path";
     };
 
     # ── Element Web client ────────────────────────────────────────────
@@ -32,7 +38,12 @@ let
 
     # ── Matrix Authentication Service ─────────────────────────────────
     matrixAuthenticationService = {
-      ingress.host = "account.${domain}";
+      ingress.host = "matrix-auth.${domain}";
+    };
+
+    # ── Element Admin console ────────────────────────────────────────
+    elementAdmin = {
+      ingress.host = "element-admin.${domain}";
     };
 
     # ── Matrix RTC — disabled by default ──────────────────────────────
@@ -58,7 +69,7 @@ let
 in
 kubelib.fromHelm {
   name      = "matrix-stack";
-  chart     = charts.element-hq.matrix-stack.latest;
+  chart     = charts.contrib.element-hq.matrix-stack.latest;
   namespace = cfg.namespace;
   values    = lib.recursiveUpdate defaults cfg.values;
   extraOpts = [ "--skip-schema-validation" ];
