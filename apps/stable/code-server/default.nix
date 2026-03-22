@@ -100,6 +100,29 @@ let
     values    = foldl' recursiveUpdate defaults [ hostMountValues dindValues cfg.values ];
   };
 
+  # ── Fix hostPath type for docker-sock volume ───────────────────────
+  # The upstream chart hardcodes `type: Directory` for all extraVolumeMounts
+  # hostPath volumes, but docker.sock is a Unix socket and needs `type: Socket`.
+  fixDockerSockVolume = vol:
+    if vol.name or "" == "docker-sock" && vol ? hostPath then
+      vol // { hostPath = vol.hostPath // { type = "Socket"; }; }
+    else
+      vol;
+
+  fixVolumes = res:
+    if (res.kind or "") == "Deployment"
+       && (res.spec.template.spec.volumes or null) != null then
+      res // {
+        spec = res.spec // {
+          template = res.spec.template // {
+            spec = res.spec.template.spec // {
+              volumes = map fixDockerSockVolume res.spec.template.spec.volumes;
+            };
+          };
+        };
+      }
+    else res;
+
   ensureNs = res:
     if builtins.elem (res.kind or "") clusterScopedKinds then res
     else if (res.metadata.namespace or null) != null then res
@@ -249,7 +272,7 @@ in
     # ── Manifests ───────────────────────────────────────────────────
     openkrill.manifests.code-server.content =
       [ (k8s.mkNamespace cfg.namespace) ]
-      ++ map (res: patchPodSpec (ensureNs res)) raw
+      ++ map (res: patchPodSpec (fixVolumes (ensureNs res))) raw
       ++ devPortServices;
   };
 }
