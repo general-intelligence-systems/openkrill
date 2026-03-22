@@ -4,25 +4,22 @@
 # Element Web (client), Matrix Authentication Service (MAS), and
 # optionally Matrix RTC (VoIP).  Each component has its own ingress.
 #
-# The chart includes a built-in PostgreSQL for quick setup.  For
-# production use, override synapse.postgres and
-# matrixAuthenticationService.postgres via values to point at an
-# external database (e.g. the shared CNPG cluster).
+# SSO is pre-configured: MAS authenticates via Authelia (OIDC).
+# Local passwords are disabled — users are redirected straight to
+# Authelia on login.  User attributes (localpart, display name, email)
+# are automatically imported from the OIDC provider.
 #
 # Ingress is disabled in the chart — openkrill.ingress.routes handles
 # all external routing via Gateway API HTTPRoutes instead.
-{ lib, charts, kubelib, cfg, domain }:
+{ lib, charts, kubelib, cfg, domain, providerID, clientSecret, autheliaIssuer, elementClientID }:
 let
   defaults = {
     # ── Matrix identity ───────────────────────────────────────────────
-    # The server name appears in user IDs (@user:serverName).
-    # Cannot be changed after initial deployment.
     serverName = cfg.serverName;
 
     # ── Synapse homeserver ────────────────────────────────────────────
     synapse = {
-      ingress.host = "chat.${domain}";
-      ingress.enabled = false;
+      ingress = { host = "chat.${cfg.serverName}"; enabled = false; };
       persistence.storageClass = "local-path";
     };
 
@@ -33,31 +30,68 @@ let
 
     # ── Element Web client ────────────────────────────────────────────
     elementWeb = {
-      ingress.host = "web-chat.${domain}";
-      ingress.enabled = false;
+      ingress = { host = "web-chat.${cfg.serverName}"; enabled = false; };
+      # Lock to this homeserver and auto-redirect to SSO
+      additional."0-openkrill-sso.json" = builtins.toJSON {
+        disable_custom_urls = true;
+        sso_redirect_options = { immediate = true; };
+        oidc_static_clients = {
+          "auth-chat.${cfg.serverName}" = {
+            client_id = elementClientID;
+          };
+        };
+      };
     };
 
     # ── Matrix Authentication Service ─────────────────────────────────
     matrixAuthenticationService = {
-      ingress.host = "auth-chat.${domain}";
-      ingress.enabled = false;
+      ingress = { host = "auth-chat.${cfg.serverName}"; enabled = false; };
+      # SSO via Authelia — disable local passwords, auto-provision users
+      additional."0-openkrill-sso".config = ''
+        upstream_oauth2:
+          providers:
+            - id: ${providerID}
+              human_name: Authelia
+              issuer: "${autheliaIssuer}"
+              client_id: "matrix-authentication-service"
+              client_secret: "${clientSecret}"
+              token_endpoint_auth_method: client_secret_basic
+              scope: "openid profile email"
+              discovery_mode: insecure
+              fetch_userinfo: true
+              claims_imports:
+                skip_confirmation: true
+                localpart:
+                  action: require
+                  template: "{{ user.preferred_username }}"
+                displayname:
+                  action: force
+                  template: "{{ user.name }}"
+                email:
+                  action: force
+                  template: "{{ user.email }}"
+        clients:
+          - client_id: ${elementClientID}
+            client_auth_method: none
+            redirect_uris:
+              - https://web-chat.${cfg.serverName}/
+              - https://web-chat.${cfg.serverName}/?no_universal_links=true
+        passwords:
+          enabled: false
+      '';
     };
 
     # ── Element Admin console ────────────────────────────────────────
     elementAdmin = {
-      ingress.host = "admin-chat.${domain}";
-      ingress.enabled = false;
+      ingress = { host = "admin-chat.${cfg.serverName}"; enabled = false; };
     };
 
     # ── Matrix RTC — disabled by default ──────────────────────────────
-    # Enable via values if VoIP/Element Call is needed.
     matrixRTC = {
       enabled = false;
     };
 
     # ── Well-known delegation ─────────────────────────────────────────
-    # Serves /.well-known/matrix/* from the serverName domain for
-    # client and federation discovery.
     wellKnownDelegation = {
       ingress.host = cfg.serverName;
       ingress.enabled = false;

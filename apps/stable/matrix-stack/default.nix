@@ -9,23 +9,48 @@
 #   - Optional: Matrix RTC (VoIP via LiveKit)
 #   - Built-in PostgreSQL (for quick setup; override via values for CNPG)
 #
-# This replaces the separate conduwuit + element-web modules with a
-# single unified Matrix deployment.  External routing is handled by
-# openkrill.ingress.routes (Gateway API HTTPRoutes).
+# SSO via Authelia is configured automatically.  Users log in through
+# Authelia (backed by LLDAP) and are provisioned in Matrix on first login.
 #
 # Minimal config:
 #   openkrill.apps.matrix-stack.enable = true;
 #   openkrill.apps.matrix-stack.serverName = "example.com";
-#
-# After deployment, create an initial user via:
-#   kubectl exec -n matrix-stack -it deploy/matrix-stack-matrix-authentication-service \
-#     -- mas-cli manage register-user
 { config, lib, charts, kubelib, k8s, ... }:
 with lib;
 let
   cfg     = config.openkrill.apps.matrix-stack;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
   domain  = config.openkrill.domain;
+
+  # Generate a deterministic 26-char ULID-like ID from a seed string.
+  mkULID = seed:
+    let
+      alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+      hash = builtins.hashString "sha256" seed;
+      hexToIdx = c: {
+        "0"=0; "1"=1; "2"=2; "3"=3; "4"=4; "5"=5; "6"=6; "7"=7;
+        "8"=8; "9"=9; "a"=10; "b"=11; "c"=12; "d"=13; "e"=14; "f"=15;
+      }.${c};
+      chars = lib.genList (i:
+        let val = lib.mod (hexToIdx (builtins.substring i 1 hash)) 32;
+        in builtins.substring val 1 alphabet
+      ) 26;
+    in lib.concatStrings chars;
+
+  # MAS upstream OIDC provider ID (ULID).
+  providerID = mkULID "matrix-stack-oidc-${cfg.serverName}";
+
+  # Static Element Web client ID (skips OAuth consent screen).
+  elementClientID = mkULID "element-web-client-${cfg.serverName}";
+
+  # Client secret: must match on both Authelia and MAS side.
+  clientSecret = "matrix-authentication-service-oidc-client-secret-${cfg.serverName}";
+
+  # The auth subdomain where MAS is served
+  authHost = "auth-chat.${cfg.serverName}";
+
+  # Authelia issuer URL — assumes Authelia is on auth.<serverName>
+  autheliaIssuer = "https://auth.${cfg.serverName}";
 in
 {
   options.openkrill.apps.matrix-stack = {
@@ -42,7 +67,8 @@ in
       description = ''
         The Matrix server name.  This is the domain that appears in
         user IDs (@user:server_name).  Cannot be changed after initial
-        deployment.
+        deployment.  Also used as the base domain for chat subdomains
+        (chat.*, web-chat.*, auth-chat.*, admin-chat.*).
       '';
       example = "example.com";
     };
@@ -69,7 +95,7 @@ in
       issuerRef.name = "letsencrypt";
     };
 
-    # Element Admin console
+    # Element Admin console — protected by ForwardAuth
     openkrill.ingress.routes.chat-admin = {
       subdomain  = "admin-chat";
       namespace  = cfg.namespace;
@@ -79,7 +105,7 @@ in
       issuerRef.name = "letsencrypt";
     };
 
-    # Element Web client — handles its own auth via Matrix login
+    # Element Web client — handles its own auth via Matrix/MAS
     openkrill.ingress.routes.chat-web = {
       subdomain  = "web-chat";
       namespace  = cfg.namespace;
@@ -99,20 +125,26 @@ in
       issuerRef.name = "letsencrypt";
     };
 
-    # ── OIDC: register MAS as an Authelia client ────────────────────────
+    # ── SSO: register MAS as an Authelia OIDC client ──────────────────
     openkrill.apps.authelia.oidcClients = [
       {
         name = "Matrix Authentication Service";
         client_id = "matrix-authentication-service";
-        # Override default secret (which uses openkrill.domain = cia.net) to
-        # match the MAS-side secret that uses the Matrix serverName domain.
-        client_secret = "$plaintext$matrix-authentication-service-oidc-client-secret-kremlin.email";
+        client_secret = "$plaintext$" + clientSecret;
         redirect_uris = [
-          "https://auth-chat.kremlin.email/upstream/callback/01KMB6NHWFQQ3QDGG583YTDR21"
+          "https://${authHost}/upstream/callback/${providerID}"
         ];
         scopes = [ "openid" "profile" "email" ];
         token_endpoint_auth_method = "client_secret_basic";
       }
+    ];
+
+    # ── SSO: Authelia session cookie for the serverName domain ────────
+    # Authelia defaults to openkrill.domain; we also need a cookie for
+    # the serverName domain so the OIDC authorization flow works.
+    openkrill.apps.authelia.sessionCookies = mkIf (cfg.serverName != domain) [
+      { domain = domain;          subdomain = "auth"; }
+      { domain = cfg.serverName;  subdomain = "auth"; }
     ];
 
     # ── ArgoCD Application CR ──────────────────────────────────────────
@@ -138,6 +170,7 @@ in
     # ── Manifests ──────────────────────────────────────────────────────
     openkrill.manifests.matrix-stack.content = import ./helm.nix {
       inherit lib charts kubelib cfg domain;
+      inherit providerID clientSecret autheliaIssuer elementClientID;
     };
   };
 }
