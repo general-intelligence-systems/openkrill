@@ -10,8 +10,8 @@
 #   - Built-in PostgreSQL (for quick setup; override via values for CNPG)
 #
 # This replaces the separate conduwuit + element-web modules with a
-# single unified Matrix deployment.  The chart manages its own
-# Kubernetes Ingress resources for each component.
+# single unified Matrix deployment.  External routing is handled by
+# openkrill.ingress.routes (Gateway API HTTPRoutes).
 #
 # Minimal config:
 #   openkrill.apps.matrix-stack.enable = true;
@@ -57,6 +57,38 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── Routes ────────────────────────────────────────────────────────
+    # Synapse homeserver — Matrix clients need direct API access so
+    # ForwardAuth (Authelia) would break /_matrix calls.
+    openkrill.ingress.routes.chat = {
+      subdomain  = "chat";
+      namespace  = cfg.namespace;
+      service    = "matrix-stack-synapse";
+      port       = 8008;
+      auth       = "none";
+      issuerRef.name = "letsencrypt";
+    };
+
+    # Element Admin console
+    openkrill.ingress.routes.chat-admin = {
+      subdomain  = "admin.chat";
+      namespace  = cfg.namespace;
+      service    = "matrix-stack-element-admin";
+      port       = 8080;
+      auth       = "forward";
+      issuerRef.name = "letsencrypt";
+    };
+
+    # Element Web client — handles its own auth via Matrix login
+    openkrill.ingress.routes.chat-web = {
+      subdomain  = "web.chat";
+      namespace  = cfg.namespace;
+      service    = "matrix-stack-element-web";
+      port       = 80;
+      auth       = "none";
+      issuerRef.name = "letsencrypt";
+    };
+
     # ── ArgoCD Application CR ──────────────────────────────────────────
     openkrill.apps.argo-cd.applications.matrix-stack = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";

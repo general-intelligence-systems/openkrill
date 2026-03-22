@@ -20,7 +20,7 @@ let
 
   raw = kubelib.fromHelm {
     name      = "vikunja";
-    chart     = charts.vikunja.vikunja.latest;
+    chart     = charts.vikunja.vikunja.versions."v2.0.2";
     namespace = cfg.namespace;
     values    = recursiveUpdate defaults cfg.values;
   };

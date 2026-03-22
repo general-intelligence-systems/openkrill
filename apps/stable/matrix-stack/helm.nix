@@ -9,9 +9,8 @@
 # matrixAuthenticationService.postgres via values to point at an
 # external database (e.g. the shared CNPG cluster).
 #
-# The chart manages its own Kubernetes Ingress resources — it does
-# NOT use openkrill.ingress.routes.  Traefik (via k3s) handles both
-# Gateway API and Kubernetes Ingress, so both coexist.
+# Ingress is disabled in the chart — openkrill.ingress.routes handles
+# all external routing via Gateway API HTTPRoutes instead.
 { lib, charts, kubelib, cfg, domain }:
 let
   defaults = {
@@ -22,7 +21,8 @@ let
 
     # ── Synapse homeserver ────────────────────────────────────────────
     synapse = {
-      ingress.host = "matrix.${domain}";
+      ingress.host = "chat.${domain}";
+      ingress.enabled = false;
       persistence.storageClass = "local-path";
     };
 
@@ -33,17 +33,20 @@ let
 
     # ── Element Web client ────────────────────────────────────────────
     elementWeb = {
-      ingress.host = "element.${domain}";
+      ingress.host = "web.chat.${domain}";
+      ingress.enabled = false;
     };
 
     # ── Matrix Authentication Service ─────────────────────────────────
     matrixAuthenticationService = {
       ingress.host = "matrix-auth.${domain}";
+      ingress.enabled = false;
     };
 
     # ── Element Admin console ────────────────────────────────────────
     elementAdmin = {
-      ingress.host = "element-admin.${domain}";
+      ingress.host = "admin.chat.${domain}";
+      ingress.enabled = false;
     };
 
     # ── Matrix RTC — disabled by default ──────────────────────────────
@@ -57,19 +60,19 @@ let
     # client and federation discovery.
     wellKnownDelegation = {
       ingress.host = cfg.serverName;
+      ingress.enabled = false;
     };
 
-    # ── Shared ingress settings ───────────────────────────────────────
-    # Applied to all component ingresses.  Override per-component
-    # via values if needed.
+    # ── Shared ingress settings (disabled — using openkrill routes) ──
     ingress = {
       className = "traefik";
+      enabled = false;
     };
   };
 in
 kubelib.fromHelm {
   name      = "matrix-stack";
-  chart     = charts.contrib.element-hq.matrix-stack.latest;
+  chart     = charts.contrib.element-hq.matrix-stack.versions."26.3.0";
   namespace = cfg.namespace;
   values    = lib.recursiveUpdate defaults cfg.values;
   extraOpts = [ "--skip-schema-validation" ];

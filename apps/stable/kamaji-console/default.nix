@@ -123,7 +123,7 @@ in
       ];
       raw = kubelib.fromHelm {
         name = "kamaji-console";
-        chart = charts.clastix.kamaji-console.latest;
+        chart = charts.clastix.kamaji-console.versions."0.1.3";
         namespace = cfg.namespace;
         values = recursiveUpdate defaults cfg.values;
       };

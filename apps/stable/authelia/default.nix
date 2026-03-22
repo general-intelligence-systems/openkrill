@@ -424,6 +424,7 @@ in
       #port = 443;
       port = 80; # only exposes port 80 and metrics port.
       auth = "none";  # Authelia itself must not go through ForwardAuth
+      issuerRef.name = "letsencrypt";
     };
 
     # ── Auth filter registration ─────────────────────────────────────

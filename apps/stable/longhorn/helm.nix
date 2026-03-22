@@ -19,7 +19,7 @@ let
 in
 kubelib.fromHelm {
   name = "longhorn";
-  chart = charts.longhorn.longhorn.latest;
+  chart = charts.longhorn.longhorn.versions."1.11.1";
   namespace = cfg.namespace;
   values = lib.recursiveUpdate defaults cfg.values;
 }

@@ -49,7 +49,7 @@ let
 
   helmResources = kubelib.fromHelm {
     name = "cilium";
-    chart = charts.cilium.cilium.latest;
+    chart = charts.cilium.cilium.versions."1.20.0-pre.0";
     namespace = cfg.namespace;
     values = recursiveUpdate defaults cfg.values;
   };

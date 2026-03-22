@@ -73,7 +73,7 @@ in
     ]
     ++ kubelib.fromHelm {
       name = "cloudnative-pg";
-      chart = charts.bitnami.cloudnative-pg.latest;
+      chart = charts.bitnami.cloudnative-pg.versions."1.0.13";
       namespace = cfg.namespace;
       values = cfg.values;
     };

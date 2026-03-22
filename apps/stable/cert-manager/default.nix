@@ -73,7 +73,7 @@ in
     ]
     ++ kubelib.fromHelm {
       name = "cert-manager";
-      chart = charts.bitnami.cert-manager.latest;
+      chart = charts.bitnami.cert-manager.versions."1.5.15";
       namespace = cfg.namespace;
       values = cfg.values;
     };

@@ -83,7 +83,7 @@ in
 
     openkrill.manifests.kamaji.content = kubelib.fromHelm {
       name = "kamaji";
-      chart = charts.clastix.kamaji.latest;
+      chart = charts.clastix.kamaji.versions."1.0.0";
       namespace = cfg.namespace;
       values = recursiveUpdate defaults cfg.values;
     };

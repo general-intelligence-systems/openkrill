@@ -117,8 +117,7 @@ let
       secretName = "${route.subdomain}-tls";
       dnsNames = [ "${route.subdomain}.${route.domain}" ];
       issuerRef = {
-        name = "openkrill-signing-authority";
-        kind = "ClusterIssuer";
+        inherit (route.issuerRef) name kind;
       };
     };
   };
@@ -336,6 +335,29 @@ let
         '';
       };
 
+      issuerRef = mkOption {
+        type = types.submodule {
+          options = {
+            name = mkOption {
+              type = types.str;
+              default = "openkrill-signing-authority";
+              description = "Name of the cert-manager ClusterIssuer for this route's TLS certificate.";
+            };
+            kind = mkOption {
+              type = types.enum [ "ClusterIssuer" "Issuer" ];
+              default = "ClusterIssuer";
+              description = "Kind of the cert-manager issuer reference.";
+            };
+          };
+        };
+        default = {};
+        description = ''
+          cert-manager issuer reference for TLS certificates on this route.
+          Defaults to the self-signed CA (openkrill-signing-authority).
+          Set name = "letsencrypt" for publicly-trusted certificates.
+        '';
+      };
+
       filters = mkOption {
         type = with types; listOf attrs;
         default = [];
@@ -392,8 +414,10 @@ in
         message = "openkrill.ingress requires openkrill.apps.cert-manager.enable = true";
       }
       {
-        assertion = config.openkrill.apps.cert-manager.selfSignedCA.enable;
-        message = "openkrill.ingress requires openkrill.apps.cert-manager.selfSignedCA.enable = true (provides ClusterIssuer/openkrill-signing-authority)";
+        assertion =
+          config.openkrill.apps.cert-manager.selfSignedCA.enable
+          || all (r: r.issuerRef.name != "openkrill-signing-authority") (attrValues routes);
+        message = "openkrill.ingress requires openkrill.apps.cert-manager.selfSignedCA.enable = true when any route uses the default issuer (openkrill-signing-authority)";
       }
     ];
 

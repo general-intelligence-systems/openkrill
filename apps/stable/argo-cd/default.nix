@@ -83,7 +83,7 @@ in
     ]
     ++ kubelib.fromHelm {
       name = "argo-cd";
-      chart = charts.bitnami.argo-cd.latest;
+      chart = charts.bitnami.argo-cd.versions."11.0.2";
       namespace = cfg.namespace;
       values = cfg.values;
     };

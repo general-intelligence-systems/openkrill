@@ -364,7 +364,7 @@ in
       }]
       ++ kubelib.fromHelm {
         name      = "filestash";
-        chart     = charts.bjw-s-labs.app-template.latest;
+        chart     = charts.bjw-s-labs.app-template.versions."4.6.2";
         namespace = cfg.namespace;
         values    = recursiveUpdate effectiveDefaults (removeNulls cfg.values);
         extraOpts = [ "--skip-schema-validation" ];

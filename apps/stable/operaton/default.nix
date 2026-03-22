@@ -63,7 +63,7 @@ in
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ kubelib.fromHelm {
         name = "operaton";
-        chart = charts.operaton.operaton.latest;
+        chart = charts.operaton.operaton.versions."1.0.5";
         namespace = cfg.namespace;
         values = recursiveUpdate defaults cfg.values;
       };

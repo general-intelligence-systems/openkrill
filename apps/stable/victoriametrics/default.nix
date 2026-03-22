@@ -189,7 +189,7 @@ in
 
     openkrill.manifests.victoriametrics.content = kubelib.fromHelm {
       name = "victoriametrics";
-      chart = charts.victoriametrics.victoria-metrics-k8s-stack.latest;
+      chart = charts.victoriametrics.victoria-metrics-k8s-stack.versions."0.72.5";
       namespace = cfg.namespace;
       values = recursiveUpdate defaults cfg.values;
     };

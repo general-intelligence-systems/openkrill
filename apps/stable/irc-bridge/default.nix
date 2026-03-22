@@ -76,7 +76,7 @@ in
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ kubelib.fromHelm {
         name      = "irc-bridge";
-        chart     = charts.cyclika94.irc-bridge.latest;
+        chart     = charts.cyclika94.irc-bridge.versions."0.9.1";
         namespace = cfg.namespace;
         values    = recursiveUpdate defaults cfg.values;
       };

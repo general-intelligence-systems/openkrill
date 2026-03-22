@@ -77,7 +77,7 @@ in
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ kubelib.fromHelm {
         name      = "ntfy";
-        chart     = charts.cyclika94.ntfy.latest;
+        chart     = charts.cyclika94.ntfy.versions."1.0.0";
         namespace = cfg.namespace;
         values    = recursiveUpdate defaults cfg.values;
       };

@@ -70,7 +70,7 @@ let
 
   raw = kubelib.fromHelm {
     name      = "litellm";
-    chart     = charts.berriai.litellm-helm.latest;
+    chart     = charts.berriai.litellm-helm.versions."1.82.3";
     namespace = cfg.namespace;
     values    = recursiveUpdate defaults cfg.values;
   };

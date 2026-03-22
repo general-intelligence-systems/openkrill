@@ -184,7 +184,7 @@ in
       ];
       raw = kubelib.fromHelm {
         name      = "lago";
-        chart     = charts.lago.lago.latest;
+        chart     = charts.lago.lago.versions."0.4.0";
         namespace = cfg.namespace;
         values    = recursiveUpdate {
         global = {

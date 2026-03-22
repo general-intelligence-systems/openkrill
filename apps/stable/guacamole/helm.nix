@@ -18,7 +18,7 @@ let
 in
 kubelib.fromHelm {
   name = "guacamole";
-  chart = charts.general-intelligence-systems.guacamole.latest;
+  chart = charts.general-intelligence-systems.guacamole.versions."1.6.0";
   namespace = cfg.namespace;
   values = lib.recursiveUpdate defaults cfg.values;
 }

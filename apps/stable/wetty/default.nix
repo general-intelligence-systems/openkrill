@@ -133,7 +133,7 @@ in
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ kubelib.fromHelm {
         name      = "wetty";
-        chart     = charts.bjw-s-labs.app-template.latest;
+        chart     = charts.bjw-s-labs.app-template.versions."4.6.2";
         namespace = cfg.namespace;
         values    = recursiveUpdate defaults (removeNulls cfg.values);
         extraOpts = [ "--skip-schema-validation" ];

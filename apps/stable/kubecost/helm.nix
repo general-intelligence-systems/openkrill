@@ -7,7 +7,7 @@ let
 in
 kubelib.fromHelm {
   name = "kubecost";
-  chart = charts.kubecost.kubecost.latest;
+  chart = charts.kubecost.kubecost.versions."3.1.5-rc.0";
   namespace = cfg.namespace;
   values = lib.recursiveUpdate defaults cfg.values;
 }

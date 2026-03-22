@@ -130,6 +130,30 @@ in
         }];
       };
 
+    # ── Let's Encrypt ClusterIssuer (DNS-01 via Cloudflare) ─────────
+    # Requires a Secret "cloudflare-api-token" in the cert-manager
+    # namespace with key "api-token" containing a Cloudflare API token
+    # that has Zone:DNS:Edit permissions.
+    #
+    #   kubectl -n cert-manager create secret generic cloudflare-api-token \
+    #     --from-literal=api-token=<YOUR_CF_API_TOKEN>
+    openkrill.apps.cert-manager.clusterissuers.letsencrypt = {
+      namespace = cfg.namespace;
+      acme = {
+        server = "https://acme-v02.api.letsencrypt.org/directory";
+        email  = "don-vito@kremlin.email";
+        privateKeySecretRef.name = "letsencrypt-account-key";
+        solvers = [{
+          dns01.cloudflare = {
+            apiTokenSecretRef = {
+              name = "cloudflare-api-token";
+              key  = "api-token";
+            };
+          };
+        }];
+      };
+    };
+
     # ── Self-signed CA chain ─────────────────────────────────────────
     openkrill.manifests.cert-manager.content =
       mkIf cfg.selfSignedCA.enable caResources;

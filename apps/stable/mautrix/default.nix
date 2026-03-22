@@ -147,7 +147,7 @@ let
     in
     kubelib.fromHelm {
       name      = "mautrix-${bridge.name}";
-      chart     = charts.bjw-s-labs.app-template.latest;
+      chart     = charts.bjw-s-labs.app-template.versions."4.6.2";
       namespace = cfg.namespace;
       inherit values;
       extraOpts = [ "--skip-schema-validation" ];

@@ -77,7 +77,7 @@ in
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ kubelib.fromHelm {
         name      = "matrix-appservice-irc";
-        chart     = charts.cyclika94.matrix-appservice-irc.latest;
+        chart     = charts.cyclika94.matrix-appservice-irc.versions."1.0.0";
         namespace = cfg.namespace;
         values    = recursiveUpdate defaults cfg.values;
       };

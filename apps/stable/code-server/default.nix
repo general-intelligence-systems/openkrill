@@ -95,7 +95,7 @@ let
 
   raw = kubelib.fromHelm {
     name      = "code-server";
-    chart     = charts.general-intelligence-systems.code-server.latest;
+    chart     = charts.general-intelligence-systems.code-server.versions."3.33.0";
     namespace = cfg.namespace;
     values    = foldl' recursiveUpdate defaults [ hostMountValues dindValues cfg.values ];
   };

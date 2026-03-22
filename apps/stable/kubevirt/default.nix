@@ -14,14 +14,14 @@ let
 
   operatorResources = kubelib.fromHelm {
     name = "kubevirt-operator";
-    chart = charts.general-intelligence-systems.kubevirt-operator.latest;
+    chart = charts.general-intelligence-systems.kubevirt-operator.versions."1.8.0-rc.0";
     namespace = cfg.namespace;
     values = cfg.operatorValues;
   };
 
   crResources = kubelib.fromHelm {
     name = "kubevirt-cr";
-    chart = charts.general-intelligence-systems.kubevirt-cr.latest;
+    chart = charts.general-intelligence-systems.kubevirt-cr.versions."1.8.0-rc.0";
     namespace = cfg.namespace;
     values = cfg.crValues;
   };

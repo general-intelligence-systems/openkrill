@@ -23,7 +23,7 @@ let
 
   helmResources = kubelib.fromHelm {
     name = "trust-manager";
-    chart = charts.jetstack.trust-manager.latest;
+    chart = charts.jetstack.trust-manager.versions."v0.22.0";
     namespace = cfg.namespace;
     values = recursiveUpdate defaults cfg.values;
   };
