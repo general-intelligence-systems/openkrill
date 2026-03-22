@@ -21,7 +21,18 @@ let
   mkBridgeValues = import ./resources.nix { inherit lib; };
 
   # ── Bridge definitions ──────────────────────────────────────────
-  whatsappDefaults = import ./bridges/whatsapp.nix;
+  whatsappDefaults   = import ./bridges/whatsapp.nix;
+  signalDefaults     = import ./bridges/signal.nix;
+  telegramDefaults   = import ./bridges/telegram.nix;
+  slackDefaults      = import ./bridges/slack.nix;
+  metaDefaults       = import ./bridges/meta.nix;
+  twitterDefaults    = import ./bridges/twitter.nix;
+  googlechatDefaults = import ./bridges/googlechat.nix;
+  blueskyDefaults    = import ./bridges/bluesky.nix;
+  linkedinDefaults   = import ./bridges/linkedin.nix;
+  gmessagesDefaults  = import ./bridges/gmessages.nix;
+  gvoiceDefaults     = import ./bridges/gvoice.nix;
+  zulipDefaults      = import ./bridges/zulip.nix;
 
   # Conduwuit auto-wiring
   conduwuitEnabled = conduwuitCfg.enable;
@@ -92,9 +103,18 @@ let
 
   # ── Collect enabled bridges ─────────────────────────────────────
   enabledBridges = filter (b: b.cfg.enable) [
-    { name = "whatsapp"; cfg = cfg.bridges.whatsapp; defaults = whatsappDefaults; }
-    # Future bridges:
-    # { name = "signal"; cfg = cfg.bridges.signal; defaults = signalDefaults; }
+    { name = "whatsapp";   cfg = cfg.bridges.whatsapp;   defaults = whatsappDefaults;   }
+    { name = "signal";     cfg = cfg.bridges.signal;     defaults = signalDefaults;     }
+    { name = "telegram";   cfg = cfg.bridges.telegram;   defaults = telegramDefaults;   }
+    { name = "slack";      cfg = cfg.bridges.slack;      defaults = slackDefaults;      }
+    { name = "meta";       cfg = cfg.bridges.meta;       defaults = metaDefaults;       }
+    { name = "twitter";    cfg = cfg.bridges.twitter;    defaults = twitterDefaults;    }
+    { name = "googlechat"; cfg = cfg.bridges.googlechat; defaults = googlechatDefaults; }
+    { name = "bluesky";    cfg = cfg.bridges.bluesky;    defaults = blueskyDefaults;    }
+    { name = "linkedin";   cfg = cfg.bridges.linkedin;   defaults = linkedinDefaults;   }
+    { name = "gmessages";  cfg = cfg.bridges.gmessages;  defaults = gmessagesDefaults;  }
+    { name = "gvoice";     cfg = cfg.bridges.gvoice;     defaults = gvoiceDefaults;     }
+    { name = "zulip";      cfg = cfg.bridges.zulip;      defaults = zulipDefaults;      }
   ];
 
   # ── Secret key names per bridge ─────────────────────────────────
@@ -150,7 +170,18 @@ in
     extraManifests = helpers.mkExtraManifestsOption;
 
     # ── Per-bridge options ──────────────────────────────────────────
-    bridges.whatsapp = mkBridgeOptions "whatsapp" whatsappDefaults;
+    bridges.whatsapp   = mkBridgeOptions "whatsapp"   whatsappDefaults;
+    bridges.signal     = mkBridgeOptions "signal"     signalDefaults;
+    bridges.telegram   = mkBridgeOptions "telegram"   telegramDefaults;
+    bridges.slack      = mkBridgeOptions "slack"      slackDefaults;
+    bridges.meta       = mkBridgeOptions "meta"       metaDefaults;
+    bridges.twitter    = mkBridgeOptions "twitter"    twitterDefaults;
+    bridges.googlechat = mkBridgeOptions "googlechat" googlechatDefaults;
+    bridges.bluesky    = mkBridgeOptions "bluesky"    blueskyDefaults;
+    bridges.linkedin   = mkBridgeOptions "linkedin"   linkedinDefaults;
+    bridges.gmessages  = mkBridgeOptions "gmessages"  gmessagesDefaults;
+    bridges.gvoice     = mkBridgeOptions "gvoice"     gvoiceDefaults;
+    bridges.zulip      = mkBridgeOptions "zulip"      zulipDefaults;
   };
 
   # ════════════════════════════════════════════════════════════════
