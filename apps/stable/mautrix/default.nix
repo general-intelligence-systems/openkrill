@@ -2,8 +2,8 @@
 #
 # Single module for all mautrix Go bridges.  Each bridge is deployed
 # via the bjw-s app-template Helm chart (same pattern as kremlin).
-# Bridges share a namespace, the CNPG Postgres cluster, and a common
-# secret generator.
+# Bridges share a namespace and the CNPG Postgres cluster.  Each
+# bridge gets its own secret generator and ExternalSecrets.
 #
 # Usage:
 #   openkrill.apps.mautrix.enable = true;
@@ -15,6 +15,7 @@
 with lib;
 let
   cfg          = config.openkrill.apps.mautrix;
+  cnpgCfg      = config.openkrill.apps.cloudnative-pg;
   conduwuitCfg = config.openkrill.apps.conduwuit;
   helpers      = import ../../../modules/lib/helpers.nix { inherit lib; };
 
@@ -117,32 +118,29 @@ let
     { name = "zulip";      cfg = cfg.bridges.zulip;      defaults = zulipDefaults;      }
   ];
 
-  # ── Secret key names per bridge ─────────────────────────────────
-  bridgeSecretKeys = bridge: {
-    asToken = "MAUTRIX_${toUpper bridge.name}_AS_TOKEN";
-    hsToken = "MAUTRIX_${toUpper bridge.name}_HS_TOKEN";
-  };
+  # ── Secret key names (shared across all bridges) ─────────────────
+  # Each bridge gets its own source secret, so no per-bridge prefix needed.
+  secretKeys = { asToken = "AS_TOKEN"; hsToken = "HS_TOKEN"; };
 
-  # ── ESO keys for a bridge ───────────────────────────────────────
-  bridgeEsoKeys = bridge:
-    let keys = bridgeSecretKeys bridge;
-    in [ keys.asToken keys.hsToken "POSTGRES_PASSWORD" ];
+  # ── ESO keys for a bridge (tokens only; DB creds come via cnpg-credentials)
+  esoKeys = [ secretKeys.asToken secretKeys.hsToken ];
 
   # ── Render Helm manifests for a bridge ──────────────────────────
   bridgeManifests = bridge:
     let
       values = mkBridgeValues {
-        name       = bridge.name;
-        namespace  = cfg.namespace;
-        image      = { inherit (bridge.cfg.image) repository tag; };
-        port       = bridge.cfg.appservice.port;
-        bot        = { inherit (bridge.cfg.bot) username; };
-        appservice = { inherit (bridge.cfg.appservice) id; };
-        homeserver = { address = conduwuitAddress; domain = conduwuitDomain; };
-        database   = "mautrix_${bridge.name}";
-        secretName = "mautrix-${bridge.name}";
-        permissions = bridge.cfg.permissions;
-        extraConfig = bridge.cfg.extraConfig;
+        name         = bridge.name;
+        namespace    = cfg.namespace;
+        image        = { inherit (bridge.cfg.image) repository tag; };
+        port         = bridge.cfg.appservice.port;
+        bot          = { inherit (bridge.cfg.bot) username; };
+        appservice   = { inherit (bridge.cfg.appservice) id; };
+        homeserver   = { address = conduwuitAddress; domain = conduwuitDomain; };
+        database     = "mautrix_${bridge.name}";
+        secretName   = "mautrix-${bridge.name}";
+        dbSecretName = "mautrix-${bridge.name}-db";
+        permissions  = bridge.cfg.permissions;
+        extraConfig  = bridge.cfg.extraConfig;
       };
     in
     kubelib.fromHelm {
@@ -188,39 +186,72 @@ in
   # Config
   # ════════════════════════════════════════════════════════════════
   config = mkIf (cfg.enable && enabledBridges != []) {
-    # ── Secret generator ──────────────────────────────────────────
-    openkrill.secrets.generators.mautrix = {
-      packages = with pkgs; [ openssl ];
-      script = let
-        bridgeLiterals = concatMapStringsSep " \\\n        " (bridge:
-          let keys = bridgeSecretKeys bridge; in
-          ''--from-literal=${keys.asToken}="$(openssl rand -hex 32)" \
-        --from-literal=${keys.hsToken}="$(openssl rand -hex 32)"''
-        ) enabledBridges;
-      in ''
-        # Read Postgres password from CNPG-generated secret.
-        PG_PASS=$(
-          kubectl -n secret-store get secret openkrill-cloudnative-pg-app \
-            -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || \
-          kubectl -n cloudnative-pg get secret postgres-app \
-            -o jsonpath='{.data.password}' | base64 -d
-        )
+    # ── Secret generators (one per bridge) ────────────────────────
+    openkrill.secrets.generators = listToAttrs (map (bridge: {
+      name = "mautrix-${bridge.name}";
+      value = {
+        packages = with pkgs; [ openssl ];
+        script = ''
+          create_secret openkrill-mautrix-${bridge.name} \
+            --from-literal=${secretKeys.asToken}="$(openssl rand -hex 32)" \
+            --from-literal=${secretKeys.hsToken}="$(openssl rand -hex 32)"
+        '';
+      };
+    }) enabledBridges);
 
-        create_secret openkrill-mautrix \
-        ${bridgeLiterals} \
-        --from-literal=POSTGRES_PASSWORD="''${PG_PASS}"
-      '';
-    };
-
-    # ── ExternalSecrets — one per bridge ──────────────────────────
+    # ── ExternalSecrets — tokens (one per bridge) ────────────────
     openkrill.apps.external-secrets.secrets = listToAttrs (map (bridge: {
       name = "mautrix-${bridge.name}";
       value = {
         namespace = cfg.namespace;
-        remoteSecretName = "openkrill-mautrix";
-        keys = bridgeEsoKeys bridge;
+        remoteSecretName = "openkrill-mautrix-${bridge.name}";
+        keys = esoKeys;
       };
     }) enabledBridges);
+
+    # ── ExternalSecrets — database credentials (one per bridge) ─
+    # Uses the cnpg-credentials ClusterSecretStore to read username
+    # and password from the CNPG-generated app secret, then templates
+    # a full connection URI with the bridge-specific database name.
+    openkrill.apps.external-secrets.externalsecrets = listToAttrs (map (bridge:
+      let
+        cnpgAppSecret = "${cnpgCfg.clusterName}-app";
+        dbSecretName  = "mautrix-${bridge.name}-db";
+      in {
+        name = dbSecretName;
+        value = {
+          namespace = cfg.namespace;
+          secretStoreRef = {
+            name = cnpgCfg.clusterSecretStoreName;
+            kind = "ClusterSecretStore";
+          };
+          refreshInterval = "1h";
+          target = {
+            name = dbSecretName;
+            creationPolicy = "Owner";
+            template.data = {
+              DATABASE_URI = "postgresql://{{ .username }}:{{ .password }}@${cnpgCfg.clusterName}-rw.${cnpgCfg.namespace}.svc.cluster.local:5432/mautrix_${bridge.name}?sslmode=disable";
+            };
+          };
+          data = [
+            {
+              secretKey = "username";
+              remoteRef = {
+                key = cnpgAppSecret;
+                property = "username";
+              };
+            }
+            {
+              secretKey = "password";
+              remoteRef = {
+                key = cnpgAppSecret;
+                property = "password";
+              };
+            }
+          ];
+        };
+      }
+    ) enabledBridges);
 
     # ── CNPG Database CRDs — one per bridge ───────────────────────
     openkrill.apps.cloudnative-pg.databases = listToAttrs (map (bridge: {
