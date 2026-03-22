@@ -2,12 +2,13 @@
 #
 # The chart expects server_name at the top level and nests all Conduwuit
 # configuration under config.global.  Defaults here are deliberately
-# conservative: federation off, registration gated by a generated token
-# (injected via ESO secret + extraEnv), headless ClusterIP, no ingress,
-# 4Gi PVC.
+# conservative: federation off, registration disabled, headless ClusterIP,
+# no ingress, 4Gi PVC.
 #
 # When lldap is enabled, LDAP config is auto-wired under config.global.ldap
-# and the bind password is injected via env var from the ESO secret.
+# with ldap_only=true so users can only authenticate via LDAP.  The bind
+# password is mounted as a file from the ESO-managed secret (Continuwuity
+# reads it via bind_password_file, not an env var).
 { lib, charts, kubelib, cfg, lldapCfg, lldapEnabled }:
 let
   defaults = {
@@ -23,9 +24,8 @@ let
 
     # ── Conduwuit configuration ──────────────────────────────────────
     config.global = {
-      # Registration is open but gated by a token injected from the
-      # ESO-managed secret via extraEnv (CONDUWUIT_REGISTRATION_TOKEN).
-      allow_registration = true;
+      # Registration is disabled — all users authenticate via LDAP.
+      allow_registration = false;
 
       # Federation disabled by default; enable and populate
       # trusted_servers when ready to federate.
@@ -40,14 +40,17 @@ let
       antispam = {};
     }
     # ── LDAP — auto-wired when lldap is enabled ──────────────────────
-    # The bind password is NOT in this attrset; it's injected via the
-    # CONDUWUIT_LDAP_BIND_PASSWORD env var from the ESO secret.
+    # Config keys follow Continuwuity's schema: enable (not enabled),
+    # uri (not url), bind_password_file (not env var).
+    # The bind password is mounted as a file from the ESO secret.
     // lib.optionalAttrs lldapEnabled {
       ldap = {
-        enabled = true;
-        url = "ldap://lldap.${lldapCfg.namespace}.svc.cluster.local:3890";
+        enable = true;
+        ldap_only = true;
+        uri = "ldap://lldap.${lldapCfg.namespace}.svc.cluster.local:3890";
         base_dn = lldapCfg.baseDn;
         bind_dn = "UID=${lldapCfg.adminUser},OU=people,${lldapCfg.baseDn}";
+        bind_password_file = "/secrets/ldap-bind-password";
         filter = "(uid={username})";
         uid_attribute = "uid";
       };
@@ -110,26 +113,10 @@ let
 
   # Extra env vars with secretKeyRef — injected by patching the
   # rendered StatefulSet since the chart template doesn't support
-  # valueFrom.
-  secretEnvVars = [
-    {
-      name = "CONDUWUIT_REGISTRATION_TOKEN";
-      valueFrom.secretKeyRef = {
-        name = "conduwuit";
-        key = "CONDUWUIT_REGISTRATION_TOKEN";
-      };
-    }
-  ] ++ lib.optionals lldapEnabled [
-    {
-      name = "CONDUWUIT_LDAP_BIND_PASSWORD";
-      valueFrom.secretKeyRef = {
-        name = "conduwuit";
-        key = "CONDUWUIT_LDAP_BIND_PASSWORD";
-      };
-    }
-  ];
+  # valueFrom.  Registration is disabled so no token env var needed.
+  secretEnvVars = [];
 
-  # Patch a single container's env list and readiness probe.
+  # Patch a single container's env list, readiness probe, and volume mounts.
   # The chart hardcodes the federation /version endpoint for readiness
   # which returns 403 when allow_federation is false.
   patchContainer = c:
@@ -142,10 +129,23 @@ let
           port = "http";
         };
       };
+      # Mount LDAP bind password file into the container.
+      volumeMounts = (c.volumeMounts or []) ++ lib.optionals lldapEnabled [{
+        name = "ldap-bind-password";
+        mountPath = "/secrets/ldap-bind-password";
+        subPath = "CONDUWUIT_LDAP_BIND_PASSWORD";
+        readOnly = true;
+      }];
     }
     else c;
 
-  # Patch a StatefulSet resource to inject secret env vars.
+  # Extra volumes for the pod spec.
+  secretVolumes = lib.optionals lldapEnabled [{
+    name = "ldap-bind-password";
+    secret.secretName = "conduwuit";
+  }];
+
+  # Patch a StatefulSet resource to inject secret env vars and volumes.
   patchResource = res:
     if (res.kind or "") == "StatefulSet"
     then res // {
@@ -153,6 +153,7 @@ let
         template = res.spec.template // {
           spec = res.spec.template.spec // {
             containers = map patchContainer res.spec.template.spec.containers;
+            volumes = (res.spec.template.spec.volumes or []) ++ secretVolumes;
           };
         };
       };

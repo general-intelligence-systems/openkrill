@@ -87,6 +87,7 @@ let
 
     persistence.data = {
       type = "persistentVolumeClaim";
+      storageClass = "local-path";
       accessMode = "ReadWriteOnce";
       size = "20Gi";
       advancedMounts.main.main = [
@@ -135,6 +136,7 @@ in
       namespace = cfg.namespace;
       service   = "docker-registry";
       port      = 5000;
+      auth      = "none";  # containerd pulls with TLS — no ForwardAuth
     };
 
     # ── ArgoCD Application CR ─────────────────────────────────────

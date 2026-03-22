@@ -209,6 +209,8 @@ in
             api   = "https://lago.${domain}";
             front = "https://lago.${domain}";
           };
+
+          lago.signup = true;
         };
 
         # Disable the chart's auto-generated secret — we provide

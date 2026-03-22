@@ -146,12 +146,20 @@ in
             { path = { type = "RegularExpression"; value = "/.+/git-receive-pack"; }; }
             # Forgejo REST API (CI runners, webhooks, token-authed clients)
             { path = { type = "PathPrefix"; value = "/api"; }; }
+            # Container registry (Docker registry v2 API, uses its own token auth)
+            { path = { type = "PathPrefix"; value = "/v2"; }; }
           ];
           backendRefs = [{
             namespace = cfg.namespace;
             port = 3000;
             name = "forgejo-http";
           }];
+          # 10 min timeout — large git pushes (150 MB+) need more than the
+          # default 60 s Traefik backend timeout.
+          timeouts = {
+            request = "600s";
+            backendRequest = "600s";
+          };
           # No filters — deliberately no ForwardAuth
         }
       ];
@@ -172,12 +180,18 @@ in
             { path = { type = "RegularExpression"; value = "/.+/git-upload-pack"; }; }
             { path = { type = "RegularExpression"; value = "/.+/git-receive-pack"; }; }
             { path = { type = "PathPrefix"; value = "/api"; }; }
+            # Container registry
+            { path = { type = "PathPrefix"; value = "/v2"; }; }
           ];
           backendRefs = [{
             namespace = cfg.namespace;
             port = 3000;
             name = "forgejo-http";
           }];
+          timeouts = {
+            request = "600s";
+            backendRequest = "600s";
+          };
         }
       ];
     };

@@ -423,6 +423,6 @@ in
     openkrill.apps."gateway-api".referencegrants = referenceGrants;
 
     # ── cert-manager Certificates ───────────────────────────────────
-    openkrill.manifests.ingress.content = allCertificates;
+    openkrill.manifests.gateway-api.content = allCertificates;
   };
 }
