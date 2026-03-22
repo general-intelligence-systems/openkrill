@@ -28,10 +28,10 @@ let
       hostPath  = "/var/run/docker.sock";
     }])
     ++ (optionals cfg.nixStore.enable [{
-      name      = "nix-store";
-      mountPath = "/nix/store";
-      readOnly  = true;
-      hostPath  = "/nix/store";
+      name      = "nix";
+      mountPath = "/nix";
+      readOnly  = false;
+      hostPath  = cfg.nixStore.hostPath;
     }]);
 
   hostMountValues = optionalAttrs (extraMounts != []) {
@@ -217,7 +217,13 @@ in
       description = "Container image for the DinD sidecar (only used when docker.mode = \"dind\").";
     };
 
-    nixStore.enable = mkEnableOption "mount host /nix/store read-only (speeds up Nix builds)";
+    nixStore.enable = mkEnableOption "persist /nix to a host directory";
+
+    nixStore.hostPath = mkOption {
+      type = types.str;
+      default = "/var/lib/rancher/k3s/storage/code-server-nix";
+      description = "Host directory to mount at /nix inside the container.";
+    };
 
     values = mkOption {
       type = types.attrs;
