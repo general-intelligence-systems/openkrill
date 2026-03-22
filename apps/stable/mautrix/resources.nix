@@ -15,17 +15,13 @@
   appservice,       # { id }
   homeserver,       # { address, domain }
   database,         # database name, e.g. "mautrix_whatsapp"
-  secretName,       # k8s Secret name, e.g. "mautrix-whatsapp"
+  secretName,       # k8s Secret name for tokens, e.g. "mautrix-whatsapp"
+  dbSecretName,     # k8s Secret name for DB creds, e.g. "mautrix-whatsapp-db"
   permissions,      # { "*" = "relay"; "@admin:domain" = "admin"; }
   extraConfig ? {}, # deep-merged into bridge config
 }:
 let
   fullName = "mautrix-${name}";
-
-  asTokenEnvKey = "MAUTRIX_${lib.toUpper name}_AS_TOKEN";
-  hsTokenEnvKey = "MAUTRIX_${lib.toUpper name}_HS_TOKEN";
-
-  dbUri = "postgresql://app:$(POSTGRES_PASSWORD)@postgres-rw.cloudnative-pg.svc.cluster.local:5432/${database}?sslmode=disable";
 
   # The bridge config uses the bridgev2 (megabridge) format.
   # The startup script generates the default config with `-e`, then
@@ -75,9 +71,9 @@ in
           "yq -i '.appservice.port = ${toString port}' /data/config.yaml"
           "yq -i '.appservice.id = \"${appservice.id}\"' /data/config.yaml"
           "yq -i '.appservice.bot.username = \"${bot.username}\"' /data/config.yaml"
-          ''yq -i '.appservice.as_token = "'"''$${asTokenEnvKey}"'"' /data/config.yaml''
-          ''yq -i '.appservice.hs_token = "'"''$${hsTokenEnvKey}"'"' /data/config.yaml''
-          ''yq -i '.database.uri = "'"${dbUri}"'"' /data/config.yaml''
+          ''yq -i '.appservice.as_token = "'"''${AS_TOKEN}"'"' /data/config.yaml''
+          ''yq -i '.appservice.hs_token = "'"''${HS_TOKEN}"'"' /data/config.yaml''
+          ''yq -i '.database.uri = "'"''${DATABASE_URI}"'"' /data/config.yaml''
           "yq -i '.bridge.permissions = {}' /data/config.yaml"
           permCmds
           "yq -i 'del(.logging.writers[] | select(.type == \"file\"))' /data/config.yaml"
@@ -94,7 +90,8 @@ in
       in [ script ];
 
       envFrom = [
-        { secretRef.name = secretName; }
+        { secretRef.name = secretName; }     # AS_TOKEN, HS_TOKEN
+        { secretRef.name = dbSecretName; }   # DATABASE_URI (uri)
       ];
 
       resources = {
