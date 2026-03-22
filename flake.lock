@@ -26,11 +26,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1773844419,
-        "narHash": "sha256-qjGTJjnoPTw/Dhrqhm40s+hBCQB6mollBx5OOhMBRb4=",
+        "lastModified": 1774153789,
+        "narHash": "sha256-pMlxosEuwCTtyU8hbBscdaUgSS8BCCAlLztGqLWpFF0=",
         "owner": "general-intelligence-systems",
         "repo": "nixhelm2",
-        "rev": "06b0e50b71b9d17bf69e503be384fa6bd7f530e6",
+        "rev": "d7f41fb6bc49b3becad9cd5e3733cf55bb0666db",
         "type": "github"
       },
       "original": {
@@ -41,11 +41,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1773814637,
-        "narHash": "sha256-GNU+ooRmrHLfjlMsKdn0prEKVa0faVanm0jrgu1J/gY=",
+        "lastModified": 1773964973,
+        "narHash": "sha256-NV/J+tTER0P5iJhUDL/8HO5MDjDceLQPRUYgdmy5wXw=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "fea3b367d61c1a6592bc47c72f40a9f3e6a53e96",
+        "rev": "812b3986fd1568f7a858f97fcf425ad996ba7d25",
         "type": "github"
       },
       "original": {
