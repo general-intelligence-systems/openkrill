@@ -19,36 +19,53 @@ let
     "StorageClass" "IngressClass" "PriorityClass"
   ];
 
-  # ── Docker integration ───────────────────────────────────────────────
-  dockerValues =
-    if cfg.docker.mode == "host" then {
-      extraVolumeMounts = [{
-        name      = "docker-sock";
-        mountPath = "/var/run/docker.sock";
-        readOnly  = false;
-        hostPath  = "/var/run/docker.sock";
-      }];
-    }
-    else if cfg.docker.mode == "dind" then {
-      extraContainers = builtins.toJSON [
-        {
-          name  = "docker-dind";
-          image = cfg.docker.dind.image;
-          imagePullPolicy = "IfNotPresent";
-          securityContext.privileged = true;
-          env = [{ name = "DOCKER_TLS_CERTDIR"; value = ""; }];
-          command = [
-            "dockerd"
-            "--host=unix:///var/run/docker.sock"
-            "--host=tcp://0.0.0.0:2376"
-          ];
-        }
-      ];
-      extraVars = [
-        { name = "DOCKER_HOST"; value = "tcp://localhost:2376"; }
-      ];
-    }
-    else {}; # "none"
+  # ── Host mounts (docker socket, nix store) ────────────────────────────
+  extraMounts =
+    (optionals (cfg.docker.mode == "host") [{
+      name      = "docker-sock";
+      mountPath = "/var/run/docker.sock";
+      readOnly  = false;
+      hostPath  = "/var/run/docker.sock";
+    }])
+    ++ (optionals cfg.nixStore.enable [{
+      name      = "nix-store";
+      mountPath = "/nix/store";
+      readOnly  = true;
+      hostPath  = "/nix/store";
+    }]);
+
+  hostMountValues = optionalAttrs (extraMounts != []) {
+    extraVolumeMounts = extraMounts;
+  };
+
+  # ── DinD sidecar ─────────────────────────────────────────────────────
+  dindValues = optionalAttrs (cfg.docker.mode == "dind") {
+    extraContainers = builtins.toJSON [
+      {
+        name  = "docker-dind";
+        image = cfg.docker.dind.image;
+        imagePullPolicy = "IfNotPresent";
+        securityContext.privileged = true;
+        env = [{ name = "DOCKER_TLS_CERTDIR"; value = ""; }];
+        command = [
+          "dockerd"
+          "--host=unix:///var/run/docker.sock"
+          "--host=tcp://0.0.0.0:2376"
+        ];
+      }
+    ];
+    extraVars = [
+      { name = "DOCKER_HOST"; value = "tcp://localhost:2376"; }
+    ];
+  };
+
+  # ── Post-process: inject supplementalGroups for host docker GID ──────
+  patchPodSpec = res:
+    if cfg.docker.mode == "host" && (res.kind or "") == "Deployment" then
+      recursiveUpdate res {
+        spec.template.spec.securityContext.supplementalGroups = [ cfg.docker.hostGroupID ];
+      }
+    else res;
 
   # ── Host aliases — derived from config.networking.extraHosts ─────
   lines = filter (l: l != "") (splitString "\n" config.networking.extraHosts);
@@ -80,7 +97,7 @@ let
     name      = "code-server";
     chart     = charts.general-intelligence-systems.code-server.latest;
     namespace = cfg.namespace;
-    values    = foldl' recursiveUpdate defaults [ dockerValues cfg.values ];
+    values    = foldl' recursiveUpdate defaults [ hostMountValues dindValues cfg.values ];
   };
 
   ensureNs = res:
@@ -165,11 +182,19 @@ in
       '';
     };
 
+    docker.hostGroupID = mkOption {
+      type = types.int;
+      default = 131;
+      description = "GID of the docker group on the host (only used when docker.mode = \"host\").";
+    };
+
     docker.dind.image = mkOption {
       type = types.str;
       default = "docker:dind";
       description = "Container image for the DinD sidecar (only used when docker.mode = \"dind\").";
     };
+
+    nixStore.enable = mkEnableOption "mount host /nix/store read-only (speeds up Nix builds)";
 
     values = mkOption {
       type = types.attrs;
@@ -224,7 +249,7 @@ in
     # ── Manifests ───────────────────────────────────────────────────
     openkrill.manifests.code-server.content =
       [ (k8s.mkNamespace cfg.namespace) ]
-      ++ map ensureNs raw
+      ++ map (res: patchPodSpec (ensureNs res)) raw
       ++ devPortServices;
   };
 }
