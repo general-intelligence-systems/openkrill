@@ -12,9 +12,11 @@
 #      openkrill-signing-authority), with TLS Secrets in kube-system
 #   3. Creates an HTTPRoute per listener per route for app traffic
 #
-# Both HTTP and HTTPS listeners forward to the backend — no redirects.
-# TLS between Traefik and backends is handled by the pods themselves;
-# Traefik trusts their certs via the trust-manager CA bundle.
+# By default, HTTP listeners redirect to HTTPS (301).  Set
+# httpRedirect = false on a route to forward HTTP traffic to the
+# backend instead.  TLS between Traefik and backends is handled by
+# the pods themselves; Traefik trusts their certs via the
+# trust-manager CA bundle.
 #
 # The Gateway uses gatewayClassName "traefik" — the GatewayClass
 # created by the traefik module.
@@ -70,6 +72,25 @@ let
   # Collect all enabled route definitions
   routes = filterAttrs (_: r: r.enable) cfg.routes;
 
+  # Default issuer name — routes using this share wildcard listeners.
+  defaultIssuer = "openkrill-signing-authority";
+
+  # Sanitise a domain for use in K8s names (dots → hyphens).
+  sanitizeDomain = d: builtins.replaceStrings ["."] ["-"] d;
+
+  # Partition routes by issuer type.
+  wildcardRoutes     = filterAttrs (_: r: r.issuerRef.name == defaultIssuer) routes;
+  customIssuerRoutes = filterAttrs (_: r: r.issuerRef.name != defaultIssuer) routes;
+
+  # Unique domains that need wildcard listeners.
+  wildcardDomains = unique (mapAttrsToList (_: r: r.domain) wildcardRoutes);
+
+  # Compute the listener name prefix for a route.
+  listenerPrefix = route:
+    if route.issuerRef.name == defaultIssuer
+    then sanitizeDomain route.domain
+    else route.subdomain;
+
   # Build the HTTPS + HTTP listener pair for a single route.
   #
   # Listener ports must match Traefik's *entrypoint* ports (8443/8000),
@@ -105,7 +126,51 @@ let
       }
     ];
 
-  # Build a cert-manager Certificate for a single route
+  # Build wildcard HTTPS + HTTP listener pair for a domain.
+  mkWildcardListeners = dom:
+    let
+      name = sanitizeDomain dom;
+      secretName = "wildcard-${name}-tls";
+    in [
+      {
+        name = "${name}-https";
+        port = 8443;
+        protocol = "HTTPS";
+        hostname = "*.${dom}";
+        tls = {
+          mode = "Terminate";
+          certificateRefs = [{ kind = "Secret"; name = secretName; }];
+        };
+        allowedRoutes.namespaces.from = "All";
+      }
+      {
+        name = "${name}-http";
+        port = 8000;
+        protocol = "HTTP";
+        hostname = "*.${dom}";
+        allowedRoutes.namespaces.from = "All";
+      }
+    ];
+
+  # Build a wildcard cert-manager Certificate for a domain.
+  mkWildcardCertificate = dom: {
+    apiVersion = "cert-manager.io/v1";
+    kind = "Certificate";
+    metadata = {
+      name = "wildcard-${sanitizeDomain dom}-tls";
+      namespace = "kube-system";
+    };
+    spec = {
+      secretName = "wildcard-${sanitizeDomain dom}-tls";
+      dnsNames = [ "*.${dom}" ];
+      issuerRef = {
+        name = defaultIssuer;
+        kind = "ClusterIssuer";
+      };
+    };
+  };
+
+  # Build a per-host cert-manager Certificate (custom-issuer routes only)
   mkCertificate = name: route: {
     apiVersion = "cert-manager.io/v1";
     kind = "Certificate";
@@ -161,13 +226,16 @@ let
       parentRefs = [{
         name = "main";
         namespace = "kube-system";
-        sectionName = "${route.subdomain}-https";
+        sectionName = "${listenerPrefix route}-https";
       }];
       rules = map (mkRule route) (resolvedPaths route);
     };
   };
 
   # Build the app-traffic HTTPRoute (HTTP listener)
+  #
+  # When httpRedirect is true (the default), the HTTP HTTPRoute returns
+  # a 301 redirect to HTTPS instead of forwarding to the backend.
   mkHttpAppRoute = name: route: {
     name = "${route.subdomain}-http";
     value = {
@@ -176,17 +244,34 @@ let
       parentRefs = [{
         name = "main";
         namespace = "kube-system";
-        sectionName = "${route.subdomain}-http";
+        sectionName = "${listenerPrefix route}-http";
       }];
-      rules = map (mkRule route) (resolvedPaths route);
+      rules =
+        if route.httpRedirect then
+          [{
+            filters = [{
+              type = "RequestRedirect";
+              requestRedirect = {
+                scheme = "https";
+                statusCode = 301;
+              };
+            }];
+          }]
+        else
+          map (mkRule route) (resolvedPaths route);
     };
   };
 
-  # Aggregate all listeners from all routes
-  allListeners = concatLists (mapAttrsToList mkListeners routes);
+  # Wildcard listeners (one pair per unique domain, default-issuer routes)
+  # Per-host listeners (only for custom-issuer routes)
+  allListeners =
+    concatLists (map mkWildcardListeners wildcardDomains)
+    ++ concatLists (mapAttrsToList mkListeners customIssuerRoutes);
 
-  # Aggregate all certificates
-  allCertificates = mapAttrsToList mkCertificate routes;
+  # Wildcard certs + per-host certs (custom-issuer only)
+  allCertificates =
+    (map mkWildcardCertificate wildcardDomains)
+    ++ (mapAttrsToList mkCertificate customIssuerRoutes);
 
   # Aggregate app HTTPRoutes (one per listener per route)
   appRoutes     = listToAttrs (mapAttrsToList mkAppRoute routes);
@@ -319,6 +404,15 @@ let
             basic   - App handles HTTP Basic auth
             oauth   - App handles its own OAuth/OIDC
             none    - No authentication
+        '';
+      };
+
+      httpRedirect = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Redirect HTTP requests to HTTPS with a 301 status code.
+          When false, HTTP traffic is forwarded to the backend as-is.
         '';
       };
 

@@ -48,7 +48,7 @@ in
       parentRefs = [{
         name = "main";
         namespace = "kube-system";
-        sectionName = "kamaji-https";
+        sectionName = "${builtins.replaceStrings ["."] ["-"] config.openkrill.domain}-https";
       }];
       rules = [{
         matches = [{ path = { type = "Exact"; value = "/"; }; }];

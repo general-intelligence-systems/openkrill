@@ -135,7 +135,7 @@ in
       parentRefs = [{
         name = "main";
         namespace = "kube-system";
-        sectionName = "git-https";
+        sectionName = "${builtins.replaceStrings ["."] ["-"] domain}-https";
       }];
       rules = [
         {
@@ -171,7 +171,7 @@ in
       parentRefs = [{
         name = "main";
         namespace = "kube-system";
-        sectionName = "git-http";
+        sectionName = "${builtins.replaceStrings ["."] ["-"] domain}-http";
       }];
       rules = [
         {

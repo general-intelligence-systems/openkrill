@@ -134,7 +134,7 @@ in
         parentRefs = [{
           name          = "main";
           namespace     = "kube-system";
-          sectionName   = "lago-https";
+          sectionName   = "${builtins.replaceStrings ["."] ["-"] domain}-https";
         }];
         rules = [ apiRule ];
       };
@@ -144,7 +144,7 @@ in
         parentRefs = [{
           name          = "main";
           namespace     = "kube-system";
-          sectionName   = "lago-http";
+          sectionName   = "${builtins.replaceStrings ["."] ["-"] domain}-http";
         }];
         rules = [ apiRule ];
       };
