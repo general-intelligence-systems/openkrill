@@ -5,19 +5,21 @@
 # Bridges share a namespace and the CNPG Postgres cluster.  Each
 # bridge gets its own secret generator and ExternalSecrets.
 #
+# Supports both conduwuit and Synapse (matrix-stack) homeservers.
+# When matrix-stack is enabled, appservice registration ConfigMaps
+# are automatically created and wired into Synapse's config.
+#
 # Usage:
 #   openkrill.apps.mautrix.enable = true;
 #   openkrill.apps.mautrix.bridges.whatsapp.enable = true;
-#
-# After deployment, run bin/mautrix-register-whatsapp and paste the
-# output into the conduwuit #admins room.
 { config, lib, pkgs, charts, kubelib, k8s, ... }:
 with lib;
 let
-  cfg          = config.openkrill.apps.mautrix;
-  cnpgCfg      = config.openkrill.apps.cloudnative-pg;
-  conduwuitCfg = config.openkrill.apps.conduwuit;
-  helpers      = import ../../../modules/lib/helpers.nix { inherit lib; };
+  cfg            = config.openkrill.apps.mautrix;
+  cnpgCfg        = config.openkrill.apps.cloudnative-pg;
+  conduwuitCfg   = config.openkrill.apps.conduwuit;
+  matrixStackCfg = config.openkrill.apps.matrix-stack;
+  helpers        = import ../../../modules/lib/helpers.nix { inherit lib; };
 
   mkBridgeValues = import ./resources.nix { inherit lib; };
 
@@ -35,15 +37,20 @@ let
   gvoiceDefaults     = import ./bridges/gvoice.nix;
   zulipDefaults      = import ./bridges/zulip.nix;
 
-  # Conduwuit auto-wiring
-  conduwuitEnabled = conduwuitCfg.enable;
-  conduwuitAddress =
+  # Homeserver auto-wiring: prefer conduwuit, fall back to matrix-stack (Synapse)
+  conduwuitEnabled   = conduwuitCfg.enable;
+  matrixStackEnabled = matrixStackCfg.enable;
+  homeserverAddress =
     if conduwuitEnabled
     then "http://conduwuit.${conduwuitCfg.namespace}.svc.cluster.local:80"
+    else if matrixStackEnabled
+    then "http://matrix-stack-synapse.${matrixStackCfg.namespace}.svc.cluster.local:8008"
     else "http://localhost:8008";
-  conduwuitDomain =
+  homeserverDomain =
     if conduwuitEnabled
     then conduwuitCfg.serverName
+    else if matrixStackEnabled
+    then matrixStackCfg.serverName
     else "example.com";
 
   # ── Helper: build option set for a single bridge ────────────────
@@ -125,6 +132,9 @@ let
   # ── ESO keys for a bridge (tokens only; DB creds come via cnpg-credentials)
   esoKeys = [ secretKeys.asToken secretKeys.hsToken ];
 
+  # ── Synapse namespace (only set when matrix-stack is enabled) ────
+  synapseNs = if matrixStackEnabled then matrixStackCfg.namespace else null;
+
   # ── Render Helm manifests for a bridge ──────────────────────────
   bridgeManifests = bridge:
     let
@@ -135,12 +145,13 @@ let
         port         = bridge.cfg.appservice.port;
         bot          = { inherit (bridge.cfg.bot) username; };
         appservice   = { inherit (bridge.cfg.appservice) id; };
-        homeserver   = { address = conduwuitAddress; domain = conduwuitDomain; };
+        homeserver   = { address = homeserverAddress; domain = homeserverDomain; };
         database     = "mautrix_${bridge.name}";
         secretName   = "mautrix-${bridge.name}";
         dbSecretName = "mautrix-${bridge.name}-db";
         permissions  = bridge.cfg.permissions;
         extraConfig  = bridge.cfg.extraConfig;
+        synapseNamespace = synapseNs;
       };
     in
     kubelib.fromHelm {
@@ -150,6 +161,57 @@ let
       inherit values;
       extraOpts = [ "--skip-schema-validation" ];
     };
+
+  # ── RBAC resources for Synapse registration ─────────────────────
+  # When matrix-stack is enabled, each bridge needs a ServiceAccount
+  # in the mautrix namespace and a Role+RoleBinding in the matrix-stack
+  # namespace so the init container can create/update ConfigMaps.
+  mkBridgeRBAC = bridge: let
+    saName = "mautrix-${bridge.name}";
+  in [
+    # ServiceAccount in the mautrix namespace
+    {
+      apiVersion = "v1";
+      kind = "ServiceAccount";
+      metadata = {
+        name = saName;
+        namespace = cfg.namespace;
+      };
+    }
+    # Role in the matrix-stack namespace: permission to manage ConfigMaps
+    {
+      apiVersion = "rbac.authorization.k8s.io/v1";
+      kind = "Role";
+      metadata = {
+        name = saName;
+        namespace = matrixStackCfg.namespace;
+      };
+      rules = [{
+        apiGroups = [ "" ];
+        resources = [ "configmaps" ];
+        verbs = [ "get" "create" "update" "patch" ];
+      }];
+    }
+    # RoleBinding: bind the SA to the Role
+    {
+      apiVersion = "rbac.authorization.k8s.io/v1";
+      kind = "RoleBinding";
+      metadata = {
+        name = saName;
+        namespace = matrixStackCfg.namespace;
+      };
+      roleRef = {
+        apiGroup = "rbac.authorization.k8s.io";
+        kind = "Role";
+        name = saName;
+      };
+      subjects = [{
+        kind = "ServiceAccount";
+        name = saName;
+        namespace = cfg.namespace;
+      }];
+    }
+  ];
 
 in
 {
@@ -264,6 +326,16 @@ in
       };
     }) enabledBridges);
 
+    # ── Synapse appservice registration ──────────────────────────
+    # When matrix-stack (Synapse) is enabled, wire the registration
+    # ConfigMaps into Synapse's Helm values so it loads them on start.
+    openkrill.apps.matrix-stack.values = mkIf matrixStackEnabled {
+      synapse.appservices = map (bridge: {
+        configMap = "mautrix-${bridge.name}-registration";
+        configMapKey = "registration.yaml";
+      }) enabledBridges;
+    };
+
     # ── ArgoCD Application CR ─────────────────────────────────────
     openkrill.apps.argo-cd.applications.mautrix = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
@@ -287,6 +359,8 @@ in
     # ── Manifests ─────────────────────────────────────────────────
     openkrill.manifests.mautrix.content =
       [ (k8s.mkNamespace cfg.namespace) ]
-      ++ concatMap bridgeManifests enabledBridges;
+      ++ concatMap bridgeManifests enabledBridges
+      # RBAC for Synapse registration init containers
+      ++ optionals matrixStackEnabled (concatMap mkBridgeRBAC enabledBridges);
   };
 }

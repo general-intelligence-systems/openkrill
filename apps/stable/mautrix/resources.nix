@@ -19,9 +19,15 @@
   dbSecretName,     # k8s Secret name for DB creds, e.g. "mautrix-whatsapp-db"
   permissions,      # { "*" = "relay"; "@admin:domain" = "admin"; }
   extraConfig ? {}, # deep-merged into bridge config
+  # When non-null, an init container creates a registration ConfigMap
+  # in the Synapse namespace so Synapse can discover the appservice.
+  synapseNamespace ? null, # e.g. "matrix-stack"
 }:
 let
   fullName = "mautrix-${name}";
+  escapedDomain = builtins.replaceStrings ["."] ["\\\\."] homeserver.domain;
+  registrationConfigMap = "mautrix-${name}-registration";
+  registrationKey = "registration.yaml";
 
   # The bridge config uses the bridgev2 (megabridge) format.
   # The startup script generates the default config with `-e`, then
@@ -30,12 +36,57 @@ let
   #   homeserver.address, homeserver.domain, homeserver.software,
   #   appservice.{address,hostname,port,id,bot,as_token,hs_token},
   #   database.uri, bridge.permissions, logging
+
+  # Init container script: creates a registration ConfigMap in the
+  # Synapse namespace so Synapse knows about this appservice.
+  registerScript = ''
+    cat > /tmp/registration.yaml <<REGEOF
+    id: ${appservice.id}
+    url: http://${fullName}.${namespace}.svc.cluster.local:${toString port}
+    as_token: $AS_TOKEN
+    hs_token: $HS_TOKEN
+    sender_localpart: ${bot.username}
+    namespaces:
+      users:
+      - regex: '@${appservice.id}_.*:${escapedDomain}'
+        exclusive: true
+      aliases: []
+      rooms: []
+    rate_limited: false
+    push_ephemeral: true
+    REGEOF
+    kubectl create configmap ${registrationConfigMap} \
+      --namespace=${synapseNamespace} \
+      --from-file=${registrationKey}=/tmp/registration.yaml \
+      --dry-run=client -o yaml | kubectl apply -f -
+  '';
 in
 {
   global.nameOverride = fullName;
 
   controllers.main = {
     strategy = "Recreate";
+
+    pod = {
+      securityContext.seccompProfile.type = "RuntimeDefault";
+    } // lib.optionalAttrs (synapseNamespace != null) {
+      serviceAccountName = "mautrix-${name}";
+    };
+
+    initContainers = lib.optionalAttrs (synapseNamespace != null) {
+      register = {
+        image = {
+          repository = "bitnami/kubectl";
+          tag = "latest";
+          pullPolicy = "IfNotPresent";
+        };
+        command = [ "/bin/sh" "-c" ];
+        args = [ registerScript ];
+        envFrom = [
+          { secretRef.name = secretName; }   # AS_TOKEN, HS_TOKEN
+        ];
+      };
+    };
 
     containers.main = {
       image = {
@@ -83,7 +134,7 @@ in
           # instead of crash-looping with exponential backoff.
           "while true; do"
           "  /usr/bin/${fullName} -c /data/config.yaml --no-update && break"
-          "  echo 'Bridge exited, retrying in 30s (is the appservice registered with conduwuit?)...'"
+          "  echo 'Bridge exited, retrying in 30s (is the appservice registered with the homeserver?)...'"
           "  sleep 30"
           "done"
         ];
@@ -104,8 +155,6 @@ in
         capabilities.drop = [ "ALL" ];
       };
     };
-
-    pod.securityContext.seccompProfile.type = "RuntimeDefault";
   };
 
   persistence.data = {
