@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-slack.
+# Bridge definition for mautrix-slack (Go bridge).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/slack";
-    tag = "latest";
-  };
-
-  port = 29335;
-
-  bot.username = "slackbot";
-
-  appservice.id = "slack";
-
-  userRegex = "@slack_.*";
+  chartName = "mautrix-slack";
+  chartVersion = "1.0.0";
+  type = "go";
+  registrationKey = "appservice-registration-slack.yaml";
 }

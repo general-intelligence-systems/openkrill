@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-gmessages (Google Messages).
+# Bridge definition for mautrix-gmessages (Go bridge).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/gmessages";
-    tag = "latest";
-  };
-
-  port = 29336;
-
-  bot.username = "gmessagesbot";
-
-  appservice.id = "gmessages";
-
-  userRegex = "@gmessages_.*";
+  chartName = "mautrix-gmessages";
+  chartVersion = "1.0.0";
+  type = "go";
+  registrationKey = "appservice-registration-gmessages.yaml";
 }

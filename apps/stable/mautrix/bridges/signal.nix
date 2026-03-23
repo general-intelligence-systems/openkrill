@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-signal.
+# Bridge definition for mautrix-signal (Go bridge).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/signal";
-    tag = "latest";
-  };
-
-  port = 29328;
-
-  bot.username = "signalbot";
-
-  appservice.id = "signal";
-
-  userRegex = "@signal_.*";
+  chartName = "mautrix-signal";
+  chartVersion = "1.0.0";
+  type = "go";
+  registrationKey = "appservice-registration-signal.yaml";
 }

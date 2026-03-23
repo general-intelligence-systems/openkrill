@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-meta (Facebook/Instagram).
+# Bridge definition for mautrix-meta (Go bridge — Facebook/Instagram).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/meta";
-    tag = "latest";
-  };
-
-  port = 29319;
-
-  bot.username = "metabot";
-
-  appservice.id = "meta";
-
-  userRegex = "@meta_.*";
+  chartName = "mautrix-meta";
+  chartVersion = "1.0.0";
+  type = "go";
+  registrationKey = "appservice-registration-meta.yaml";
 }

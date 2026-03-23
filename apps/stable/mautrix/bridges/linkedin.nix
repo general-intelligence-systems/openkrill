@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-linkedin.
+# Bridge definition for mautrix-linkedin (Go bridge).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/linkedin";
-    tag = "latest";
-  };
-
-  port = 29339;
-
-  bot.username = "linkedinbot";
-
-  appservice.id = "linkedin";
-
-  userRegex = "@linkedin_.*";
+  chartName = "mautrix-linkedin";
+  chartVersion = "1.0.0";
+  type = "go";
+  registrationKey = "appservice-registration-linkedin.yaml";
 }

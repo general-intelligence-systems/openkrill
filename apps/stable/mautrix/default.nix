@@ -1,217 +1,129 @@
 # apps/mautrix — mautrix bridge platform
 #
-# Single module for all mautrix Go bridges.  Each bridge is deployed
-# via the bjw-s app-template Helm chart (same pattern as kremlin).
-# Bridges share a namespace and the CNPG Postgres cluster.  Each
-# bridge gets its own secret generator and ExternalSecrets.
+# Deploys mautrix bridges via the cyclika94 Helm charts from nixhelm2.
+# Each bridge gets its own chart (StatefulSet, bundled Postgres,
+# registration ConfigMap, double puppeting, runtime secret generation).
 #
-# Supports both conduwuit and Synapse (matrix-stack) homeservers.
-# When matrix-stack is enabled, appservice registration ConfigMaps
-# are automatically created and wired into Synapse's config.
+# The module follows the values.matrix.example.yaml pattern from
+# https://github.com/cyclikal94/matrix-helm-charts/blob/main/INSTALLATION.md
 #
 # Usage:
 #   openkrill.apps.mautrix.enable = true;
 #   openkrill.apps.mautrix.bridges.whatsapp.enable = true;
-{ config, lib, pkgs, charts, kubelib, k8s, ... }:
+{ config, lib, charts, kubelib, k8s, ... }:
 with lib;
 let
   cfg            = config.openkrill.apps.mautrix;
-  cnpgCfg        = config.openkrill.apps.cloudnative-pg;
-  conduwuitCfg   = config.openkrill.apps.conduwuit;
   matrixStackCfg = config.openkrill.apps.matrix-stack;
   helpers        = import ../../../modules/lib/helpers.nix { inherit lib; };
 
-  mkBridgeValues = import ./resources.nix { inherit lib; };
-
   # ── Bridge definitions ──────────────────────────────────────────
-  whatsappDefaults   = import ./bridges/whatsapp.nix;
-  signalDefaults     = import ./bridges/signal.nix;
-  telegramDefaults   = import ./bridges/telegram.nix;
-  slackDefaults      = import ./bridges/slack.nix;
-  metaDefaults       = import ./bridges/meta.nix;
-  twitterDefaults    = import ./bridges/twitter.nix;
-  googlechatDefaults = import ./bridges/googlechat.nix;
-  blueskyDefaults    = import ./bridges/bluesky.nix;
-  linkedinDefaults   = import ./bridges/linkedin.nix;
-  gmessagesDefaults  = import ./bridges/gmessages.nix;
-  gvoiceDefaults     = import ./bridges/gvoice.nix;
-  zulipDefaults      = import ./bridges/zulip.nix;
+  bridgeDefs = {
+    whatsapp   = import ./bridges/whatsapp.nix;
+    signal     = import ./bridges/signal.nix;
+    telegram   = import ./bridges/telegram.nix;
+    slack      = import ./bridges/slack.nix;
+    meta       = import ./bridges/meta.nix;
+    twitter    = import ./bridges/twitter.nix;
+    googlechat = import ./bridges/googlechat.nix;
+    bluesky    = import ./bridges/bluesky.nix;
+    linkedin   = import ./bridges/linkedin.nix;
+    gmessages  = import ./bridges/gmessages.nix;
+    gvoice     = import ./bridges/gvoice.nix;
+    zulip      = import ./bridges/zulip.nix;
+  };
 
-  # Homeserver auto-wiring: prefer conduwuit, fall back to matrix-stack (Synapse)
-  conduwuitEnabled   = conduwuitCfg.enable;
-  matrixStackEnabled = matrixStackCfg.enable;
+  # ── Homeserver auto-wiring (Synapse via matrix-stack) ───────────
   homeserverAddress =
-    if conduwuitEnabled
-    then "http://conduwuit.${conduwuitCfg.namespace}.svc.cluster.local:80"
-    else if matrixStackEnabled
-    then "http://matrix-stack-synapse.${matrixStackCfg.namespace}.svc.cluster.local:8008"
-    else "http://localhost:8008";
-  homeserverDomain =
-    if conduwuitEnabled
-    then conduwuitCfg.serverName
-    else if matrixStackEnabled
-    then matrixStackCfg.serverName
-    else "example.com";
+    "http://matrix-stack-synapse.${matrixStackCfg.namespace}.svc.cluster.local:8008";
+  homeserverDomain = matrixStackCfg.serverName;
 
-  # ── Helper: build option set for a single bridge ────────────────
-  mkBridgeOptions = name: defaults: {
+  # ── Per-bridge NixOS options ────────────────────────────────────
+  mkBridgeOptions = name: _def: {
     enable = mkEnableOption "mautrix-${name} bridge";
 
-    image = {
-      repository = mkOption {
-        type = types.str;
-        default = defaults.image.repository;
-        description = "Container image repository for mautrix-${name}.";
-      };
-      tag = mkOption {
-        type = types.str;
-        default = defaults.image.tag;
-        description = "Container image tag for mautrix-${name}.";
-      };
-    };
-
-    bot.username = mkOption {
-      type = types.str;
-      default = defaults.bot.username;
-      description = "Matrix username for the ${name} bridge bot.";
-    };
-
-    appservice = {
-      id = mkOption {
-        type = types.str;
-        default = defaults.appservice.id;
-        description = "Appservice ID registered with the homeserver.";
-      };
-      port = mkOption {
-        type = types.port;
-        default = defaults.port;
-        description = "Port the bridge listens on for appservice traffic.";
-      };
-    };
-
-    permissions = mkOption {
-      type = types.attrsOf types.str;
-      default = { "*" = "relay"; };
-      description = ''
-        Bridge permission map.  Keys are Matrix user IDs or wildcards,
-        values are permission levels: user, relay, admin.
-      '';
-      example = {
-        "*" = "relay";
-        "@admin:cia.net" = "admin";
-      };
-    };
-
-    extraConfig = mkOption {
+    values = mkOption {
       type = types.attrs;
       default = {};
-      description = "Extra config deep-merged into the bridge config.yaml.";
+      description = ''
+        Helm chart value overrides for mautrix-${name},
+        deep-merged with module defaults.
+      '';
     };
   };
 
   # ── Collect enabled bridges ─────────────────────────────────────
-  enabledBridges = filter (b: b.cfg.enable) [
-    { name = "whatsapp";   cfg = cfg.bridges.whatsapp;   defaults = whatsappDefaults;   }
-    { name = "signal";     cfg = cfg.bridges.signal;     defaults = signalDefaults;     }
-    { name = "telegram";   cfg = cfg.bridges.telegram;   defaults = telegramDefaults;   }
-    { name = "slack";      cfg = cfg.bridges.slack;      defaults = slackDefaults;      }
-    { name = "meta";       cfg = cfg.bridges.meta;       defaults = metaDefaults;       }
-    { name = "twitter";    cfg = cfg.bridges.twitter;    defaults = twitterDefaults;    }
-    { name = "googlechat"; cfg = cfg.bridges.googlechat; defaults = googlechatDefaults; }
-    { name = "bluesky";    cfg = cfg.bridges.bluesky;    defaults = blueskyDefaults;    }
-    { name = "linkedin";   cfg = cfg.bridges.linkedin;   defaults = linkedinDefaults;   }
-    { name = "gmessages";  cfg = cfg.bridges.gmessages;  defaults = gmessagesDefaults;  }
-    { name = "gvoice";     cfg = cfg.bridges.gvoice;     defaults = gvoiceDefaults;     }
-    { name = "zulip";      cfg = cfg.bridges.zulip;      defaults = zulipDefaults;      }
-  ];
+  enabledBridges = filter (b: b.cfg.enable) (
+    mapAttrsToList (name: def: {
+      inherit name def;
+      cfg = cfg.bridges.${name};
+    }) bridgeDefs
+  );
 
-  # ── Secret key names (shared across all bridges) ─────────────────
-  # Each bridge gets its own source secret, so no per-bridge prefix needed.
-  secretKeys = { asToken = "AS_TOKEN"; hsToken = "HS_TOKEN"; };
+  # ── Default values per bridge ───────────────────────────────────
+  # Mirrors the values.matrix.example.yaml from the chart docs.
+  mkDefaultValues = bridge:
+    let
+      # Common values shared by all bridge types
+      common = {
+        homeserver = {
+          address = homeserverAddress;
+          domain  = homeserverDomain;
+        };
+        registration.synapseNamespace = matrixStackCfg.namespace;
+      };
 
-  # ── ESO keys for a bridge (tokens only; DB creds come via cnpg-credentials)
-  esoKeys = [ secretKeys.asToken secretKeys.hsToken ];
+      # Go bridges (bridgev2): logging + config.baseExtra
+      # doublePuppet is left at chart default (enabled) but we disable
+      # the managed registration resources to avoid duplicate ConfigMaps
+      # across bridges (all Go bridges share the same doublepuppet
+      # registration via mautrix-go-base).
+      goDefaults = common // {
+        logging = "info";
+        doublePuppet.enabled = false;
+        config.baseExtra = ''
+          bridge:
+            permissions:
+              "*": relay
+              "${homeserverDomain}": user
+        '';
+      };
 
-  # ── Synapse namespace (only set when matrix-stack is enabled) ────
-  synapseNs = if matrixStackEnabled then matrixStackCfg.namespace else null;
+      # Python bridges: config.extra (no logging, no doublePuppet)
+      pythonDefaults = common // {
+        config.extra = ''
+          bridge:
+            permissions:
+              "*": relaybot
+        '';
+      };
+
+      # Telegram requires API credentials — provide placeholders so the
+      # chart templates render.  Users MUST override via bridges.telegram.values.
+      telegramDefaults = {
+        telegram = {
+          apiID = 1;
+          apiHash = "placeholder";
+        };
+      };
+
+      base = if bridge.def.type == "go" then goDefaults else pythonDefaults;
+      extra = optionalAttrs (bridge.name == "telegram") telegramDefaults;
+    in
+    base // extra;
 
   # ── Render Helm manifests for a bridge ──────────────────────────
   bridgeManifests = bridge:
     let
-      values = mkBridgeValues {
-        name         = bridge.name;
-        namespace    = cfg.namespace;
-        image        = { inherit (bridge.cfg.image) repository tag; };
-        port         = bridge.cfg.appservice.port;
-        bot          = { inherit (bridge.cfg.bot) username; };
-        appservice   = { inherit (bridge.cfg.appservice) id; };
-        homeserver   = { address = homeserverAddress; domain = homeserverDomain; };
-        database     = "mautrix_${bridge.name}";
-        secretName   = "mautrix-${bridge.name}";
-        dbSecretName = "mautrix-${bridge.name}-db";
-        permissions  = bridge.cfg.permissions;
-        extraConfig  = bridge.cfg.extraConfig;
-        synapseNamespace = synapseNs;
-      };
+      defaultValues = mkDefaultValues bridge;
     in
     kubelib.fromHelm {
       name      = "mautrix-${bridge.name}";
-      chart     = charts.bjw-s-labs.app-template.versions."4.6.2";
+      chart     = charts.contrib.cyclika94.${bridge.def.chartName}.versions.${bridge.def.chartVersion};
       namespace = cfg.namespace;
-      inherit values;
+      values    = recursiveUpdate defaultValues bridge.cfg.values;
       extraOpts = [ "--skip-schema-validation" ];
     };
-
-  # ── RBAC resources for Synapse registration ─────────────────────
-  # When matrix-stack is enabled, each bridge needs a ServiceAccount
-  # in the mautrix namespace and a Role+RoleBinding in the matrix-stack
-  # namespace so the init container can create/update ConfigMaps.
-  mkBridgeRBAC = bridge: let
-    saName = "mautrix-${bridge.name}";
-  in [
-    # ServiceAccount in the mautrix namespace
-    {
-      apiVersion = "v1";
-      kind = "ServiceAccount";
-      metadata = {
-        name = saName;
-        namespace = cfg.namespace;
-      };
-    }
-    # Role in the matrix-stack namespace: permission to manage ConfigMaps
-    {
-      apiVersion = "rbac.authorization.k8s.io/v1";
-      kind = "Role";
-      metadata = {
-        name = saName;
-        namespace = matrixStackCfg.namespace;
-      };
-      rules = [{
-        apiGroups = [ "" ];
-        resources = [ "configmaps" ];
-        verbs = [ "get" "create" "update" "patch" ];
-      }];
-    }
-    # RoleBinding: bind the SA to the Role
-    {
-      apiVersion = "rbac.authorization.k8s.io/v1";
-      kind = "RoleBinding";
-      metadata = {
-        name = saName;
-        namespace = matrixStackCfg.namespace;
-      };
-      roleRef = {
-        apiGroup = "rbac.authorization.k8s.io";
-        kind = "Role";
-        name = saName;
-      };
-      subjects = [{
-        kind = "ServiceAccount";
-        name = saName;
-        namespace = cfg.namespace;
-      }];
-    }
-  ];
 
 in
 {
@@ -230,109 +142,21 @@ in
     extraManifests = helpers.mkExtraManifestsOption;
 
     # ── Per-bridge options ──────────────────────────────────────────
-    bridges.whatsapp   = mkBridgeOptions "whatsapp"   whatsappDefaults;
-    bridges.signal     = mkBridgeOptions "signal"     signalDefaults;
-    bridges.telegram   = mkBridgeOptions "telegram"   telegramDefaults;
-    bridges.slack      = mkBridgeOptions "slack"      slackDefaults;
-    bridges.meta       = mkBridgeOptions "meta"       metaDefaults;
-    bridges.twitter    = mkBridgeOptions "twitter"    twitterDefaults;
-    bridges.googlechat = mkBridgeOptions "googlechat" googlechatDefaults;
-    bridges.bluesky    = mkBridgeOptions "bluesky"    blueskyDefaults;
-    bridges.linkedin   = mkBridgeOptions "linkedin"   linkedinDefaults;
-    bridges.gmessages  = mkBridgeOptions "gmessages"  gmessagesDefaults;
-    bridges.gvoice     = mkBridgeOptions "gvoice"     gvoiceDefaults;
-    bridges.zulip      = mkBridgeOptions "zulip"      zulipDefaults;
+    bridges = mapAttrs mkBridgeOptions bridgeDefs;
   };
 
   # ════════════════════════════════════════════════════════════════
   # Config
   # ════════════════════════════════════════════════════════════════
   config = mkIf (cfg.enable && enabledBridges != []) {
-    # ── Secret generators (one per bridge) ────────────────────────
-    openkrill.secrets.generators = listToAttrs (map (bridge: {
-      name = "mautrix-${bridge.name}";
-      value = {
-        packages = with pkgs; [ openssl ];
-        script = ''
-          create_secret openkrill-mautrix-${bridge.name} \
-            --from-literal=${secretKeys.asToken}="$(openssl rand -hex 32)" \
-            --from-literal=${secretKeys.hsToken}="$(openssl rand -hex 32)"
-        '';
-      };
-    }) enabledBridges);
-
-    # ── ExternalSecrets — tokens (one per bridge) ────────────────
-    openkrill.apps.external-secrets.secrets = listToAttrs (map (bridge: {
-      name = "mautrix-${bridge.name}";
-      value = {
-        namespace = cfg.namespace;
-        remoteSecretName = "openkrill-mautrix-${bridge.name}";
-        keys = esoKeys;
-      };
-    }) enabledBridges);
-
-    # ── ExternalSecrets — database credentials (one per bridge) ─
-    # Uses the cnpg-credentials ClusterSecretStore to read username
-    # and password from the CNPG-generated app secret, then templates
-    # a full connection URI with the bridge-specific database name.
-    openkrill.apps.external-secrets.externalsecrets = listToAttrs (map (bridge:
-      let
-        cnpgAppSecret = "${cnpgCfg.clusterName}-app";
-        dbSecretName  = "mautrix-${bridge.name}-db";
-      in {
-        name = dbSecretName;
-        value = {
-          namespace = cfg.namespace;
-          secretStoreRef = {
-            name = cnpgCfg.clusterSecretStoreName;
-            kind = "ClusterSecretStore";
-          };
-          refreshInterval = "1h";
-          target = {
-            name = dbSecretName;
-            creationPolicy = "Owner";
-            template.data = {
-              DATABASE_URI = "postgresql://{{ .username }}:{{ .password }}@${cnpgCfg.clusterName}-rw.${cnpgCfg.namespace}.svc.cluster.local:5432/mautrix_${bridge.name}?sslmode=disable";
-            };
-          };
-          data = [
-            {
-              secretKey = "username";
-              remoteRef = {
-                key = cnpgAppSecret;
-                property = "username";
-              };
-            }
-            {
-              secretKey = "password";
-              remoteRef = {
-                key = cnpgAppSecret;
-                property = "password";
-              };
-            }
-          ];
-        };
-      }
-    ) enabledBridges);
-
-    # ── CNPG Database CRDs — one per bridge ───────────────────────
-    openkrill.apps.cloudnative-pg.databases = listToAttrs (map (bridge: {
-      name = "mautrix-${bridge.name}";
-      value = {
-        namespace = config.openkrill.apps.cloudnative-pg.namespace or "cloudnative-pg";
-        name = "mautrix_${bridge.name}";
-        owner = "app";
-        cluster.name = config.openkrill.apps.cloudnative-pg.clusterName or "postgres";
-      };
-    }) enabledBridges);
-
-    # ── Synapse appservice registration ──────────────────────────
-    # When matrix-stack (Synapse) is enabled, wire the registration
-    # ConfigMaps into Synapse's Helm values so it loads them on start.
-    openkrill.apps.matrix-stack.values = mkIf matrixStackEnabled {
+    # ── Synapse appservice registration wiring ────────────────────
+    # The chart creates a registration ConfigMap in the Synapse
+    # namespace (via registration.synapseNamespace), but Synapse
+    # still needs to be told to load it.
+    openkrill.apps.matrix-stack.values = {
       synapse.appservices = map (bridge: {
-        configMap = "mautrix-${bridge.name}-registration";
-        configMapKey = "registration.yaml";
+        configMap    = "mautrix-${bridge.name}-registration";
+        configMapKey = bridge.def.registrationKey;
       }) enabledBridges;
     };
 
@@ -359,8 +183,6 @@ in
     # ── Manifests ─────────────────────────────────────────────────
     openkrill.manifests.mautrix.content =
       [ (k8s.mkNamespace cfg.namespace) ]
-      ++ concatMap bridgeManifests enabledBridges
-      # RBAC for Synapse registration init containers
-      ++ optionals matrixStackEnabled (concatMap mkBridgeRBAC enabledBridges);
+      ++ concatMap bridgeManifests enabledBridges;
   };
 }

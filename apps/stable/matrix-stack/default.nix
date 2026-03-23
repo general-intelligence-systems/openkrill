@@ -47,10 +47,10 @@ let
   clientSecret = "matrix-authentication-service-oidc-client-secret-${cfg.serverName}";
 
   # The auth subdomain where MAS is served
-  authHost = "auth-chat.${cfg.serverName}";
+  authHost = "auth-chat.${cfg.hostDomain}";
 
-  # Authelia issuer URL — assumes Authelia is on auth.<serverName>
-  autheliaIssuer = "https://auth.${cfg.serverName}";
+  # Authelia issuer URL — assumes Authelia is on auth.<hostDomain>
+  autheliaIssuer = "https://auth.${cfg.hostDomain}";
 in
 {
   options.openkrill.apps.matrix-stack = {
@@ -67,10 +67,32 @@ in
       description = ''
         The Matrix server name.  This is the domain that appears in
         user IDs (@user:server_name).  Cannot be changed after initial
-        deployment.  Also used as the base domain for chat subdomains
-        (chat.*, web-chat.*, auth-chat.*, admin-chat.*).
+        deployment.
+      '';
+      example = "chat.example.com";
+    };
+
+    hostDomain = mkOption {
+      type = types.str;
+      default = cfg.serverName;
+      description = ''
+        Base domain for deriving component hostnames (chat.*, web-chat.*,
+        admin-chat.*, auth-chat.*).  Defaults to serverName.  Set this
+        when hosting on a subdomain, e.g. serverName = "chat.example.com"
+        with hostDomain = "example.com".
       '';
       example = "example.com";
+    };
+
+    adminUsers = mkOption {
+      type = types.listOf types.str;
+      default = [ "admin" ];
+      description = ''
+        Matrix usernames (localparts only, without @) that should be
+        granted admin access in MAS.  These users can use Element Admin
+        and the Synapse admin API.
+      '';
+      example = [ "admin" ];
     };
 
     values = mkOption {
@@ -139,12 +161,12 @@ in
       }
     ];
 
-    # ── SSO: Authelia session cookie for the serverName domain ────────
+    # ── SSO: Authelia session cookie for the hostDomain ───────────────
     # Authelia defaults to openkrill.domain; we also need a cookie for
-    # the serverName domain so the OIDC authorization flow works.
-    openkrill.apps.authelia.sessionCookies = mkIf (cfg.serverName != domain) [
+    # the hostDomain so the OIDC authorization flow works.
+    openkrill.apps.authelia.sessionCookies = mkIf (cfg.hostDomain != domain) [
       { domain = domain;          subdomain = "auth"; }
-      { domain = cfg.serverName;  subdomain = "auth"; }
+      { domain = cfg.hostDomain;  subdomain = "auth"; }
     ];
 
     # ── ArgoCD Application CR ──────────────────────────────────────────
@@ -168,9 +190,28 @@ in
     };
 
     # ── Manifests ──────────────────────────────────────────────────────
-    openkrill.manifests.matrix-stack.content = import ./helm.nix {
-      inherit lib charts kubelib cfg domain;
-      inherit providerID clientSecret autheliaIssuer elementClientID;
-    };
+    openkrill.manifests.matrix-stack.content =
+      let
+        # Filter out Helm hook resources that we replace with our own
+        # non-hook versions (init-secrets.nix).  The chart renders them
+        # with helm.sh/hook annotations that ArgoCD can't execute.
+        hookNames = [
+          "matrix-stack-init-secrets"
+          "matrix-stack-deployment-markers-pre"
+          "matrix-stack-deployment-markers-post"
+          "matrix-stack-synapse-check-config"
+        ];
+        isHookResource = r:
+          builtins.elem (r.metadata.name or "") hookNames;
+        chartResources = import ./helm.nix {
+          inherit lib charts kubelib cfg domain;
+          inherit providerID clientSecret autheliaIssuer elementClientID;
+        };
+      in
+      (builtins.filter (r: !(isHookResource r)) chartResources)
+      ++ (import ./init-secrets.nix {
+        inherit lib k8s;
+        namespace = cfg.namespace;
+      });
   };
 }

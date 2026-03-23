@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-zulip.
+# Bridge definition for mautrix-zulip (Go bridge).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/zulip";
-    tag = "latest";
-  };
-
-  port = 29340;
-
-  bot.username = "zulipbot";
-
-  appservice.id = "zulip";
-
-  userRegex = "@zulip_.*";
+  chartName = "mautrix-zulip";
+  chartVersion = "1.0.0";
+  type = "go";
+  registrationKey = "appservice-registration-zulip.yaml";
 }

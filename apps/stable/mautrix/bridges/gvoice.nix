@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-gvoice (Google Voice).
+# Bridge definition for mautrix-gvoice (Go bridge).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/gvoice";
-    tag = "latest";
-  };
-
-  port = 29337;
-
-  bot.username = "gvoicebot";
-
-  appservice.id = "gvoice";
-
-  userRegex = "@gvoice_.*";
+  chartName = "mautrix-gvoice";
+  chartVersion = "1.0.0";
+  type = "go";
+  registrationKey = "appservice-registration-gvoice.yaml";
 }

@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-twitter.
+# Bridge definition for mautrix-twitter (Go bridge).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/twitter";
-    tag = "latest";
-  };
-
-  port = 29327;
-
-  bot.username = "twitterbot";
-
-  appservice.id = "twitter";
-
-  userRegex = "@twitter_.*";
+  chartName = "mautrix-twitter";
+  chartVersion = "1.0.0";
+  type = "go";
+  registrationKey = "appservice-registration-twitter.yaml";
 }

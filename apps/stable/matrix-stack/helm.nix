@@ -13,13 +13,18 @@
 # all external routing via Gateway API HTTPRoutes instead.
 { lib, charts, kubelib, cfg, domain, providerID, clientSecret, autheliaIssuer, elementClientID }:
 let
+  # hostDomain is the base domain used for deriving component hostnames.
+  # It may differ from serverName when the server is hosted on a subdomain
+  # (e.g. serverName = "chat.example.com", hostDomain = "example.com").
+  hostDomain = cfg.hostDomain;
+
   defaults = {
     # ── Matrix identity ───────────────────────────────────────────────
     serverName = cfg.serverName;
 
     # ── Synapse homeserver ────────────────────────────────────────────
     synapse = {
-      ingress = { host = "chat.${cfg.serverName}"; enabled = false; };
+      ingress = { host = "chat.${hostDomain}"; enabled = false; };
       persistence.storageClass = "local-path";
     };
 
@@ -30,22 +35,26 @@ let
 
     # ── Element Web client ────────────────────────────────────────────
     elementWeb = {
-      ingress = { host = "web-chat.${cfg.serverName}"; enabled = false; };
+      ingress = { host = "web-chat.${hostDomain}"; enabled = false; };
       # Lock to this homeserver and auto-redirect to SSO
       additional."0-openkrill-sso.json" = builtins.toJSON {
         disable_custom_urls = true;
         sso_redirect_options = { immediate = true; };
         oidc_static_clients = {
-          "auth-chat.${cfg.serverName}" = {
+          "auth-chat.${hostDomain}" = {
             client_id = elementClientID;
           };
         };
+      };
+      # Disable forced session verification prompt
+      additional."1-openkrill-overrides.json" = builtins.toJSON {
+        force_verification = false;
       };
     };
 
     # ── Matrix Authentication Service ─────────────────────────────────
     matrixAuthenticationService = {
-      ingress = { host = "auth-chat.${cfg.serverName}"; enabled = false; };
+      ingress = { host = "auth-chat.${hostDomain}"; enabled = false; };
       # SSO via Authelia — disable local passwords, auto-provision users
       additional."0-openkrill-sso".config = ''
         upstream_oauth2:
@@ -74,16 +83,24 @@ let
           - client_id: ${elementClientID}
             client_auth_method: none
             redirect_uris:
-              - https://web-chat.${cfg.serverName}/
-              - https://web-chat.${cfg.serverName}/?no_universal_links=true
+              - https://web-chat.${hostDomain}/
+              - https://web-chat.${hostDomain}/?no_universal_links=true
         passwords:
           enabled: false
+      '';
+    } // lib.optionalAttrs (cfg.adminUsers != []) {
+      # Declare admin users so MAS grants urn:mas:admin and
+      # urn:synapse:admin:* scopes without manual mas-cli promotion.
+      additional."1-openkrill-admin".config = ''
+        policy:
+          data:
+            admin_users: ${builtins.toJSON cfg.adminUsers}
       '';
     };
 
     # ── Element Admin console ────────────────────────────────────────
     elementAdmin = {
-      ingress = { host = "admin-chat.${cfg.serverName}"; enabled = false; };
+      ingress = { host = "admin-chat.${hostDomain}"; enabled = false; };
     };
 
     # ── Matrix RTC — disabled by default ──────────────────────────────

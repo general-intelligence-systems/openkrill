@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-bluesky.
+# Bridge definition for mautrix-bluesky (Go bridge).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/bluesky";
-    tag = "latest";
-  };
-
-  port = 29338;
-
-  bot.username = "blueskybot";
-
-  appservice.id = "bluesky";
-
-  userRegex = "@bluesky_.*";
+  chartName = "mautrix-bluesky";
+  chartVersion = "1.0.0";
+  type = "go";
+  registrationKey = "appservice-registration-bluesky.yaml";
 }

@@ -1,15 +1,7 @@
-# Bridge-specific defaults for mautrix-googlechat.
+# Bridge definition for mautrix-googlechat (Python bridge).
 {
-  image = {
-    repository = "dock.mau.dev/mautrix/googlechat";
-    tag = "latest";
-  };
-
-  port = 29320;
-
-  bot.username = "googlechatbot";
-
-  appservice.id = "googlechat";
-
-  userRegex = "@googlechat_.*";
+  chartName = "mautrix-googlechat";
+  chartVersion = "1.0.0";
+  type = "python";
+  registrationKey = "appservice-registration-googlechat.yaml";
 }
