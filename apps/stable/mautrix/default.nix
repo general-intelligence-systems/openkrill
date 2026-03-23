@@ -15,7 +15,16 @@ with lib;
 let
   cfg            = config.openkrill.apps.mautrix;
   matrixStackCfg = config.openkrill.apps.matrix-stack;
+  cnpgCfg        = config.openkrill.apps.cloudnative-pg;
   helpers        = import ../../../modules/lib/helpers.nix { inherit lib; };
+
+  # CNPG shared cluster — all bridges share one Postgres role + cluster.
+  # The password is deterministic (internal to the cluster, not exposed).
+  cnpgHost     = "postgres-rw.${cnpgCfg.namespace}.svc.cluster.local";
+  cnpgUser     = "mautrix";
+  cnpgPassword = builtins.substring 0 32 (builtins.hashString "sha256" "mautrix-db-${cfg.namespace}");
+  cnpgPassSecretName = "mautrix-db-credentials";
+  mkDbName     = name: "mautrix_${builtins.replaceStrings ["-"] ["_"] name}";
 
   # ── Bridge definitions ──────────────────────────────────────────
   bridgeDefs = {
@@ -71,6 +80,16 @@ let
           domain  = homeserverDomain;
         };
         registration.synapseNamespace = matrixStackCfg.namespace;
+        # Disable bundled postgres; use shared CNPG cluster
+        postgres.enabled = false;
+        database.postgres = {
+          host     = cnpgHost;
+          port     = 5432;
+          user     = cnpgUser;
+          password.value = cnpgPassword;
+          database = mkDbName bridge.name;
+          sslMode  = "disable";
+        };
       };
 
       # Go bridges (bridgev2): logging + config.baseExtra
@@ -149,6 +168,30 @@ in
   # Config
   # ════════════════════════════════════════════════════════════════
   config = mkIf (cfg.enable && enabledBridges != []) {
+    # ── CNPG: one database per bridge in the shared cluster ───────
+    openkrill.apps.cloudnative-pg.databases = listToAttrs (map (bridge: {
+      name = "mautrix-${bridge.name}";  # K8s name: dashes only
+      value = {
+        namespace = cnpgCfg.namespace;
+        name      = mkDbName bridge.name;  # PG name: underscores OK
+        owner     = cnpgUser;
+        cluster.name = cnpgCfg.clusterName;
+      };
+    }) enabledBridges);
+
+    # ── CNPG: managed role for the mautrix user ───────────────────
+    openkrill.apps.cloudnative-pg.clusters.${cnpgCfg.clusterName}.managed.roles = [
+      {
+        name  = cnpgUser;
+        login = true;
+        createdb = true;
+        superuser = true;
+        passwordSecret = {
+          name = cnpgPassSecretName;
+        };
+      }
+    ];
+
     # ── Synapse appservice registration wiring ────────────────────
     # The chart creates a registration ConfigMap in the Synapse
     # namespace (via registration.synapseNamespace), but Synapse
@@ -184,5 +227,22 @@ in
     openkrill.manifests.mautrix.content =
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ concatMap bridgeManifests enabledBridges;
+
+    # Password Secret in the CNPG namespace for the managed role
+    openkrill.manifests.cloudnative-pg.content = [
+      {
+        apiVersion = "v1";
+        kind = "Secret";
+        metadata = {
+          name = cnpgPassSecretName;
+          namespace = cnpgCfg.namespace;
+        };
+        type = "kubernetes.io/basic-auth";
+        stringData = {
+          username = cnpgUser;
+          password = cnpgPassword;
+        };
+      }
+    ];
   };
 }

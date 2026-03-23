@@ -157,7 +157,13 @@ in
           "https://${authHost}/upstream/callback/${providerID}"
         ];
         scopes = [ "openid" "profile" "email" ];
+        grant_types = [ "authorization_code" "refresh_token" ];
         token_endpoint_auth_method = "client_secret_basic";
+        # Backchannel logout: when a user logs out of Authelia,
+        # MAS is notified and terminates all related sessions.
+        extraConfig.backchannel_logout_uri =
+          "https://${authHost}/upstream/backchannel-logout/${providerID}";
+        extraConfig.backchannel_logout_session_required = true;
       }
     ];
 

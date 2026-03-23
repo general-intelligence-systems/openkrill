@@ -68,6 +68,7 @@ let
               scope: "openid profile email"
               discovery_mode: insecure
               fetch_userinfo: true
+              on_backchannel_logout: logout_all
               claims_imports:
                 skip_confirmation: true
                 localpart:
