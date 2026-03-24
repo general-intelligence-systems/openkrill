@@ -1,0 +1,28 @@
+#!/usr/bin/env nix-shell
+#! nix-shell -i bash -p imagemagick
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ASSETS_DIR="$SCRIPT_DIR/../assets"
+
+INPUT="$ASSETS_DIR/logo.jpg"
+OUTPUT="$ASSETS_DIR/logo-circle.png"
+
+if [[ ! -f "$INPUT" ]]; then
+  echo "Error: $INPUT not found" >&2
+  exit 1
+fi
+
+# Get the shorter dimension to make a square crop
+SIZE=$(magick identify -format "%[fx:min(w,h)]" "$INPUT")
+
+magick "$INPUT" \
+  -gravity center \
+  -extent "${SIZE}x${SIZE}" \
+  \( +clone -threshold -1 -negate -fill white -draw "circle $((SIZE/2)),$((SIZE/2)) $((SIZE/2)),0" \) \
+  -alpha off -compose copy_opacity -composite \
+  -trim +repage \
+  "$OUTPUT"
+
+echo "Created $OUTPUT (${SIZE}x${SIZE} circle crop)"

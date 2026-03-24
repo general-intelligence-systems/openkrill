@@ -36,5 +36,6 @@
     ./routes.nix
     ./custom.nix
     ./secret-generators.nix
+    ./sandbox.nix
   ] ++ import ./module-list.nix;
 }
