@@ -1,8 +1,10 @@
+<p align="center">🐋🦐☸️❄️</p>
+
 <p align="center">
   <img src="./assets/logo-circle.png" width="160" alt="OpenKrill Logo" />
 </p>
 
-<h1 align="center">OpenKrill 🐋🦐☸️❄️</h1>
+<h1 align="center">OpenKrill</h1>
 <h3 align="center">Declarative Kubernetes on NixOS</h3>
 
 <p align="center">
