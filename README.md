@@ -23,7 +23,7 @@
   <img src="https://img.shields.io/badge/platform-k3s-FFC61C?style=flat-square" alt="k3s" />
   <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square" alt="Apache 2.0" />
   <img src="https://img.shields.io/badge/status-active%20development-orange?style=flat-square" alt="Status" />
-  <img src="https://img.shields.io/badge/approved-5277C3?style=flat-square&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzNiAzNiI+PHRleHQgeT0iMzIiIGZvbnQtc2l6ZT0iMzIiPvCfkIs8L3RleHQ+PC9zdmc+" alt="OpenKrill Approved" />
+  <img src="https://img.shields.io/badge/%20-approved-5277C3?style=flat-square&labelColor=555&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzNiAzNiI+PHRleHQgeT0iMzIiIGZvbnQtc2l6ZT0iMzIiPvCfkIs8L3RleHQ+PC9zdmc+" alt="OpenKrill Approved" />
 </p>
 
 > [!CAUTION]
