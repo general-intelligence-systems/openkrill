@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/logo.jpg" alt="OpenKrill Logo" width="200" />
+</p>
+
 # OpenKrill
 
 > [!CAUTION]
