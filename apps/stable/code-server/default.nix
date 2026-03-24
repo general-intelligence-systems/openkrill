@@ -39,21 +39,23 @@ let
   };
 
   # ── DinD sidecar ─────────────────────────────────────────────────────
+  # The chart's deployment.yaml uses `tpl .Values.extraContainers . | indent 8`
+  # so extraContainers must be a YAML string, not a structured value.
   dindValues = optionalAttrs (cfg.docker.mode == "dind") {
-    extraContainers = builtins.toJSON [
-      {
-        name  = "docker-dind";
-        image = cfg.docker.dind.image;
-        imagePullPolicy = "IfNotPresent";
-        securityContext.privileged = true;
-        env = [{ name = "DOCKER_TLS_CERTDIR"; value = ""; }];
-        command = [
-          "dockerd"
-          "--host=unix:///var/run/docker.sock"
-          "--host=tcp://0.0.0.0:2376"
-        ];
-      }
-    ];
+    extraContainers = ''
+      - name: docker-dind
+        image: ${cfg.docker.dind.image}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+          - name: DOCKER_TLS_CERTDIR
+            value: ""
+        command:
+          - dockerd
+          - --host=unix:///var/run/docker.sock
+          - --host=tcp://0.0.0.0:2376
+    '';
     extraVars = [
       { name = "DOCKER_HOST"; value = "tcp://localhost:2376"; }
     ];
