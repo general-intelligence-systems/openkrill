@@ -6,11 +6,10 @@
   </defs>
 
   <!-- Background -->
-  <rect width="320" height="100" rx="16" ry="16" fill="#1a1a2e"/>
+  <rect width="320" height="100" fill="#2a2d3e"/>
 
   <!-- Accent stripe -->
-  <rect width="100" height="100" rx="16" ry="16" fill="#5277C3"/>
-  <rect x="84" width="16" height="100" fill="#1a1a2e"/>
+  <rect width="100" height="100" fill="#5277C3"/>
 
   <!-- Logo -->
   <image
