@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="specs/README.md">Specifications</a> &bull;
+  <a href="VIBE_CODING_POLICY.md">Vibe Coding Policy</a> &bull;
   <a href="examples/">Examples</a> &bull;
   <a href="https://github.com/general-intelligence-systems/openkrill/issues">Issues</a>
 </p>
