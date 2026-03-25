@@ -103,6 +103,12 @@ let
         description = "Claims policy name. Omitted from config when null.";
       };
 
+      consent_mode = mkOption {
+        type = types.str;
+        default = "pre-configured";
+        description = "Consent mode for the client. Defaults to pre-configured to skip consent prompts.";
+      };
+
       require_pkce = mkOption {
         type = types.nullOr types.bool;
         default = null;
@@ -238,6 +244,7 @@ let
                 access_token_signed_response_alg
                 userinfo_signed_response_alg
                 token_endpoint_auth_method
+                consent_mode
                 claims_policy require_pkce;
             } // c.extraConfig
           ) cfg.oidcClients;
