@@ -670,6 +670,27 @@ in
       };
     };
 
+    # Basic-auth-only ForwardAuth middleware for non-browser clients
+    # (CalDAV/CardDAV, monitoring agents, CI).  Uses the basic-auth
+    # authz endpoint which has no CookieSession fallback, so
+    # unauthenticated requests receive 401 + WWW-Authenticate: Basic
+    # instead of a redirect to the login page.
+    openkrill.apps.traefik.middlewares.forwardauth-authelia-basic = mkIf config.openkrill.apps.authelia.enable {
+      namespace = "kube-system";
+      spec = {
+        forwardAuth = {
+          address = "http://authelia.${config.openkrill.apps.authelia.namespace}.svc.cluster.local/api/authz/basic-auth";
+          trustForwardHeader = true;
+          authResponseHeaders = [
+            "Remote-User"
+            "Remote-Groups"
+            "Remote-Email"
+            "Remote-Name"
+          ];
+        };
+      };
+    };
+
     openkrill.apps.argo-cd.applications.traefik = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";

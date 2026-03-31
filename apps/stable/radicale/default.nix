@@ -7,28 +7,45 @@
 with lib;
 let
   cfg = config.openkrill.apps.radicale;
-  lldapCfg = config.openkrill.apps.lldap;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
   appTemplate = import ../../../modules/lib/app-template.nix { inherit lib; };
 
   authSecretName = "radicale-auth";
-  ldapPasswordKey = "ldap-reader-password";
+  rightsKey = "rights";
 
   radicaleConfig = ''
     [server]
     hosts = 0.0.0.0:5232
 
     [auth]
-    type = ldap
-    ldap_uri = ldap://lldap.${lldapCfg.namespace}.svc.cluster.local:3890
-    ldap_base = ${lldapCfg.baseDn}
-    ldap_reader_dn = UID=${lldapCfg.adminUser},OU=people,${lldapCfg.baseDn}
-    ldap_secret_file = /config/${ldapPasswordKey}
-    ldap_filter = (uid={0})
-    ldap_user_attribute = uid
+    type = http_remote_user
+
+    [rights]
+    type = from_file
+    file = /config/${rightsKey}
+
+    [web]
+    type = none
 
     [storage]
     filesystem_folder = /data/collections
+  '';
+
+  rightsConfig = ''
+    [root]
+    user: .+
+    collection:
+    permissions: R
+
+    [principal]
+    user: .+
+    collection: {user}
+    permissions: RW
+
+    [calendars]
+    user: .+
+    collection: {user}/[^/]+
+    permissions: rw
   '';
 
   # appTemplate.valuesType fills unset options with null defaults.
@@ -110,7 +127,7 @@ let
       name = authSecretName;
       items = [
         { key = "config"; path = "config"; }
-        { key = ldapPasswordKey; path = ldapPasswordKey; }
+        { key = rightsKey; path = rightsKey; }
       ];
       advancedMounts.main.main = [
         { path = "/config"; readOnly = true; }
@@ -184,37 +201,40 @@ in
   };
 
   config = mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = config.openkrill.apps.external-secrets.enable;
-        message = "openkrill.apps.radicale requires openkrill.apps.external-secrets.enable = true";
-      }
-      {
-        assertion = config.openkrill.apps.lldap.enable;
-        message = "openkrill.apps.radicale requires openkrill.apps.lldap.enable = true";
-      }
-    ];
-
-    openkrill.apps.external-secrets.secrets.${authSecretName} = {
-      namespace = cfg.namespace;
-      targetSecretName = authSecretName;
-      remoteSecretName = "openkrill-lldap";
-      keys = [
-        { sourceKey = "LLDAP_LDAP_USER_PASS"; targetKey = ldapPasswordKey; }
-      ];
-      templateData = {
-        config = radicaleConfig;
+    openkrill.manifests.radicale.content =
+      [
+        (k8s.mkNamespace cfg.namespace)
+        {
+          apiVersion = "v1";
+          kind = "Secret";
+          metadata = {
+            name = authSecretName;
+            namespace = cfg.namespace;
+          };
+          type = "Opaque";
+          stringData = {
+            config = radicaleConfig;
+            "${rightsKey}" = rightsConfig;
+          };
+        }
+      ]
+      ++ kubelib.fromHelm {
+        name = "radicale";
+        chart = charts.bjw-s-labs.app-template.versions."4.6.2";
+        namespace = cfg.namespace;
+        values = recursiveUpdate defaults (removeNulls cfg.values);
+        extraOpts = [ "--skip-schema-validation" ];
       };
-    };
 
-    # Keep auth disabled at ingress so DAV clients can use Radicale's
-    # native auth methods (here: Radicale LDAP against LLDAP).
+    # Route uses basic-auth ForwardAuth — DAV clients get a 401
+    # challenge (not a redirect) so they can send credentials.
+    # Authelia validates against LLDAP and sets Remote-User.
     openkrill.ingress.routes.radicale = {
       subdomain = cfg.subdomain;
       namespace = cfg.namespace;
       service = "radicale";
       port = 5232;
-      auth = "none";
+      auth = "basic";
     };
 
     openkrill.apps.argo-cd.applications.radicale = mkIf config.openkrill.gitops.generateApplications {
@@ -236,14 +256,5 @@ in
       };
     };
 
-    openkrill.manifests.radicale.content =
-      [ (k8s.mkNamespace cfg.namespace) ]
-      ++ kubelib.fromHelm {
-        name = "radicale";
-        chart = charts.bjw-s-labs.app-template.versions."4.6.2";
-        namespace = cfg.namespace;
-        values = recursiveUpdate defaults (removeNulls cfg.values);
-        extraOpts = [ "--skip-schema-validation" ];
-      };
   };
 }

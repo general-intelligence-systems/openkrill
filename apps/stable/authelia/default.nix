@@ -131,6 +131,27 @@ let
 
     configMap.telemetry.metrics.enabled = true;
 
+    # Enable Basic Auth on the ForwardAuth endpoint so that non-browser
+    # clients (CalDAV/CardDAV, monitoring, CI) can authenticate with
+    # HTTP Basic credentials validated against the LDAP backend.
+    configMap.server.endpoints.authz.forward-auth = {
+      implementation = "ForwardAuth";
+      authn_strategies = [
+        { name = "HeaderAuthorization"; schemes = []; }
+        { name = "CookieSession"; schemes = []; }
+      ];
+    };
+
+    # Basic-auth-only endpoint for non-browser clients (CalDAV, CardDAV,
+    # monitoring, CI).  No CookieSession fallback → unauthenticated
+    # requests get 401 + WWW-Authenticate: Basic instead of a redirect.
+    configMap.server.endpoints.authz.basic-auth = {
+      implementation = "ForwardAuth";
+      authn_strategies = [
+        { name = "HeaderAuthorization"; schemes = []; }
+      ];
+    };
+
     secret = {
       existingSecret = "authelia";
       additionalSecrets = {
@@ -444,6 +465,19 @@ in
           group = "traefik.io";
           kind  = "Middleware";
           name  = "forwardauth-authelia";
+        };
+      }];
+
+    # Basic-auth filter: same as forward but uses the basic-auth-only
+    # authz endpoint.  Routes with auth = "basic" get 401 challenges
+    # instead of redirects — required for non-browser clients.
+    openkrill.ingress.authFilters.basic =
+      mkIf config.openkrill.apps.traefik.enable [{
+        type = "ExtensionRef";
+        extensionRef = {
+          group = "traefik.io";
+          kind  = "Middleware";
+          name  = "forwardauth-authelia-basic";
         };
       }];
 
