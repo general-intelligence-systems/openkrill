@@ -29,7 +29,7 @@ let
         ALLOW_ONLY_EXTERNAL_REGISTRATION = true;
       };
       openid.ENABLE_OPENID_SIGNIN = false;
-      oauth2.ENABLED = false;
+      oauth2.ENABLED = true;
       actions = {
         ENABLED = true;
         DEFAULT_ACTIONS_URL = "self";

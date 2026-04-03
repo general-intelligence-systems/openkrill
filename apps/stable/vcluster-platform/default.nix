@@ -12,6 +12,12 @@ in
   options.openkrill.apps.vcluster-platform = {
     enable = mkEnableOption "vCluster Platform for managing virtual Kubernetes clusters";
 
+    subdomain = mkOption {
+      type = types.str;
+      default = "vcluster";
+      description = "Subdomain for the vCluster Platform UI (e.g., vcluster.cia.net).";
+    };
+
     namespace = mkOption {
       type = types.str;
       default = "vcluster-platform";
@@ -28,6 +34,14 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── Ingress Route ───────────────────────────────────────────────
+    openkrill.ingress.routes.vcluster-platform = {
+      subdomain = cfg.subdomain;
+      namespace = cfg.namespace;
+      service   = "vcluster-platform";
+      port      = 8080;
+    };
+
     # ── ArgoCD Application ──────────────────────────────────────────
     openkrill.apps.argo-cd.applications.vcluster-platform = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
