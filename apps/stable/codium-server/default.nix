@@ -19,6 +19,7 @@ let
   };
 
   # ── Host aliases — derived from config.networking.extraHosts ─────
+  # Group hostnames by IP to avoid duplicate hostAliases entries (K8s rejects them).
   lines = filter (l: l != "") (splitString "\n" config.networking.extraHosts);
   parseLine = line: let
     parts = filter (p: p != "") (splitString " " line);
@@ -26,13 +27,28 @@ let
     ip        = head parts;
     hostnames = tail parts;
   };
-  hostAliases = map parseLine lines;
+  parsed = map parseLine lines;
+  grouped = foldl' (acc: entry:
+    acc // {
+      ${entry.ip} = {
+        ip = entry.ip;
+        hostnames = (acc.${entry.ip}.hostnames or []) ++ entry.hostnames;
+      };
+    }
+  ) {} parsed;
+  hostAliases = attrValues grouped;
 
   # ── Volumes & mounts ────────────────────────────────────────────────
   volumes = [
     {
       name = "home";
       hostPath = { path = cfg.persistence.hostPath; type = "DirectoryOrCreate"; };
+    }
+  ]
+  ++ optionals cfg.nixStore.enable [
+    {
+      name = "nix";
+      hostPath = { path = cfg.nixStore.hostPath; type = "DirectoryOrCreate"; };
     }
   ]
   ++ optionals (cfg.docker.mode == "host") [
@@ -44,6 +60,9 @@ let
 
   volumeMounts = [
     { name = "home"; mountPath = "/home/coder"; }
+  ]
+  ++ optionals cfg.nixStore.enable [
+    { name = "nix"; mountPath = "/nix"; }
   ]
   ++ optionals (cfg.docker.mode == "host") [
     { name = "docker-sock"; mountPath = "/var/run/docker.sock"; }
@@ -95,6 +114,18 @@ let
         spec = {
           inherit volumes hostAliases;
           securityContext = { fsGroup = 1000; } // podSecurityContext;
+          initContainers = optionals cfg.nixStore.enable [
+            {
+              name = "nix-store-init";
+              image = "${cfg.image.repository}:${cfg.image.tag}";
+              imagePullPolicy = cfg.image.pullPolicy;
+              securityContext.runAsUser = 0;
+              command = [ "/bin/sh" "-c" "if [ ! -d /nix-host/store ] || [ -z \"$(ls -A /nix-host/store 2>/dev/null)\" ]; then echo 'Initialising /nix store...'; cp -a /nix/. /nix-host/; fi; if [ ! -d /nix-host/var/nix/db ]; then echo 'Initialising /nix database...'; mkdir -p /nix-host/var/nix/db /nix-host/var/nix/gcroots /nix-host/var/nix/profiles /nix-host/var/nix/temproots /nix-host/var/nix/userpool; nix-store --store /nix-host --init; fi; chown -R 1000:1000 /nix-host; echo 'Done.'" ];
+              volumeMounts = [
+                { name = "nix"; mountPath = "/nix-host"; }
+              ];
+            }
+          ];
           containers = [
             {
               name = "codium-server";
@@ -178,7 +209,7 @@ in
 
     image.repository = mkOption {
       type = types.str;
-      default = "docker-registry.docker-registry.svc.cluster.local:5000/codium-server";
+      default = "ghcr.io/general-intelligence-systems/codium-server";
     };
 
     image.tag = mkOption {
@@ -218,6 +249,14 @@ in
       type = types.str;
       default = "docker:dind";
       description = "Container image for the DinD sidecar (only used when docker.mode = \"dind\").";
+    };
+
+    nixStore.enable = mkEnableOption "persist /nix to a host directory";
+
+    nixStore.hostPath = mkOption {
+      type = types.str;
+      default = "/var/lib/rancher/k3s/storage/codium-server-nix";
+      description = "Host directory to mount at /nix inside the container.";
     };
 
     devPorts = mkOption {
