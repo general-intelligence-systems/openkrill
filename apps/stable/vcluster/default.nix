@@ -55,7 +55,7 @@ in
     ]
     ++ kubelib.fromHelm {
       name = "vcluster";
-      chart = charts.loft.vcluster.latest;
+      chart = charts.loft.vcluster.versions."0.33.1";
       namespace = cfg.namespace;
       values = cfg.values;
     };

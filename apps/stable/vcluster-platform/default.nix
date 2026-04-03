@@ -54,7 +54,7 @@ in
     ]
     ++ kubelib.fromHelm {
       name = "vcluster-platform";
-      chart = charts.loft.vcluster-platform.latest;
+      chart = charts.loft.vcluster-platform.versions."4.8.1";
       namespace = cfg.namespace;
       values = cfg.values;
     };
