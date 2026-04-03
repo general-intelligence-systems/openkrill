@@ -18,7 +18,7 @@ let
     repo = "https://vmware-tanzu.github.io/helm-charts";
     chart = "velero";
     version = "12.0.0";
-    chartHash = "sha256-a4e0a97c28ca8845f33234373ea8fbde0a28174e98e5d939086c0ec3471fd684";
+    chartHash = "sha256-pOCpfCjKiEXzMjQ3Pqj73gooF06Y5dk5CGwOw0cf1oQ=";
   };
 in
 {

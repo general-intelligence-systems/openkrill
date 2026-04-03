@@ -26,17 +26,17 @@ with lib;
     };
 
     initContainers = mkOption {
-      type = types.listOf types.attrsOf types.anything;
+      type = types.listOf (types.attrsOf types.anything);
       default = [];
     };
 
     configuration = {
       backupStorageLocation = mkOption {
-        type = types.listOf types.attrsOf types.anything;
+        type = types.listOf (types.attrsOf types.anything);
         default = [];
       };
       volumeSnapshotLocation = mkOption {
-        type = types.listOf types.attrsOf types.anything;
+        type = types.listOf (types.attrsOf types.anything);
         default = [];
       };
     };
