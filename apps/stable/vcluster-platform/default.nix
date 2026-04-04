@@ -2,11 +2,44 @@
 #
 # Deploys Loft's vCluster Platform for managing virtual Kubernetes
 # clusters with multi-tenancy, sleep mode, and cost optimization features.
+#
+# Admin password is cross-referenced from the LLDAP secret so the admin
+# account uses the same credentials as the LLDAP admin user.
 { config, lib, charts, kubelib, k8s, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.vcluster-platform;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
+  lldapCfg = config.openkrill.apps.lldap;
+  domain = config.openkrill.domain;
+
+  hostname = "${cfg.subdomain}.${domain}";
+
+  # Name of the ESO-synced secret containing the LLDAP admin password.
+  lldapSecretName = "lldap-admin";
+
+  defaults = {
+    # Disable the built-in ingress — we use the openkrill ingress module.
+    ingress.enabled = false;
+
+    admin.create = true;
+    admin.username = lldapCfg.adminUser;
+    # "$" prefix tells the chart to use ADMIN_PASSWORD_ENV (runtime env var)
+    # instead of hashing the value at template time.
+    admin.password = "$LLDAP_PASSWORD";
+
+    # Inject the LLDAP password from the synced secret at runtime.
+    envValueFrom.LLDAP_PASSWORD = {
+      secretKeyRef = {
+        name = lldapSecretName;
+        key  = "LLDAP_LDAP_USER_PASS";
+      };
+    };
+
+    config = {
+      audit.enabled = true;
+    };
+  };
 in
 {
   options.openkrill.apps.vcluster-platform = {
@@ -38,8 +71,24 @@ in
     openkrill.ingress.routes.vcluster-platform = {
       subdomain = cfg.subdomain;
       namespace = cfg.namespace;
-      service   = "vcluster-platform";
-      port      = 8080;
+      service   = "loft";
+      port      = 80;
+    };
+
+    # ── Authelia OIDC Client Registration ───────────────────────────
+    openkrill.apps.authelia.oidcClients = [
+      {
+        name = "vCluster Platform";
+        redirect_uris = [ "https://${hostname}/auth/oidc/callback" ];
+        scopes = [ "openid" "profile" "email" "groups" ];
+      }
+    ];
+
+    # ── ExternalSecret for LLDAP admin password ─────────────────────
+    openkrill.apps.external-secrets.secrets.${lldapSecretName} = {
+      namespace = cfg.namespace;
+      remoteSecretName = "openkrill-lldap";
+      keys = [ "LLDAP_LDAP_USER_PASS" ];
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────
@@ -70,7 +119,7 @@ in
       name = "vcluster-platform";
       chart = charts.loft.vcluster-platform.versions."4.8.1";
       namespace = cfg.namespace;
-      values = cfg.values;
+      values = recursiveUpdate defaults cfg.values;
     };
   };
 }
