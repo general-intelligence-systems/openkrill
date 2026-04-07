@@ -314,29 +314,25 @@ in
     };
 
     # ── Route (frontend serves /, backend serves /api and /v1) ───
-    # The primary route points at the frontend.  Backend API routes
-    # are handled by an additional route with path prefix matching.
+    # A single route with per-path overrides for backend services.
     openkrill.ingress.routes.skyvern = {
       subdomain = "skyvern";
       namespace = cfg.namespace;
       service   = "skyvern-frontend";
       port      = 8080;
-    };
-
-    openkrill.ingress.routes.skyvern-api = {
-      subdomain = "skyvern";
-      namespace = cfg.namespace;
-      service   = "skyvern-backend";
-      port      = 8000;
-      match     = "PathPrefix(`/api`) || PathPrefix(`/v1`)";
-    };
-
-    openkrill.ingress.routes.skyvern-artifacts = {
-      subdomain = "skyvern";
-      namespace = cfg.namespace;
-      service   = "skyvern-frontend";
-      port      = 9090;
-      match     = "PathPrefix(`/artifacts`)";
+      paths = {
+        "/api" = {
+          service = "skyvern-backend";
+          port    = 8000;
+        };
+        "/v1" = {
+          service = "skyvern-backend";
+          port    = 8000;
+        };
+        "/artifacts" = {
+          port = 9090;
+        };
+      };
     };
 
     # ── ArgoCD Application CR ────────────────────────────────────
