@@ -85,6 +85,7 @@ in
       instances = 1;
       storage.size = "5Gi";
       imageName = "ghcr.io/general-intelligence-systems/postgresql:17-custom";
+      imagePullPolicy = "Always";
     };
 
     # ── VictoriaMetrics scrape + alerts (when VM is enabled) ──────────
