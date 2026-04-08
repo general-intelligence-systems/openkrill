@@ -74,7 +74,6 @@ let
 
           # LobeHub uses Better Auth for authentication.
           # AUTH_SECRET is provided via the secret mount.
-          NEXT_AUTH_SSO_PROVIDERS = "authelia";
 
           # Authelia OIDC configuration
           AUTH_SSO_PROVIDERS = "authelia";
