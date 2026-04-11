@@ -142,7 +142,7 @@ in
 
     runnerImage = mkOption {
       type = types.str;
-      default = "code.forgejo.org/forgejo/runner:12.6";
+      default = "code.forgejo.org/forgejo/runner:15.0";
       description = "Forgejo runner container image.";
     };
 
