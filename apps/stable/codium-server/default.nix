@@ -141,7 +141,7 @@ let
               # substituting or repairing it — which corrupts the store.
               securityContext = {
                 allowPrivilegeEscalation = true;
-                capabilities.add = [ "SYS_ADMIN" ];
+                capabilities.add = [ "SYS_ADMIN" "SYS_PTRACE" ];
               };
             }
           ] ++ dindContainers;
