@@ -55,8 +55,8 @@ in
     openkrill.ingress.routes.signoz = {
       subdomain = "signoz";
       namespace = cfg.namespace;
-      service   = "signoz-frontend";
-      port      = 3301;
+      service   = "signoz";
+      port      = 8080;
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────

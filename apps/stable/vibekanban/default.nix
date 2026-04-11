@@ -246,7 +246,7 @@ in
     image = {
       repository = mkOption {
         type        = types.str;
-        default     = "ghcr.io/bloopai/vibe-kanban";
+        default     = "ghcr.io/general-intelligence-systems/vibe-kanban";
         description = "Remote server container image repository.";
       };
       tag = mkOption {
