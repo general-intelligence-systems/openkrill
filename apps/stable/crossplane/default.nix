@@ -18,6 +18,8 @@ let
   ];
 in
 {
+  imports = [ ./provider-opentofu.nix ];
+
   options.openkrill.apps.crossplane = {
     enable = mkEnableOption "Crossplane universal control plane";
 
@@ -30,6 +32,25 @@ in
       type = types.attrs;
       default = {};
       description = "Helm chart value overrides, deep-merged with module defaults.";
+    };
+
+    providers = mkOption {
+      type = types.attrsOf (types.submodule {
+        options = {
+          package = mkOption {
+            type = types.str;
+            description = "OCI package reference for the Crossplane provider.";
+            example = "xpkg.upbound.io/upbound/provider-opentofu:v1.1.1";
+          };
+          config = mkOption {
+            type = types.listOf types.attrs;
+            default = [];
+            description = "Additional raw K8s resources to deploy alongside the Provider (e.g. ProviderConfig).";
+          };
+        };
+      });
+      default = {};
+      description = "Crossplane providers to install.";
     };
 
     extraManifests = helpers.mkExtraManifestsOption;
@@ -69,7 +90,18 @@ in
           if builtins.elem (res.kind or "") clusterScopedKinds
           then res
           else res // { metadata = (res.metadata or {}) // { namespace = cfg.namespace; }; };
+
+        # Generate a Provider CR for each entry in cfg.providers
+        providerCRs = mapAttrsToList (name: prov: {
+          apiVersion = "pkg.crossplane.io/v1";
+          kind = "Provider";
+          metadata = { inherit name; };
+          spec = { inherit (prov) package; };
+        }) cfg.providers;
+
+        # Collect all raw config resources across providers
+        providerConfigs = concatMap (prov: prov.config) (attrValues cfg.providers);
       in
-      [ (k8s.mkNamespace cfg.namespace) ] ++ map ensureNs raw;
+      [ (k8s.mkNamespace cfg.namespace) ] ++ map ensureNs raw ++ providerCRs ++ providerConfigs;
   };
 }

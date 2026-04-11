@@ -227,6 +227,11 @@ let
           type = (types.nullOr types.str);
           default = null;
         };
+        "postInitSQL" = mkOption {
+          description = "List of SQL queries to execute after the database has been created.\nThese are collected and forwarded to the CNPG cluster's\nbootstrap.initdb.postInitApplicationSQL.";
+          type = (types.listOf types.str);
+          default = [ ];
+        };
       };
     }
   );
