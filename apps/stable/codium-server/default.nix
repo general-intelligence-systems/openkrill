@@ -133,6 +133,16 @@ let
               imagePullPolicy = cfg.image.pullPolicy;
               inherit env volumeMounts;
               ports = [{ containerPort = 8080; name = "http"; protocol = "TCP"; }];
+              # CAP_SYS_ADMIN is required so that bubblewrap (used by Nix's
+              # buildFHSEnv to give codium an FHS filesystem) can create a
+              # proper mount namespace.  Without it, bwrap's tmpfs/bind mounts
+              # on the glibc store path leak into the container's root mount
+              # namespace, making the path read-only and preventing Nix from
+              # substituting or repairing it — which corrupts the store.
+              securityContext = {
+                allowPrivilegeEscalation = true;
+                capabilities.add = [ "SYS_ADMIN" ];
+              };
             }
           ] ++ dindContainers;
         };
