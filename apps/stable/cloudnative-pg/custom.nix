@@ -10,6 +10,12 @@ let
   cfg = config.openkrill.apps.cloudnative-pg;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 
+  # Collect postInitSQL from all database definitions and forward them
+  # to the shared cluster's bootstrap.initdb.postInitSQL.
+  allDatabasePostInitSQL = concatLists (
+    mapAttrsToList (_: db: db.postInitSQL) cfg.databases
+  );
+
   # ── ClusterSecretStore + RBAC for CNPG-generated secrets ──────────
   # App modules (lldap, authelia, …) need credentials from the
   # postgres-app secret that CNPG generates in cfg.namespace.
@@ -86,6 +92,7 @@ in
       storage.size = "5Gi";
       imageName = "ghcr.io/general-intelligence-systems/postgresql:17-custom";
       imagePullPolicy = "Always";
+      bootstrap.initdb.postInitSQL = mkIf (allDatabasePostInitSQL != []) allDatabasePostInitSQL;
     };
 
     # ── VictoriaMetrics scrape + alerts (when VM is enabled) ──────────
