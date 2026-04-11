@@ -42,7 +42,7 @@ let
         "container:"
         "  network: \"host\""
         "  docker_host: \"tcp://localhost:2375\""
-        "  options: \"-v ${dindCaBundlePath}:${jobCaBundlePath}:ro\""
+        "  options: \"--device /dev/kvm -v ${dindCaBundlePath}:${jobCaBundlePath}:ro\""
         "  valid_volumes:"
         "    - \"**\""
         ""
