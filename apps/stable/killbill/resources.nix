@@ -227,6 +227,87 @@ in
     };
   }
 
+  # ── Job: Kaui database migration ───────────────────────────────────
+  # Downloads the canonical DDL from the killbill-admin-ui repo at the
+  # configured Kaui version tag, converts MySQL-isms to PostgreSQL, and
+  # applies it.  All CREATE statements are idempotent (IF NOT EXISTS).
+  {
+    apiVersion = "batch/v1";
+    kind = "Job";
+    metadata = {
+      name = "kaui-db-migrate";
+      namespace = cfg.namespace;
+      labels = kauiLabels;
+    };
+    spec = {
+      backoffLimit = 3;
+      ttlSecondsAfterFinished = 300;
+      template = {
+        metadata.labels = kauiLabels // {
+          "app.kubernetes.io/component" = "db-migrate";
+        };
+        spec = {
+          restartPolicy = "OnFailure";
+          containers = [
+            {
+              name = "migrate";
+              image = "postgres:16";
+              env = [
+                {
+                  name = "KAUI_VERSION";
+                  value = cfg.kaui.image.tag;
+                }
+                {
+                  name = "PGPASSWORD";
+                  valueFrom.secretKeyRef = {
+                    name = kauiDbSecretName;
+                    key = "KAUI_CONFIG_DAO_PASSWORD";
+                  };
+                }
+                {
+                  name = "PGHOST";
+                  value = dbHost;
+                }
+                {
+                  name = "PGUSER";
+                  value = "app";
+                }
+                {
+                  name = "PGDATABASE";
+                  value = "kaui";
+                }
+              ];
+              command = [ "bash" "-exc" ''
+                apt-get update -qq && apt-get install -y -qq curl >/dev/null 2>&1
+                DDL_URL="https://raw.githubusercontent.com/killbill/killbill-admin-ui/v$KAUI_VERSION/db/ddl.sql"
+                echo "Fetching DDL from $DDL_URL"
+                DDL=$(curl -fSsL "$DDL_URL")
+
+                # Convert MySQL DDL to PostgreSQL:
+                #   - datetime -> timestamp
+                #   - strip MySQL-specific comments /*! ... */
+                #   - strip unsigned hints
+                DDL=$(echo "$DDL" \
+                  | sed 's/datetime/timestamp/g' \
+                  | sed 's|/\*!.*\*/||g' \
+                  | sed 's/unsigned//g')
+
+                # Make idempotent: CREATE TABLE -> CREATE TABLE IF NOT EXISTS
+                DDL=$(echo "$DDL" \
+                  | sed 's/CREATE TABLE /CREATE TABLE IF NOT EXISTS /g' \
+                  | sed 's/CREATE UNIQUE INDEX /CREATE UNIQUE INDEX IF NOT EXISTS /g' \
+                  | sed 's/CREATE INDEX /CREATE INDEX IF NOT EXISTS /g')
+
+                echo "$DDL" | psql -v ON_ERROR_STOP=1
+                echo "Migration complete"
+              '' ];
+            }
+          ];
+        };
+      };
+    };
+  }
+
   # ── Service: Kill Bill API ──────────────────────────────────────────
   {
     apiVersion = "v1";

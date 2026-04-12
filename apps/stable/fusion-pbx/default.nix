@@ -184,14 +184,32 @@ let
     };
   };
 
+  # ── ServersTransport for backend TLS ──────────────────────────────
+  # FusionPBX's NGINX uses a self-signed certificate that doesn't
+  # include IP SANs.  Traefik must skip TLS verification when
+  # connecting to the backend.
+  serversTransport = {
+    apiVersion = "traefik.io/v1alpha1";
+    kind = "ServersTransport";
+    metadata = { name = "${cfg.vmName}-transport"; namespace = cfg.namespace; };
+    spec = {
+      insecureSkipVerify = true;
+    };
+  };
+
   # ── ClusterIP Service for Web UI (fronted by Traefik HTTPRoute) ─
   # Target HTTPS (443) on the VM because FusionPBX's NGINX redirects
   # HTTP→HTTPS.  Traefik terminates external TLS, then connects to
-  # the VM backend over HTTPS (Traefik trusts via trust-manager CA).
+  # the VM backend over HTTPS with TLS verification skipped (the VM
+  # uses a self-signed cert without IP SANs).
   webService = {
     apiVersion = "v1";
     kind = "Service";
-    metadata = { name = "${cfg.vmName}-web"; namespace = cfg.namespace; };
+    metadata = {
+      name = "${cfg.vmName}-web";
+      namespace = cfg.namespace;
+      annotations."traefik.io/service.serverstransport" = "${cfg.namespace}-${cfg.vmName}-transport@kubernetescrd";
+    };
     spec = {
       selector."kubevirt.io/vm" = cfg.vmName;
       ports = [{
@@ -377,6 +395,6 @@ in
     openkrill.manifests.fusion-pbx.content =
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ taintResources
-      ++ [ dataPVC vmResource webService sipService rtpService ];
+      ++ [ dataPVC vmResource serversTransport webService sipService rtpService ];
   };
 }
