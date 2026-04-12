@@ -29,6 +29,75 @@ let
 
   rtpPortCount = cfg.rtpPortRange.end - cfg.rtpPortRange.start;
 
+  # ── Cloud-init user data ──────────────────────────────────────
+  # Stored in a Secret (userDataSecretRef) because KubeVirt's inline
+  # userData has a 2048-byte limit.
+  cloudInitUserData = concatStringsSep "\n" ([
+    "#cloud-config"
+    "package_update: true"
+    "package_upgrade: true"
+    "packages:"
+    "  - wget"
+    "  - ca-certificates"
+    "  - qemu-guest-agent"
+    "runcmd:"
+    "  - 'systemctl enable --now qemu-guest-agent'"
+    # ── FusionPBX install ─────────────────────────────────
+    "  - 'wget -O - https://raw.githubusercontent.com/fusionpbx/fusionpbx-install.sh/master/debian/pre-install.sh | sh'"
+    "  - 'cd /usr/src/fusionpbx-install.sh/debian && ./install.sh'"
+    # Narrow FreeSWITCH RTP port range
+    "  - \"sed -i 's/16384/${toString cfg.rtpPortRange.start}/' /etc/freeswitch/autoload_configs/switch.conf.xml\""
+    "  - \"sed -i 's/32768/${toString (cfg.rtpPortRange.end - 1)}/' /etc/freeswitch/autoload_configs/switch.conf.xml\""
+    "  - 'systemctl restart freeswitch || true'"
+    # ── Deploy TLS cert + CA bundle from mounted volumes ──
+    "  - |"
+    "    mkdir -p /mnt/tls"
+    "    mount /dev/$(lsblk -o NAME,SERIAL -rn | awk '/TLSCERT/{print $1}') /mnt/tls"
+    "    cp /mnt/tls/tls.crt /etc/ssl/certs/nginx.crt"
+    "    cp /mnt/tls/tls.key /etc/ssl/private/nginx.key"
+    "    mkdir -p /etc/freeswitch/tls"
+    "    cat /mnt/tls/tls.crt /mnt/tls/tls.key > /etc/freeswitch/tls/wss.pem"
+    "    cat /mnt/tls/tls.crt /mnt/tls/tls.key > /etc/freeswitch/tls/tls.pem"
+    "    chown -R www-data:www-data /etc/freeswitch/tls/ 2>/dev/null || true"
+    "    umount /mnt/tls"
+    "    mkdir -p /mnt/ca"
+    "    mount /dev/$(lsblk -o NAME,SERIAL -rn | awk '/CABUNDLE/{print $1}') /mnt/ca"
+    "    cp /mnt/ca/bundle.pem /usr/local/share/ca-certificates/openkrill-ca.crt"
+    "    update-ca-certificates"
+    "    umount /mnt/ca"
+    "    systemctl reload nginx || true"
+    "    systemctl restart freeswitch || true"
+    "    cat > /etc/cron.daily/refresh-tls <<'CRONEOF'"
+    "    #!/bin/sh"
+    "    DEV=$(lsblk -o NAME,SERIAL -rn | awk '/TLSCERT/{print $1}')"
+    "    [ -z \"$DEV\" ] && exit 0"
+    "    mkdir -p /mnt/tls && mount /dev/$DEV /mnt/tls 2>/dev/null || exit 0"
+    "    cp /mnt/tls/tls.crt /etc/ssl/certs/nginx.crt"
+    "    cp /mnt/tls/tls.key /etc/ssl/private/nginx.key"
+    "    cat /mnt/tls/tls.crt /mnt/tls/tls.key > /etc/freeswitch/tls/wss.pem"
+    "    cat /mnt/tls/tls.crt /mnt/tls/tls.key > /etc/freeswitch/tls/tls.pem"
+    "    umount /mnt/tls"
+    "    systemctl reload nginx"
+    "    CRONEOF"
+    "    chmod +x /etc/cron.daily/refresh-tls"
+    # ── NGINX reverse proxy config ────────────────────────
+    "  - 'sed -i \"/server_name/a\\\\\\tset_real_ip_from 10.42.0.0/16;\\n\\treal_ip_header X-Forwarded-For;\" /etc/nginx/sites-available/fusionpbx || true'"
+    "  - 'nginx -t && systemctl reload nginx || true'"
+  ] ++ optionals (cfg.sshAuthorizedKeys != []) [
+    "users:"
+    "  - name: root"
+    "    ssh_authorized_keys:"
+  ] ++ map (k: "      - ${builtins.toJSON k}") cfg.sshAuthorizedKeys);
+
+  # Secret holding the cloud-init userdata
+  cloudInitSecret = {
+    apiVersion = "v1";
+    kind = "Secret";
+    metadata = { name = "${cfg.vmName}-cloudinit"; namespace = cfg.namespace; };
+    type = "Opaque";
+    stringData.userdata = cloudInitUserData;
+  };
+
   # ── Node taint resources ───────────────────────────────────────
   # A Job that taints + labels the target node(s) so only pods with
   # the matching toleration (i.e. the FusionPBX VM) can schedule there.
@@ -95,9 +164,36 @@ let
   vmResource = {
     apiVersion = "kubevirt.io/v1";
     kind = "VirtualMachine";
-    metadata = { name = cfg.vmName; namespace = cfg.namespace; };
+    metadata = {
+      name = cfg.vmName;
+      namespace = cfg.namespace;
+      annotations."argocd.argoproj.io/sync-options" = "Replace=true";
+    };
     spec = {
-      running = true;
+      runStrategy = "Always";
+
+      # CDI imports the Debian 12 container disk image into a real
+      # PVC.  The VM boots from a full-size persistent disk.
+      dataVolumeTemplates = [{
+        metadata = {
+          name = "${cfg.vmName}-rootdisk";
+          annotations."cdi.kubevirt.io/storage.pod.tolerations" = builtins.toJSON [{
+            key = "fusionpbx";
+            operator = "Equal";
+            value = "dedicated";
+            effect = "NoSchedule";
+          }];
+        };
+        spec = {
+          storage = {
+            accessModes = [ "ReadWriteOnce" ];
+            resources.requests.storage = cfg.dataSize;
+            storageClassName = "local-path";
+          };
+          source.registry.url = "docker://${cfg.image}";
+        };
+      }];
+
       template = {
         metadata.labels = {
           "app.kubernetes.io/name" = "fusion-pbx";
@@ -119,7 +215,8 @@ let
             devices = {
               disks = [
                 { name = "rootdisk"; disk.bus = "virtio"; }
-                { name = "datadisk"; disk.bus = "virtio"; }
+                { name = "tls-cert"; disk.bus = "virtio"; disk.readonly = true; serial = "TLSCERT"; }
+                { name = "ca-bundle"; disk.bus = "virtio"; disk.readonly = true; serial = "CABUNDLE"; }
                 { name = "cloudinit"; disk.bus = "virtio"; }
               ];
               interfaces = [{
@@ -137,71 +234,19 @@ let
           volumes = [
             {
               name = "rootdisk";
-              containerDisk.image = cfg.image;
+              dataVolume.name = "${cfg.vmName}-rootdisk";
             }
             {
-              name = "datadisk";
-              persistentVolumeClaim.claimName = "${cfg.vmName}-data";
+              name = "tls-cert";
+              secret.secretName = cfg.tlsSecretName;
+            }
+            {
+              name = "ca-bundle";
+              configMap.name = "openkrill-ca-bundle";
             }
             {
               name = "cloudinit";
-              cloudInitNoCloud.userData = concatStringsSep "\n" ([
-                "#cloud-config"
-                "package_update: true"
-                "package_upgrade: true"
-                "packages:"
-                "  - wget"
-                "  - ca-certificates"
-                "disk_setup:"
-                "  /dev/vdb:"
-                "    table_type: mbr"
-                "    layout: true"
-                "    overwrite: false"
-                "fs_setup:"
-                "  - label: data"
-                "    device: /dev/vdb1"
-                "    filesystem: ext4"
-                "    overwrite: false"
-                "mounts:"
-                "  - [/dev/vdb1, /mnt/data, ext4, 'defaults,nofail', '0', '2']"
-                "runcmd:"
-                # Bind-mount heavy directories onto the 200 Gi PVC.
-                # Avoid /var/lib/cloud (cloud-init needs it in place).
-                "  - |"
-                "    for d in /usr /var/lib/dpkg /var/lib/apt /var/lib/postgresql /var/lib/freeswitch /var/cache /var/www /var/log /tmp /usr/src /opt /etc/freeswitch; do"
-                "      mkdir -p /mnt/data\"$d\""
-                "      [ -d \"$d\" ] && cp -a \"$d/.\" /mnt/data\"$d/\" 2>/dev/null || true"
-                "      mkdir -p \"$d\""
-                "      mount --bind /mnt/data\"$d\" \"$d\""
-                "    done"
-                "    chmod 1777 /tmp"
-                # ── FusionPBX install ─────────────────────────────────
-                "  - 'wget -O - https://raw.githubusercontent.com/fusionpbx/fusionpbx-install.sh/master/debian/pre-install.sh | sh'"
-                "  - 'cd /usr/src/fusionpbx-install.sh/debian && ./install.sh'"
-                # Narrow FreeSWITCH RTP port range
-                "  - \"sed -i 's/16384/${toString cfg.rtpPortRange.start}/' /etc/freeswitch/autoload_configs/switch.conf.xml\""
-                "  - \"sed -i 's/32768/${toString (cfg.rtpPortRange.end - 1)}/' /etc/freeswitch/autoload_configs/switch.conf.xml\""
-                "  - 'systemctl restart freeswitch || true'"
-                # ── Configure NGINX for reverse proxy ─────────────────
-                # Traefik terminates TLS. Rewrite NGINX to serve HTTP
-                # on port 80 instead of HTTPS on 443.
-                "  - |"
-                "    python3 -c \""
-                "    import re"
-                "    with open('/etc/nginx/sites-available/fusionpbx') as f: c = f.read()"
-                "    c = re.sub(r'server\\s*\\{[^}]*return 301[^}]*\\}', '', c)"
-                "    c = c.replace('listen 443 ssl;', 'listen 80;')"
-                "    c = re.sub(r'^(\\s*ssl_)', r'#\\1', c, flags=re.MULTILINE)"
-                "    c = c.replace('server_name ', 'set_real_ip_from 10.42.0.0/16;\\n\\treal_ip_header X-Forwarded-For;\\n\\tserver_name ', 1)"
-                "    c = re.sub(r'fastcgi_param\\s+HTTPS\\s+\\S+', 'fastcgi_param HTTPS on', c)"
-                "    with open('/etc/nginx/sites-available/fusionpbx', 'w') as f: f.write(c)"
-                "    \""
-                "  - 'nginx -t && systemctl reload nginx'"
-              ] ++ optionals (cfg.sshAuthorizedKeys != []) [
-                "users:"
-                "  - name: root"
-                "    ssh_authorized_keys:"
-              ] ++ map (k: "      - ${builtins.toJSON k}") cfg.sshAuthorizedKeys);
+              cloudInitNoCloud.secretRef.name = "${cfg.vmName}-cloudinit";
             }
           ];
         };
@@ -209,22 +254,33 @@ let
     };
   };
 
-  # ── Local-path PVC for VM data ─────────────────────────────────
-  dataPVC = {
-    apiVersion = "v1";
-    kind = "PersistentVolumeClaim";
-    metadata = { name = "${cfg.vmName}-data"; namespace = cfg.namespace; };
+  # ── cert-manager Certificate for backend TLS ─────────────────────
+  # Signed by openkrill-signing-authority; Traefik trusts it via the
+  # trust-manager CA bundle.  Mounted into the VM as a KubeVirt
+  # secret disk and deployed to NGINX/FreeSWITCH by cloud-init.
+  tlsCertificate = {
+    apiVersion = "cert-manager.io/v1";
+    kind = "Certificate";
+    metadata = { name = cfg.tlsSecretName; namespace = cfg.namespace; };
     spec = {
-      accessModes = [ "ReadWriteOnce" ];
-      storageClassName = "local-path";
-      resources.requests.storage = cfg.dataSize;
+      secretName = cfg.tlsSecretName;
+      dnsNames = [
+        cfg.vmName
+        "${cfg.vmName}-web"
+        "${cfg.vmName}-web.${cfg.namespace}.svc"
+        "${cfg.vmName}-web.${cfg.namespace}.svc.cluster.local"
+      ];
+      issuerRef = {
+        name = "openkrill-signing-authority";
+        kind = "ClusterIssuer";
+      };
     };
   };
 
   # ── ClusterIP Service for Web UI (fronted by Traefik HTTPRoute) ─
-  # Traefik terminates TLS on the frontend.  The VM's NGINX is
-  # configured (via cloud-init) to serve HTTP on port 80 behind the
-  # reverse proxy, so Traefik connects over plain HTTP.
+  # The VM's NGINX serves HTTPS on 443 with a cert signed by
+  # openkrill-signing-authority.  Traefik connects to the backend
+  # over HTTPS; the BackendTLSPolicy handles SNI and verification.
   webService = {
     apiVersion = "v1";
     kind = "Service";
@@ -232,9 +288,9 @@ let
     spec = {
       selector."kubevirt.io/vm" = cfg.vmName;
       ports = [{
-        name = "http";
-        port = 80;
-        targetPort = 80;
+        name = "https";
+        port = 443;
+        targetPort = 443;
         protocol = "TCP";
       }];
     };
@@ -355,6 +411,17 @@ in
       description = "Subdomain for the FusionPBX web UI (e.g. pbx.<domain>).";
     };
 
+    tlsSecretName = mkOption {
+      type = types.str;
+      default = "${cfg.vmName}-tls";
+      description = ''
+        Name of the cert-manager Certificate / K8s Secret (tls.crt + tls.key)
+        deployed into the VM for NGINX and FreeSWITCH TLS.  A cert-manager
+        Certificate resource is created automatically, signed by the
+        openkrill-signing-authority ClusterIssuer.
+      '';
+    };
+
     rtpPortRange = {
       start = mkOption {
         type = types.int;
@@ -381,6 +448,13 @@ in
   };
 
   config = mkIf cfg.enable {
+    # ── CDI workload tolerations ─────────────────────────────────────
+    # The dedicated node(s) are tainted with fusionpbx=dedicated:NoSchedule.
+    # CDI importer pods must tolerate this taint to import the VM disk
+    # image onto the local-path PV on the tainted node.
+    # The cdi-cr Helm chart is a static manifest (no templating), so we
+    # deploy the CDI CR with tolerations from the fusion-pbx manifests.
+
     # ── ArgoCD Application ──────────────────────────────────────────
     openkrill.apps.argo-cd.applications.fusion-pbx = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
@@ -406,14 +480,68 @@ in
       subdomain = cfg.subdomain;
       namespace = cfg.namespace;
       service   = "${cfg.vmName}-web";
-      port      = 80;
+      port      = 443;
       auth      = "forward";
+    };
+
+    # ── Backend TLS policy ──────────────────────────────────────────
+    # The VM's NGINX serves HTTPS with a cert signed by
+    # openkrill-signing-authority.  The BackendTLSPolicy tells Traefik
+    # to use the service FQDN as the SNI hostname and to trust the
+    # system CA bundle (trust-manager mounts the openkrill CA into
+    # Traefik's /etc/ssl/certs).
+    openkrill.apps."gateway-api".backendtlspolicies.fusion-pbx-web = {
+      namespace = cfg.namespace;
+      targetRefs = [{
+        group = "";
+        kind = "Service";
+        name = "${cfg.vmName}-web";
+      }];
+      validation = {
+        hostname = "${cfg.vmName}-web.${cfg.namespace}.svc";
+        wellKnownCACertificates = "System";
+      };
     };
 
     # ── Manifests ───────────────────────────────────────────────────
     openkrill.manifests.fusion-pbx.content =
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ taintResources
-      ++ [ dataPVC vmResource webService sipService rtpService ];
+      ++ [
+        # CDI CR with workload tolerations for the tainted node
+        {
+          apiVersion = "cdi.kubevirt.io/v1beta1";
+          kind = "CDI";
+          metadata.name = "cdi";
+          spec = {
+            config.featureGates = [ "HonorWaitForFirstConsumer" "WebhookPvcRendering" ];
+            imagePullPolicy = "IfNotPresent";
+            infra.nodeSelector."kubernetes.io/os" = "linux";
+            workload = {
+              nodeSelector."kubernetes.io/os" = "linux";
+              tolerations = [{
+                key = "fusionpbx";
+                operator = "Equal";
+                value = "dedicated";
+                effect = "NoSchedule";
+              }];
+            };
+          };
+        }
+        # StorageProfile for local-path — CDI does not recognise the
+        # rancher.io/local-path provisioner, so the auto-created profile
+        # has an empty spec.  Without claimPropertySets CDI cannot
+        # determine accessMode / volumeMode for scratch PVCs.
+        {
+          apiVersion = "cdi.kubevirt.io/v1beta1";
+          kind = "StorageProfile";
+          metadata.name = "local-path";
+          spec.claimPropertySets = [{
+            accessModes = [ "ReadWriteOnce" ];
+            volumeMode = "Filesystem";
+          }];
+        }
+        tlsCertificate cloudInitSecret vmResource webService sipService rtpService
+      ];
   };
 }
