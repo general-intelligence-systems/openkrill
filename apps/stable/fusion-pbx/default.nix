@@ -152,14 +152,51 @@ let
                 "packages:"
                 "  - wget"
                 "  - ca-certificates"
+                "disk_setup:"
+                "  /dev/vdb:"
+                "    table_type: mbr"
+                "    layout: true"
+                "    overwrite: false"
+                "fs_setup:"
+                "  - label: data"
+                "    device: /dev/vdb1"
+                "    filesystem: ext4"
+                "    overwrite: false"
+                "mounts:"
+                "  - [/dev/vdb1, /mnt/data, ext4, 'defaults,nofail', '0', '2']"
                 "runcmd:"
-                # FusionPBX quick install from official docs
+                # Bind-mount heavy directories onto the 200 Gi PVC.
+                # Avoid /var/lib/cloud (cloud-init needs it in place).
+                "  - |"
+                "    for d in /usr /var/lib/dpkg /var/lib/apt /var/lib/postgresql /var/lib/freeswitch /var/cache /var/www /var/log /tmp /usr/src /opt /etc/freeswitch; do"
+                "      mkdir -p /mnt/data\"$d\""
+                "      [ -d \"$d\" ] && cp -a \"$d/.\" /mnt/data\"$d/\" 2>/dev/null || true"
+                "      mkdir -p \"$d\""
+                "      mount --bind /mnt/data\"$d\" \"$d\""
+                "    done"
+                "    chmod 1777 /tmp"
+                # ── FusionPBX install ─────────────────────────────────
                 "  - 'wget -O - https://raw.githubusercontent.com/fusionpbx/fusionpbx-install.sh/master/debian/pre-install.sh | sh'"
                 "  - 'cd /usr/src/fusionpbx-install.sh/debian && ./install.sh'"
-                # Narrow FreeSWITCH RTP port range to match the K8s Service definition
+                # Narrow FreeSWITCH RTP port range
                 "  - \"sed -i 's/16384/${toString cfg.rtpPortRange.start}/' /etc/freeswitch/autoload_configs/switch.conf.xml\""
                 "  - \"sed -i 's/32768/${toString (cfg.rtpPortRange.end - 1)}/' /etc/freeswitch/autoload_configs/switch.conf.xml\""
                 "  - 'systemctl restart freeswitch || true'"
+                # ── Configure NGINX for reverse proxy ─────────────────
+                # Traefik terminates TLS. Rewrite NGINX to serve HTTP
+                # on port 80 instead of HTTPS on 443.
+                "  - |"
+                "    python3 -c \""
+                "    import re"
+                "    with open('/etc/nginx/sites-available/fusionpbx') as f: c = f.read()"
+                "    c = re.sub(r'server\\s*\\{[^}]*return 301[^}]*\\}', '', c)"
+                "    c = c.replace('listen 443 ssl;', 'listen 80;')"
+                "    c = re.sub(r'^(\\s*ssl_)', r'#\\1', c, flags=re.MULTILINE)"
+                "    c = c.replace('server_name ', 'set_real_ip_from 10.42.0.0/16;\\n\\treal_ip_header X-Forwarded-For;\\n\\tserver_name ', 1)"
+                "    c = re.sub(r'fastcgi_param\\s+HTTPS\\s+\\S+', 'fastcgi_param HTTPS on', c)"
+                "    with open('/etc/nginx/sites-available/fusionpbx', 'w') as f: f.write(c)"
+                "    \""
+                "  - 'nginx -t && systemctl reload nginx'"
               ] ++ optionals (cfg.sshAuthorizedKeys != []) [
                 "users:"
                 "  - name: root"
@@ -184,38 +221,20 @@ let
     };
   };
 
-  # ── ServersTransport for backend TLS ──────────────────────────────
-  # FusionPBX's NGINX uses a self-signed certificate that doesn't
-  # include IP SANs.  Traefik must skip TLS verification when
-  # connecting to the backend.
-  serversTransport = {
-    apiVersion = "traefik.io/v1alpha1";
-    kind = "ServersTransport";
-    metadata = { name = "${cfg.vmName}-transport"; namespace = cfg.namespace; };
-    spec = {
-      insecureSkipVerify = true;
-    };
-  };
-
   # ── ClusterIP Service for Web UI (fronted by Traefik HTTPRoute) ─
-  # Target HTTPS (443) on the VM because FusionPBX's NGINX redirects
-  # HTTP→HTTPS.  Traefik terminates external TLS, then connects to
-  # the VM backend over HTTPS with TLS verification skipped (the VM
-  # uses a self-signed cert without IP SANs).
+  # Traefik terminates TLS on the frontend.  The VM's NGINX is
+  # configured (via cloud-init) to serve HTTP on port 80 behind the
+  # reverse proxy, so Traefik connects over plain HTTP.
   webService = {
     apiVersion = "v1";
     kind = "Service";
-    metadata = {
-      name = "${cfg.vmName}-web";
-      namespace = cfg.namespace;
-      annotations."traefik.io/service.serverstransport" = "${cfg.namespace}-${cfg.vmName}-transport@kubernetescrd";
-    };
+    metadata = { name = "${cfg.vmName}-web"; namespace = cfg.namespace; };
     spec = {
       selector."kubevirt.io/vm" = cfg.vmName;
       ports = [{
-        name = "https";
-        port = 443;
-        targetPort = 443;
+        name = "http";
+        port = 80;
+        targetPort = 80;
         protocol = "TCP";
       }];
     };
@@ -314,7 +333,7 @@ in
 
     dataSize = mkOption {
       type = types.str;
-      default = "50Gi";
+      default = "200Gi";
       description = "Size of the local-path PVC for FusionPBX data (recordings, database, logs).";
     };
 
@@ -387,7 +406,7 @@ in
       subdomain = cfg.subdomain;
       namespace = cfg.namespace;
       service   = "${cfg.vmName}-web";
-      port      = 443;
+      port      = 80;
       auth      = "forward";
     };
 
@@ -395,6 +414,6 @@ in
     openkrill.manifests.fusion-pbx.content =
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ taintResources
-      ++ [ dataPVC vmResource serversTransport webService sipService rtpService ];
+      ++ [ dataPVC vmResource webService sipService rtpService ];
   };
 }

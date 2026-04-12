@@ -71,6 +71,10 @@ in
       };
     };
 
+    # Auto-enable CDI — provides disk import/clone for VM workloads
+    openkrill.apps.containerized-data-importer.enable =
+      mkDefault true;
+
     openkrill.manifests.kubevirt.content =
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ operatorResources
