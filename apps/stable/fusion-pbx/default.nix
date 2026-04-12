@@ -108,7 +108,8 @@ let
           }];
 
           domain = {
-            resources = {};  # dedicated node — VM gets everything
+            cpu.cores = cfg.cpu;
+            resources.requests.memory = cfg.memory;
             devices = {
               disks = [
                 { name = "rootdisk"; disk.bus = "virtio"; }
@@ -217,6 +218,18 @@ in
       type = types.str;
       default = "50Gi";
       description = "Size of the local-path PVC for FusionPBX data (recordings, database, logs).";
+    };
+
+    memory = mkOption {
+      type = types.str;
+      default = "24Gi";
+      description = "Memory to request for the FusionPBX VM (e.g. '8Gi', '16Gi'). Default leaves ~6-8 GiB for the host OS, kubelet, and k3s.";
+    };
+
+    cpu = mkOption {
+      type = types.int;
+      default = 4;
+      description = "Number of CPU cores for the FusionPBX VM.";
     };
 
     sshAuthorizedKeys = mkOption {
