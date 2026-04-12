@@ -21,7 +21,7 @@
 #
 # FreeSWITCH's RTP range is narrowed via cloud-init to match the Service
 # definition, since K8s Services cannot express port ranges.
-{ config, lib, k8s, ... }:
+{ config, lib, pkgs, k8s, ... }:
 with lib;
 let
   cfg = config.openkrill.apps.fusion-pbx;
@@ -80,6 +80,18 @@ let
     "    systemctl reload nginx"
     "    CRONEOF"
     "    chmod +x /etc/cron.daily/refresh-tls"
+    # ── Set admin password from pre-hashed secret ───────
+    "  - |"
+    "    mkdir -p /mnt/admin"
+    "    DEV=$(lsblk -o NAME,SERIAL -rn | awk '/ADMINPASS/{print $1}')"
+    "    if [ -n \"$DEV\" ]; then"
+    "      mount /dev/$DEV /mnt/admin 2>/dev/null || true"
+    "      if [ -f /mnt/admin/ADMIN_PASSWORD ]; then"
+    "        HASH=$(cat /mnt/admin/ADMIN_PASSWORD)"
+    "        sudo -u postgres psql -d fusionpbx -c \"UPDATE v_users SET password='$HASH' WHERE username='admin';\" || true"
+    "      fi"
+    "      umount /mnt/admin"
+    "    fi"
     # ── NGINX reverse proxy config ────────────────────────
     "  - 'sed -i \"/server_name/a\\\\\\tset_real_ip_from 10.42.0.0/16;\\n\\treal_ip_header X-Forwarded-For;\" /etc/nginx/sites-available/fusionpbx || true'"
     "  - 'nginx -t && systemctl reload nginx || true'"
@@ -217,6 +229,7 @@ let
                 { name = "rootdisk"; disk.bus = "virtio"; }
                 { name = "tls-cert"; disk.bus = "virtio"; disk.readonly = true; serial = "TLSCERT"; }
                 { name = "ca-bundle"; disk.bus = "virtio"; disk.readonly = true; serial = "CABUNDLE"; }
+                { name = "admin-pass"; disk.bus = "virtio"; disk.readonly = true; serial = "ADMINPASS"; }
                 { name = "cloudinit"; disk.bus = "virtio"; }
               ];
               interfaces = [{
@@ -243,6 +256,10 @@ let
             {
               name = "ca-bundle";
               configMap.name = "openkrill-ca-bundle";
+            }
+            {
+              name = "admin-pass";
+              secret.secretName = "${cfg.vmName}-admin";
             }
             {
               name = "cloudinit";
@@ -501,6 +518,42 @@ in
         hostname = "${cfg.vmName}-web.${cfg.namespace}.svc";
         wellKnownCACertificates = "System";
       };
+    };
+
+    # ── Secret generator (reads LLDAP admin password) ──────────────
+    # Runs on the host at boot.  Reads the LLDAP admin password,
+    # bcrypt-hashes it, and stores the hash in openkrill-fusion-pbx
+    # in the secret-store namespace.  Same pattern as filestash.
+    openkrill.secrets.generators.fusion-pbx = {
+      packages = with pkgs; [ openssl apacheHttpd ];
+      after = [ "lldap" ];
+      script = ''
+        LLDAP_PASS=""
+        if kubectl -n "$NS" get secret openkrill-lldap >/dev/null 2>&1; then
+          LLDAP_PASS=$(kubectl -n "$NS" get secret openkrill-lldap \
+            -o jsonpath='{.data.LLDAP_LDAP_USER_PASS}' | base64 -d)
+        fi
+
+        ADMIN_HASH=""
+        if [ -n "$LLDAP_PASS" ]; then
+          ADMIN_HASH=$(htpasswd -nbBC 10 "" "$LLDAP_PASS" | cut -d: -f2)
+        else
+          ADMIN_HASH=$(htpasswd -nbBC 10 "" "$(openssl rand -hex 16)" | cut -d: -f2)
+        fi
+
+        create_secret openkrill-fusion-pbx \
+          --from-literal=ADMIN_PASSWORD="$ADMIN_HASH"
+      '';
+    };
+
+    # ── ExternalSecret: sync admin password hash ───────────────────
+    # Syncs the bcrypt-hashed admin password from openkrill-fusion-pbx
+    # in secret-store → fusion-pbx namespace.  The hash is generated
+    # by the fusion-pbx secret generator from the LLDAP admin password.
+    openkrill.apps.external-secrets.secrets."${cfg.vmName}-admin" = {
+      namespace = cfg.namespace;
+      remoteSecretName = "openkrill-fusion-pbx";
+      keys = [ "ADMIN_PASSWORD" ];
     };
 
     # ── Manifests ───────────────────────────────────────────────────
