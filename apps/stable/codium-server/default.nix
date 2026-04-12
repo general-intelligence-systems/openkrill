@@ -145,6 +145,8 @@ let
               };
             }
           ] ++ dindContainers;
+        } // optionalAttrs (cfg.nodeSelector != {}) {
+          inherit (cfg) nodeSelector;
         };
       };
     };
@@ -277,6 +279,12 @@ in
         Each port N gets a route at N.<domain> that forwards to
         the codium-server pod on port N.
       '';
+    };
+
+    nodeSelector = mkOption {
+      type = types.attrsOf types.str;
+      default = {};
+      description = "Kubernetes nodeSelector for the codium-server pod.";
     };
 
     extraManifests = helpers.mkExtraManifestsOption;
