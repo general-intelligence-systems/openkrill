@@ -185,6 +185,9 @@ let
   };
 
   # ── ClusterIP Service for Web UI (fronted by Traefik HTTPRoute) ─
+  # Target HTTPS (443) on the VM because FusionPBX's NGINX redirects
+  # HTTP→HTTPS.  Traefik terminates external TLS, then connects to
+  # the VM backend over HTTPS (Traefik trusts via trust-manager CA).
   webService = {
     apiVersion = "v1";
     kind = "Service";
@@ -192,9 +195,9 @@ let
     spec = {
       selector."kubevirt.io/vm" = cfg.vmName;
       ports = [{
-        name = "http";
-        port = 80;
-        targetPort = 80;
+        name = "https";
+        port = 443;
+        targetPort = 443;
         protocol = "TCP";
       }];
     };
@@ -366,7 +369,7 @@ in
       subdomain = cfg.subdomain;
       namespace = cfg.namespace;
       service   = "${cfg.vmName}-web";
-      port      = 80;
+      port      = 443;
       auth      = "forward";
     };
 

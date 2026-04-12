@@ -56,7 +56,7 @@ in
         };
         tag = mkOption {
           type = types.str;
-          default = "0.22.26";
+          default = "0.24.16";
           description = "Kill Bill core container image tag.";
         };
       };
@@ -71,7 +71,7 @@ in
         };
         tag = mkOption {
           type = types.str;
-          default = "2.0.9";
+          default = "4.0.12";
           description = "Kaui admin UI container image tag.";
         };
       };
