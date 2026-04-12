@@ -8,11 +8,14 @@
 # routing via Gateway API / Traefik.  SBC SIP and RTP DaemonSets
 # are configured to run on nodes labelled `jambonz-dedicated=true`
 # and tolerate the `jambonz=dedicated:NoSchedule` taint.
-{ lib, charts, kubelib, cfg }:
+{ lib, charts, kubelib, cfg, route }:
 let
   defaults = {
     # No managed cloud provider — bare-metal / self-hosted K8s.
     cloud = "none";
+
+    # Derive baseUrl from the openkrill ingress route.
+    baseUrl = "${route.subdomain}.${route.domain}";
 
     # Disable the chart's built-in ingress — openkrill manages
     # routing externally via Gateway API / Traefik.

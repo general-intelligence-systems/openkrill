@@ -26,6 +26,8 @@ with lib;
 let
   cfg = config.openkrill.apps.fusion-pbx;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
+  route = config.openkrill.ingress.routes.fusion-pbx;
+  fqdn = "${route.subdomain}.${route.domain}";
 
   rtpPortCount = cfg.rtpPortRange.end - cfg.rtpPortRange.start;
 
@@ -92,6 +94,8 @@ let
     "      fi"
     "      umount /mnt/admin"
     "    fi"
+    # ── Set FusionPBX domain to match the ingress route ──
+    "  - \"sudo -u postgres psql -d fusionpbx -c \\\"UPDATE v_domains SET domain_name='${fqdn}' WHERE domain_name LIKE '10.%' OR domain_name LIKE '172.%';\\\"\""
     # ── NGINX reverse proxy config ────────────────────────
     "  - 'sed -i \"/server_name/a\\\\\\tset_real_ip_from 10.42.0.0/16;\\n\\treal_ip_header X-Forwarded-For;\" /etc/nginx/sites-available/fusionpbx || true'"
     "  - 'nginx -t && systemctl reload nginx || true'"
@@ -499,6 +503,7 @@ in
       service   = "${cfg.vmName}-web";
       port      = 443;
       auth      = "forward";
+      issuerRef.name = "letsencrypt";
     };
 
     # ── Backend TLS policy ──────────────────────────────────────────

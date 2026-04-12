@@ -15,7 +15,8 @@
 { config, lib, charts, kubelib, k8s, ... }:
 with lib;
 let
-  cfg = config.openkrill.apps.jambonz;
+  cfg   = config.openkrill.apps.jambonz;
+  route = config.openkrill.ingress.routes.jambonz;
   helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 
   # ── Node taint resources ───────────────────────────────────────
@@ -120,6 +121,7 @@ in
       namespace = cfg.namespace;
       service   = "jambonz-webapp";
       port      = 3001;
+      issuerRef.name = "letsencrypt";
     };
 
     # ── ArgoCD Application ──────────────────────────────────────────
@@ -146,6 +148,6 @@ in
     openkrill.manifests.jambonz.content =
       [ (k8s.mkNamespace cfg.namespace) ]
       ++ taintResources
-      ++ import ./helm.nix { inherit lib charts kubelib cfg; };
+      ++ import ./helm.nix { inherit lib charts kubelib cfg route; };
   };
 }
