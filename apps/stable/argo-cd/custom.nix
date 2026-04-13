@@ -210,6 +210,28 @@ in
         }];
       };
 
+    # ── SigNoz scrape target ─────────────────────────────────────────
+    openkrill.apps.signoz.scrapeTargets.argo-cd =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "argo-cd";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ cfg.namespace ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_app_kubernetes_io_part_of" ];
+            action = "keep";
+            regex = "argocd";
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "metrics";
+          }
+        ];
+      };
+
     # ── Secret generator (Redis only) ────────────────────────────────
     openkrill.secrets.generators.argo-cd = {
       packages = with pkgs; [ openssl ];

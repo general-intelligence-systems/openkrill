@@ -130,6 +130,28 @@ in
         }];
       };
 
+    # ── SigNoz scrape target ─────────────────────────────────────────
+    openkrill.apps.signoz.scrapeTargets.cert-manager =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "cert-manager";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ cfg.namespace ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_app_kubernetes_io_name" ];
+            action = "keep";
+            regex = "cert-manager";
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "http-metrics";
+          }
+        ];
+      };
+
     # ── Let's Encrypt ClusterIssuer (DNS-01 via Cloudflare) ─────────
     # Requires a Secret "cloudflare-api-token" in the cert-manager
     # namespace with key "api-token" containing a Cloudflare API token

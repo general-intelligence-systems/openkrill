@@ -114,6 +114,29 @@ in
         }];
       };
 
+    # ── SigNoz scrape target ─────────────────────────────────────────
+    openkrill.apps.signoz.scrapeTargets.forgejo =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "forgejo";
+        metrics_path = "/metrics";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ cfg.namespace ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_app_kubernetes_io_name" ];
+            action = "keep";
+            regex = "forgejo";
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "http";
+          }
+        ];
+      };
+
     # ── Route ───────────────────────────────────────────────────────
     # Browser traffic — protected by Authelia ForwardAuth (reverse-proxy SSO).
     openkrill.ingress.routes.forgejo = {

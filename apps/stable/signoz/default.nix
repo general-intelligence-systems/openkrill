@@ -35,6 +35,8 @@ let
   };
 
   # ── k8s-infra collection agents chart ─────────────────────────────
+  allScrapeConfigs = mapAttrsToList (_: v: v) cfg.scrapeTargets;
+
   infraDefaults = {
     global = {
       cloud = "others";
@@ -46,6 +48,10 @@ let
     presets = {
       otlpExporter.enabled = true;
       loggingExporter.enabled = false;
+      prometheus = {
+        enabled = allScrapeConfigs != [];
+        scrapeConfigs = allScrapeConfigs;
+      };
     };
   };
 
@@ -78,6 +84,23 @@ in
     };
 
     extraManifests = helpers.mkExtraManifestsOption;
+
+    # ── Cross-module scrape targets ───────────────────────────────
+    # App modules contribute Prometheus scrape_config objects here,
+    # mirroring how they declare VMServiceScrape CRs for
+    # VictoriaMetrics.  Targets are assembled into the k8s-infra
+    # chart's presets.prometheus.scrapeConfigs when k8sInfra is
+    # enabled.
+    scrapeTargets = mkOption {
+      type = types.attrsOf types.attrs;
+      default = {};
+      description = ''
+        Per-app Prometheus scrape_config objects for the SigNoz
+        k8s-infra OTel collector.  Each key is an app name; each
+        value is a standard Prometheus scrape_config attrset
+        (job_name, kubernetes_sd_configs, relabel_configs, etc.).
+      '';
+    };
 
     # ── k8s-infra sub-module ──────────────────────────────────────
     k8sInfra = {

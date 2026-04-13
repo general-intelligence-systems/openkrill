@@ -126,6 +126,51 @@ in
         }];
       };
 
+    # ── SigNoz scrape targets ────────────────────────────────────────
+    openkrill.apps.signoz.scrapeTargets.cilium-agent =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "cilium-agent";
+        metrics_path = "/metrics";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ cfg.namespace ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_k8s_app" ];
+            action = "keep";
+            regex = "cilium";
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "prometheus";
+          }
+        ];
+      };
+
+    openkrill.apps.signoz.scrapeTargets.cilium-operator =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "cilium-operator";
+        metrics_path = "/metrics";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ cfg.namespace ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_io_cilium_app" ];
+            action = "keep";
+            regex = "operator";
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "prometheus";
+          }
+        ];
+      };
+
     openkrill.apps.argo-cd.applications.cilium = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";

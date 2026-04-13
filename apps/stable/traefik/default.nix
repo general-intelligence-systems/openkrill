@@ -552,6 +552,30 @@ in
       description = "MiddlewareTCP CRD instances for TCP connection processing.";
     };
 
+    tokenAuth = {
+      enable = mkEnableOption "Token-based ForwardAuth middleware for API key validation";
+
+      address = mkOption {
+        type = types.str;
+        default = "";
+        description = ''
+          URL of the token validation endpoint.  Traefik sends a
+          subrequest here for every request on auth = "token" routes.
+          The service must return 200 to allow, or 401/403 to deny.
+          Example: "http://my-rails-app.my-namespace.svc.cluster.local/api/authz/token"
+        '';
+      };
+
+      tokenHeader = mkOption {
+        type = types.str;
+        default = "Authorization";
+        description = ''
+          Header name clients use to send their API token.  Keeps
+          the standard Authorization header free for backend use.
+        '';
+      };
+    };
+
     extraManifests = helpers.mkExtraManifestsOption;
   };
 
@@ -594,6 +618,30 @@ in
             }
           ];
         }];
+      };
+
+    # ── SigNoz scrape target ─────────────────────────────────────────
+    # Traefik is k3s-bundled in kube-system; no network policy needed.
+    openkrill.apps.signoz.scrapeTargets.traefik =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "traefik";
+        metrics_path = "/metrics";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ "kube-system" ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_app_kubernetes_io_name" ];
+            action = "keep";
+            regex = "traefik";
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "traefik";
+          }
+        ];
       };
 
     # When gateway-api is also enabled, configure Traefik as the
@@ -690,6 +738,40 @@ in
         };
       };
     };
+
+    # Token-auth ForwardAuth middleware — points directly at an external
+    # token validation service (e.g. a Rails app).  The service receives
+    # the original request headers and returns 200 to allow or 401/403
+    # to deny.  No Authelia involvement; the external service owns the
+    # entire token lifecycle.  Clients send tokens via the X-Gateway-Token
+    # header, keeping Authorization free for backend use.
+    openkrill.apps.traefik.middlewares.forwardauth-token = mkIf cfg.tokenAuth.enable {
+      namespace = "kube-system";
+      spec = {
+        forwardAuth = {
+          address = cfg.tokenAuth.address;
+          trustForwardHeader = true;
+          authResponseHeaders = [
+            "Remote-User"
+            "Remote-Groups"
+            "Remote-Email"
+            "Remote-Name"
+          ];
+        };
+      };
+    };
+
+    # Token auth filter: routes with auth = "token" get this ExtensionRef,
+    # which causes Traefik to call the external token validation service
+    # before forwarding to the backend.
+    openkrill.ingress.authFilters.token = mkIf cfg.tokenAuth.enable [{
+      type = "ExtensionRef";
+      extensionRef = {
+        group = "traefik.io";
+        kind  = "Middleware";
+        name  = "forwardauth-token";
+      };
+    }];
 
     openkrill.apps.argo-cd.applications.traefik = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";

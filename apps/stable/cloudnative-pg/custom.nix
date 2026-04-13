@@ -137,6 +137,29 @@ in
         }];
       };
 
+    # ── SigNoz scrape target ─────────────────────────────────────────
+    openkrill.apps.signoz.scrapeTargets.cnpg =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "cnpg";
+        metrics_path = "/metrics";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ cfg.namespace ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_cnpg_io_cluster" ];
+            action = "keep";
+            regex = cfg.clusterName;
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "metrics";
+          }
+        ];
+      };
+
     # ── RBAC manifests for the ClusterSecretStore ─────────────────────
     openkrill.manifests.cloudnative-pg.content = cnpgStoreRBAC;
   };

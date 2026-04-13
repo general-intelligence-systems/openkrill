@@ -126,6 +126,28 @@ in
         endpoints = [{ port = "http-metrics"; }];
       };
 
+    # ── SigNoz scrape target ─────────────────────────────────────────
+    openkrill.apps.signoz.scrapeTargets.trust-manager =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "trust-manager";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ cfg.namespace ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_app_kubernetes_io_name" ];
+            action = "keep";
+            regex = "trust-manager";
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "http-metrics";
+          }
+        ];
+      };
+
     openkrill.apps.argo-cd.applications.trust-manager = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";

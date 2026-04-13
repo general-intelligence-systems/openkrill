@@ -35,6 +35,7 @@
     ./git-daemon.nix
     ./routes.nix
     ./custom.nix
+    ./api-docs.nix
     ./secret-generators.nix
     ./sandbox.nix
   ] ++ import ./module-list.nix;

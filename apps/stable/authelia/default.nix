@@ -152,6 +152,16 @@ let
       ];
     };
 
+    # Increase the default read/write buffer sizes (default: 4096) to
+    # handle large request headers.  Forward-auth requests from Traefik
+    # include the full original URL (which can be very long for apps
+    # like Kaui that use DataTables with many column query parameters)
+    # plus all cookies, easily exceeding the 4 KiB default.
+    configMap.server.buffers = {
+      read = 16384;
+      write = 16384;
+    };
+
     secret = {
       existingSecret = "authelia";
       additionalSecrets = {
@@ -370,6 +380,28 @@ in
           }];
         }];
       };
+    # ── SigNoz scrape target ─────────────────────────────────────────
+    openkrill.apps.signoz.scrapeTargets.authelia =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "authelia";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ cfg.namespace ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_app_kubernetes_io_name" ];
+            action = "keep";
+            regex = "authelia";
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "metrics";
+          }
+        ];
+      };
+
     # ── CNPG Database (inside the shared cluster) ─────────────────────
     openkrill.apps.cloudnative-pg.databases.authelia = {
       namespace = cnpgCfg.namespace;

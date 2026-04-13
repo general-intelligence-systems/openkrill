@@ -74,6 +74,29 @@ in
         }];
       };
 
+    # ── SigNoz scrape target ─────────────────────────────────────────
+    openkrill.apps.signoz.scrapeTargets.metacontroller =
+      mkIf config.openkrill.apps.signoz.enable {
+        job_name = "metacontroller";
+        metrics_path = "/metrics";
+        kubernetes_sd_configs = [{
+          role = "endpoints";
+          namespaces.names = [ cfg.namespace ];
+        }];
+        relabel_configs = [
+          {
+            source_labels = [ "__meta_kubernetes_service_label_app_kubernetes_io_name" ];
+            action = "keep";
+            regex = "metacontroller";
+          }
+          {
+            source_labels = [ "__meta_kubernetes_endpoint_port_name" ];
+            action = "keep";
+            regex = "9999";
+          }
+        ];
+      };
+
     openkrill.apps.argo-cd.applications.metacontroller = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
