@@ -99,6 +99,17 @@ let
     # ── NGINX reverse proxy config ────────────────────────
     "  - 'sed -i \"/server_name/a\\\\\\tset_real_ip_from 10.42.0.0/16;\\n\\treal_ip_header X-Forwarded-For;\" /etc/nginx/sites-available/fusionpbx || true'"
     "  - 'nginx -t && systemctl reload nginx || true'"
+    # ── Open PostgreSQL for PostgREST (pod network access) ──
+    "  - |"
+    "    PG_CONF=$(find /etc/postgresql -name postgresql.conf 2>/dev/null | head -1)"
+    "    if [ -n \"$PG_CONF\" ]; then"
+    "      sed -i \"s/#listen_addresses = .*/listen_addresses = '*'/\" \"$PG_CONF\""
+    "      PG_HBA=$(find /etc/postgresql -name pg_hba.conf 2>/dev/null | head -1)"
+    "      grep -q '10.42.0.0' \"$PG_HBA\" || echo 'host fusionpbx authenticator 10.42.0.0/16 md5' >> \"$PG_HBA\""
+    "      systemctl restart postgresql || true"
+    "    fi"
+    "  - 'iptables -C INPUT -p tcp -s 10.42.0.0/16 --dport 5432 -j ACCEPT 2>/dev/null || iptables -I INPUT 21 -p tcp -s 10.42.0.0/16 --dport 5432 -j ACCEPT'"
+    "  - 'iptables-save > /etc/iptables/rules.v4 2>/dev/null || true'"
   ] ++ optionals (cfg.sshAuthorizedKeys != []) [
     "users:"
     "  - name: root"

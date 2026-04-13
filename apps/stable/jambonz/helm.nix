@@ -17,9 +17,11 @@ let
     # Derive baseUrl from the openkrill ingress route.
     baseUrl = "${route.subdomain}.${route.domain}";
 
-    # Disable the chart's built-in ingress — openkrill manages
-    # routing externally via Gateway API / Traefik.
-    global.traefik.tls.enabled = false;
+    # Enable TLS in the chart so generated URLs (e.g. API_BASE_URL)
+    # use https://.  Openkrill manages the actual TLS termination
+    # via Gateway API / Traefik; the chart's ingress TLS annotations
+    # are harmless since we route through HTTPRoutes.
+    global.traefik.tls.enabled = true;
 
     # ── SBC SIP DaemonSet ──────────────────────────────────────────
     # Schedule on dedicated jambonz nodes with host networking.

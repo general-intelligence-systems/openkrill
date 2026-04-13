@@ -287,16 +287,107 @@ in
                 #   - datetime -> timestamp
                 #   - strip MySQL-specific comments /*! ... */
                 #   - strip unsigned hints
+                #   - mediumtext/mediumblob/blob -> PostgreSQL equivalents
                 DDL=$(echo "$DDL" \
-                  | sed 's/datetime/timestamp/g' \
+                  | sed 's/datetime/timestamp/gi' \
                   | sed 's|/\*!.*\*/||g' \
-                  | sed 's/unsigned//g')
+                  | sed 's/unsigned//gi' \
+                  | sed 's/mediumtext/text/gi' \
+                  | sed 's/mediumblob/bytea/gi' \
+                  | sed 's/ blob / bytea /gi')
 
-                # Make idempotent: CREATE TABLE -> CREATE TABLE IF NOT EXISTS
+                # Make idempotent (case-insensitive)
                 DDL=$(echo "$DDL" \
-                  | sed 's/CREATE TABLE /CREATE TABLE IF NOT EXISTS /g' \
-                  | sed 's/CREATE UNIQUE INDEX /CREATE UNIQUE INDEX IF NOT EXISTS /g' \
-                  | sed 's/CREATE INDEX /CREATE INDEX IF NOT EXISTS /g')
+                  | sed 's/CREATE TABLE /CREATE TABLE IF NOT EXISTS /gi' \
+                  | sed 's/CREATE UNIQUE INDEX /CREATE UNIQUE INDEX IF NOT EXISTS /gi' \
+                  | sed 's/CREATE INDEX /CREATE INDEX IF NOT EXISTS /gi')
+
+                echo "$DDL" | psql -v ON_ERROR_STOP=1
+                echo "Migration complete"
+              '' ];
+            }
+          ];
+        };
+      };
+    };
+  }
+
+  # ── Job: Kill Bill database migration ──────────────────────────────
+  # Downloads the canonical DDL from the Kill Bill docs site, converts
+  # MySQL-isms to PostgreSQL, and applies it.  DROP TABLE statements are
+  # stripped and all CREATE statements are idempotent (IF NOT EXISTS).
+  {
+    apiVersion = "batch/v1";
+    kind = "Job";
+    metadata = {
+      name = "killbill-db-migrate";
+      namespace = cfg.namespace;
+      labels = killbillLabels;
+    };
+    spec = {
+      backoffLimit = 3;
+      ttlSecondsAfterFinished = 300;
+      template = {
+        metadata.labels = killbillLabels // {
+          "app.kubernetes.io/component" = "db-migrate";
+        };
+        spec = {
+          restartPolicy = "OnFailure";
+          containers = [
+            {
+              name = "migrate";
+              image = "postgres:16";
+              env = [
+                {
+                  name = "KILLBILL_VERSION";
+                  value = cfg.killbill.image.tag;
+                }
+                {
+                  name = "PGPASSWORD";
+                  valueFrom.secretKeyRef = {
+                    name = killbillDbSecretName;
+                    key = "KILLBILL_DAO_PASSWORD";
+                  };
+                }
+                {
+                  name = "PGHOST";
+                  value = dbHost;
+                }
+                {
+                  name = "PGUSER";
+                  value = "app";
+                }
+                {
+                  name = "PGDATABASE";
+                  value = "killbill";
+                }
+              ];
+              command = [ "bash" "-exc" ''
+                apt-get update -qq && apt-get install -y -qq curl >/dev/null 2>&1
+                DDL_URL="https://docs.killbill.io/latest/ddl.sql"
+                echo "Fetching DDL from $DDL_URL"
+                DDL=$(curl -fSsL "$DDL_URL")
+
+                # Convert MySQL DDL to PostgreSQL:
+                #   - datetime -> timestamp
+                #   - strip MySQL-specific comments /*! ... */
+                #   - strip unsigned hints
+                #   - mediumtext/mediumblob/blob -> PostgreSQL equivalents
+                #   - remove DROP TABLE statements (idempotent only)
+                DDL=$(echo "$DDL" \
+                  | sed 's/datetime/timestamp/gi' \
+                  | sed 's|/\*!.*\*/||g' \
+                  | sed 's/unsigned//gi' \
+                  | sed 's/mediumtext/text/gi' \
+                  | sed 's/mediumblob/bytea/gi' \
+                  | sed 's/ blob / bytea /gi' \
+                  | sed '/^[Dd][Rr][Oo][Pp] [Tt][Aa][Bb][Ll][Ee] /d')
+
+                # Make idempotent (case-insensitive)
+                DDL=$(echo "$DDL" \
+                  | sed 's/CREATE TABLE /CREATE TABLE IF NOT EXISTS /gi' \
+                  | sed 's/CREATE UNIQUE INDEX /CREATE UNIQUE INDEX IF NOT EXISTS /gi' \
+                  | sed 's/CREATE INDEX /CREATE INDEX IF NOT EXISTS /gi')
 
                 echo "$DDL" | psql -v ON_ERROR_STOP=1
                 echo "Migration complete"
