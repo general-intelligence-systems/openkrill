@@ -1,23 +1,37 @@
 # apps/metacontroller — Metacontroller for webhook-based K8s controllers
-# Deploys Metacontroller from upstream manifests fetched directly from GitHub.
-{ config, lib, pkgs, kubelib, ... }:
+#
+# Deploys Metacontroller via the official Helm chart from nixhelm2
+# (oci://ghcr.io/metacontroller/metacontroller-helm).  Also provides
+# typed CRD helpers for CompositeController and DecoratorController
+# resources via openkrill.apps.metacontroller.compositecontrollers.*
+# and openkrill.apps.metacontroller.decoratorcontrollers.*.
+#
+# Usage:
+#   openkrill.apps.metacontroller.enable = true;
+#
+#   openkrill.apps.metacontroller.compositecontrollers.my-ctrl = {
+#     namespace = "metacontroller";
+#     generateSelector = true;
+#     parentResource = { apiVersion = "cia.net/v1"; resource = "foos"; };
+#     childResources = [
+#       { apiVersion = "v1"; resource = "configmaps"; updateStrategy.method = "InPlace"; }
+#     ];
+#     hooks.sync.webhook.url = "http://my-svc.my-ns.svc.cluster.local:9292/foos";
+#   };
+{ config, lib, charts, kubelib, k8s, ... }:
 with lib;
 let
-  cfg = config.openkrill.apps.metacontroller;
-  helpers          = import ../../../modules/lib/helpers.nix { inherit lib; };
-  version = "4.12.11";
+  cfg     = config.openkrill.apps.metacontroller;
+  helpers = import ../../../modules/lib/helpers.nix { inherit lib; };
 
-  # Fetch upstream manifests directly from GitHub
-  baseUrl = "https://raw.githubusercontent.com/metacontroller/metacontroller/v${version}/manifests/production";
-
-  fetchManifest = name: builtins.readFile (pkgs.fetchurl {
-    url = "${baseUrl}/${name}";
-    hash = cfg.manifestHashes.${name};
-  });
-
-  parseManifests = name: kubelib.fromYAML (fetchManifest name);
+  defaults = {
+    # Wire the image option into the chart values
+    image.tag = cfg.image.tag;
+  };
 in
 {
+  imports = [ ./crds.nix ];
+
   options.openkrill.apps.metacontroller = {
     enable = mkEnableOption "Metacontroller";
 
@@ -26,21 +40,23 @@ in
       default = "metacontroller";
     };
 
-    image = mkOption {
-      type = types.str;
-      default = "metacontrollerio/metacontroller:v${version}";
-      description = "Metacontroller container image.";
+    image = {
+      repository = mkOption {
+        type = types.str;
+        default = "metacontrollerio/metacontroller";
+        description = "Metacontroller container image repository.";
+      };
+      tag = mkOption {
+        type = types.str;
+        default = "v4.15.0";
+        description = "Metacontroller container image tag.";
+      };
     };
 
-    manifestHashes = mkOption {
-      type = types.attrsOf types.str;
-      description = "SHA256 hashes for upstream manifest files.";
-      default = {
-        "metacontroller-namespace.yaml" = "sha256-ihDjMNCGpJWLScg21WtTOcaSACnSkh4OLUYhQiunwqo=";
-        "metacontroller-rbac.yaml" = "sha256-HbZmW8Mny/zs49FtBgSqRoy9UI7hrHWVAM2ihfkl8ZY=";
-        "metacontroller-crds-v1.yaml" = "sha256-nYfKuElsYnlkDvOTyAEyiA2dvzOnNHhRQqgmJkTzQ2Y=";
-        "metacontroller.yaml" = "sha256-WV3QZxSTdE97meT0HtkopwqdhQ8UyoefTctLqhewdQQ=";
-      };
+    values = mkOption {
+      type = types.attrs;
+      default = {};
+      description = "Helm chart value overrides, deep-merged with module defaults.";
     };
 
     extraManifests = helpers.mkExtraManifestsOption;
@@ -97,6 +113,7 @@ in
         ];
       };
 
+    # ── ArgoCD Application ────────────────────────────────────────────
     openkrill.apps.argo-cd.applications.metacontroller = mkIf config.openkrill.gitops.generateApplications {
       namespace = "argo-cd";
       project = "default";
@@ -112,14 +129,18 @@ in
       };
       syncPolicy = {
         automated = { prune = true; selfHeal = true; };
-        syncOptions = [ "CreateNamespace=true" ];
+        syncOptions = [ "CreateNamespace=true" "ServerSideApply=true" ];
       };
     };
 
+    # ── Manifests ─────────────────────────────────────────────────────
     openkrill.manifests.metacontroller.content =
-      (parseManifests "metacontroller-namespace.yaml")
-      ++ (parseManifests "metacontroller-rbac.yaml")
-      ++ (parseManifests "metacontroller-crds-v1.yaml")
-      ++ (parseManifests "metacontroller.yaml");
+      [ (k8s.mkNamespace cfg.namespace) ]
+      ++ kubelib.fromHelm {
+        name      = "metacontroller";
+        chart     = charts.contrib.metacontroller.metacontroller-helm.versions."4.15.0";
+        namespace = cfg.namespace;
+        values    = recursiveUpdate defaults cfg.values;
+      };
   };
 }
