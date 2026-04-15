@@ -8,6 +8,15 @@ rec {
     metadata = { inherit name; };
   };
 
+  # ── fromYAML ──────────────────────────────────────────────────────────
+  # Read a YAML file and return it as a Nix attrset (IFD via yq-go).
+  fromYAML = file:
+    builtins.fromJSON (builtins.readFile (pkgs.runCommand "yaml-to-json" {
+      nativeBuildInputs = [ pkgs.yq-go ];
+    } ''
+      yq -o=json ${file} > $out
+    ''));
+
   # ── mkSecret ───────────────────────────────────────────────────────────
   mkSecret =
     {
